@@ -1,0 +1,7 @@
+[versions]
+tuoni = "0.4.2"
+jackson = "2.17.1"
+
+[libraries]
+tuoni-sdk = { module = "com.shelldot:tuoni-plugin-sdk", version.ref = "tuoni" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson"}
