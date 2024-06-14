@@ -111,6 +111,7 @@ public class EchoCommandTemplate implements CommandTemplate {
           "error while parsing configuration JSON: %s".formatted(e.getMessage());
       throw new ValidationException(
           "Failed to parse configuration JSON",
+          e,
           List.of(
               new ValidationViolation(
                   "configuration", errorDescription, ValidationViolation.ViolationType.ERROR)));
