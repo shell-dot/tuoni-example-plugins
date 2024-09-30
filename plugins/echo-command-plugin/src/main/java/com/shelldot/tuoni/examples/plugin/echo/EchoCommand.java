@@ -1,7 +1,7 @@
 package com.shelldot.tuoni.examples.plugin.echo;
 
 import com.shelldot.tuoni.examples.plugin.echo.utils.ShellcodeUtil;
-import com.shelldot.tuoni.plugin.sdk.command.AgentInfo;
+import com.shelldot.tuoni.plugin.sdk.common.AgentInfo;
 import com.shelldot.tuoni.plugin.sdk.command.CommandContext;
 import com.shelldot.tuoni.plugin.sdk.command.CommandStatus;
 import com.shelldot.tuoni.plugin.sdk.command.ShellcodeCommand;

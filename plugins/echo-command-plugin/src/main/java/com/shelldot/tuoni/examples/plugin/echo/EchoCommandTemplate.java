@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.shelldot.tuoni.examples.plugin.echo.configuration.JacksonJsonConfiguration;
 import com.shelldot.tuoni.examples.plugin.echo.configuration.SimpleConfigurationSchema;
-import com.shelldot.tuoni.plugin.sdk.command.AgentInfo;
-import com.shelldot.tuoni.plugin.sdk.command.AgentType;
+import com.shelldot.tuoni.plugin.sdk.common.AgentInfo;
+import com.shelldot.tuoni.plugin.sdk.common.AgentType;
 import com.shelldot.tuoni.plugin.sdk.command.Command;
 import com.shelldot.tuoni.plugin.sdk.command.CommandContext;
 import com.shelldot.tuoni.plugin.sdk.command.CommandPluginContext;
@@ -59,7 +59,7 @@ public class EchoCommandTemplate implements CommandTemplate {
 
   @Override
   public boolean canSendToAgent(AgentInfo agentInfo) {
-    return AgentType.SHELLCODE_AGENT == agentInfo.getAgentType();
+    return AgentType.SHELLCODE_AGENT == agentInfo.getType();
   }
 
   @Override
