@@ -18,7 +18,7 @@ dependencies {
   implementation(libs.jackson.databind)
 }
 
-tasks.test { useJUnitPlatform { version = "5.10.2" } }
+tasks.test { useJUnitPlatform() }
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
 
