@@ -1,0 +1,45 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36408.4
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandEchoOngoing", "CommandEchoOngoing\CommandEchoOngoing.csproj", "{0D1EE559-DCD6-4DAD-98ED-5A545C870D46}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandEcho", "CommandEcho\CommandEcho.csproj", "{CA835DBC-1019-45B7-BFF4-ACF0E1D48AB7}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "ExecUnitUtils", "..\tuoni-execunit-utils-dotnet\ExecUnitUtils\ExecUnitUtils.shproj", "{FA847DFD-ED16-4AA7-8AEE-F5CD4ACB53EE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandEchoFile", "CommandEchoFile\CommandEchoFile.csproj", "{C3BEB250-FB55-4CBA-9A0D-048C2E9599E0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0D1EE559-DCD6-4DAD-98ED-5A545C870D46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D1EE559-DCD6-4DAD-98ED-5A545C870D46}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D1EE559-DCD6-4DAD-98ED-5A545C870D46}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D1EE559-DCD6-4DAD-98ED-5A545C870D46}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CA835DBC-1019-45B7-BFF4-ACF0E1D48AB7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA835DBC-1019-45B7-BFF4-ACF0E1D48AB7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA835DBC-1019-45B7-BFF4-ACF0E1D48AB7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA835DBC-1019-45B7-BFF4-ACF0E1D48AB7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3BEB250-FB55-4CBA-9A0D-048C2E9599E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3BEB250-FB55-4CBA-9A0D-048C2E9599E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3BEB250-FB55-4CBA-9A0D-048C2E9599E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3BEB250-FB55-4CBA-9A0D-048C2E9599E0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {51109996-78FF-4CA4-B22D-72D8AFB27183}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		..\tuoni-execunit-utils-dotnet\ExecUnitUtils\ExecUnitUtils.projitems*{0d1ee559-dcd6-4dad-98ed-5a545c870d46}*SharedItemsImports = 4
+		..\tuoni-execunit-utils-dotnet\ExecUnitUtils\ExecUnitUtils.projitems*{c3beb250-fb55-4cba-9a0d-048c2e9599e0}*SharedItemsImports = 4
+		..\tuoni-execunit-utils-dotnet\ExecUnitUtils\ExecUnitUtils.projitems*{ca835dbc-1019-45b7-bff4-acf0e1d48ab7}*SharedItemsImports = 4
+		..\tuoni-execunit-utils-dotnet\ExecUnitUtils\ExecUnitUtils.projitems*{fa847dfd-ed16-4aa7-8aee-f5cd4acb53ee}*SharedItemsImports = 13
+	EndGlobalSection
+EndGlobal

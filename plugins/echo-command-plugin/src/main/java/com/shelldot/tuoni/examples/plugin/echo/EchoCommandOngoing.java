@@ -19,14 +19,14 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
-public class EchoCommand implements ShellcodeCommand {
+public class EchoCommandOngoing implements ShellcodeCommand {
 
   private static final String DEFAULT_PIPE_NAME = "QQQWWWEEE";
-  private static final String SHELLCODE_PATH = "/shellcode/CommandEcho.shellcode";
+  private static final String SHELLCODE_PATH = "/shellcode/CommandEchoOngoing.shellcode";
 
   private final EchoConfiguration echoConfiguration;
 
-  public EchoCommand(
+  public EchoCommandOngoing(
       int commandId,
       AgentInfo agentInfo,
       EchoConfiguration echoConfiguration,
@@ -56,8 +56,10 @@ public class EchoCommand implements ShellcodeCommand {
       CommandResultCollection previousResult,
       CommandResultEditor editor)
       throws SerializationException {
-    String receivedString = StandardCharsets.UTF_8.decode(buffer).toString();
-    editor.setTextResult("message", receivedString);
+    if (buffer.remaining() > 0 || previousResult != null) {
+      String resultString = StandardCharsets.UTF_8.decode(buffer).toString();
+      editor.appendTextResult("STDOUT", resultString);
+    }
     editor.commit();
   }
 
