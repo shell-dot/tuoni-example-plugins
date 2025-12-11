@@ -23,12 +23,12 @@ import com.shelldot.tuoni.plugin.sdk.common.exceptions.ValidationException;
 import com.shelldot.tuoni.plugin.sdk.common.validation.ValidationViolation;
 import java.util.List;
 
-public class EchoCommandTemplate implements CommandTemplate {
+public class EchoCommandOngoingTemplate implements CommandTemplate {
 
-  static final String NAME = "echo";
+  static final String NAME = "echo-ongoing";
   static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  public EchoCommandTemplate(CommandPluginContext pluginContext) {
+  public EchoCommandOngoingTemplate(CommandPluginContext pluginContext) {
   }
 
   @Override
@@ -47,7 +47,7 @@ public class EchoCommandTemplate implements CommandTemplate {
     JacksonJsonConfiguration jsonConf =
         new JacksonJsonConfiguration(OBJECT_MAPPER.convertValue(exampleEchoConf, ObjectNode.class));
 
-    return List.of(new NamedConfiguration("hello-world", jsonConf));
+    return List.of(new NamedConfiguration("hello-world-4-times", jsonConf));
   }
 
   @Override
@@ -76,7 +76,7 @@ public class EchoCommandTemplate implements CommandTemplate {
       throws ValidationException, InitializationException {
     EchoConfiguration echoConfiguration = parseConfiguration(configuration);
     validateEchoConfiguration(echoConfiguration);
-    return new EchoCommand(commandId, agentInfo, echoConfiguration, commandContext);
+    return new EchoCommandOngoing(commandId, agentInfo, echoConfiguration, commandContext);
   }
 
   private void validateEchoConfiguration(EchoConfiguration echoConfiguration)

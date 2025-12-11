@@ -17,7 +17,7 @@ public class EchoCommandPlugin implements CommandPlugin {
       return;
     }
     this.initialized = true;
-    this.cachedCommandTemplates = List.of(new EchoCommandTemplate(pluginContext));
+    this.cachedCommandTemplates = List.of(new EchoCommandTemplate(pluginContext), new EchoCommandOngoingTemplate(pluginContext), new EchoCommandOngoingFileTemplate(pluginContext));
   }
 
   @Override
