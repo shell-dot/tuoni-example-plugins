@@ -11,6 +11,8 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "ExecUnitUtils", "..\tuoni-e
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandEchoFile", "CommandEchoFile\CommandEchoFile.csproj", "{C3BEB250-FB55-4CBA-9A0D-048C2E9599E0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandEchoOngoingMoreData", "CommandEchoOngoingMoreData\CommandEchoOngoingMoreData.csproj", "{A2B50A48-A247-4E22-B147-FF5A02743678}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,6 +31,10 @@ Global
 		{C3BEB250-FB55-4CBA-9A0D-048C2E9599E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C3BEB250-FB55-4CBA-9A0D-048C2E9599E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C3BEB250-FB55-4CBA-9A0D-048C2E9599E0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A2B50A48-A247-4E22-B147-FF5A02743678}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2B50A48-A247-4E22-B147-FF5A02743678}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2B50A48-A247-4E22-B147-FF5A02743678}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2B50A48-A247-4E22-B147-FF5A02743678}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -38,6 +44,7 @@ Global
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		..\tuoni-execunit-utils-dotnet\ExecUnitUtils\ExecUnitUtils.projitems*{0d1ee559-dcd6-4dad-98ed-5a545c870d46}*SharedItemsImports = 4
+		..\tuoni-execunit-utils-dotnet\ExecUnitUtils\ExecUnitUtils.projitems*{a2b50a48-a247-4e22-b147-ff5a02743678}*SharedItemsImports = 4
 		..\tuoni-execunit-utils-dotnet\ExecUnitUtils\ExecUnitUtils.projitems*{c3beb250-fb55-4cba-9a0d-048c2e9599e0}*SharedItemsImports = 4
 		..\tuoni-execunit-utils-dotnet\ExecUnitUtils\ExecUnitUtils.projitems*{ca835dbc-1019-45b7-bff4-acf0e1d48ab7}*SharedItemsImports = 4
 		..\tuoni-execunit-utils-dotnet\ExecUnitUtils\ExecUnitUtils.projitems*{fa847dfd-ed16-4aa7-8aee-f5cd4acb53ee}*SharedItemsImports = 13
