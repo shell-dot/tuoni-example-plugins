@@ -54,6 +54,11 @@ Here is a list of the example plugins included in this repository:
     - **Command class in Java**: `EchoCommandOngoingFile`
     - **Command template class in Java**: `EchoCommandOngoingFileTemplate`
     - **Shellcode project**: `CommandEchoFile`
+  - **"echo-ongoing-more-data" command**
+    - **Description**: Demonstrates how to send additional data to already running job and manage job object from the plugin
+    - **Command class in Java**: `EchoCommandOngoingMoreData`
+    - **Command template class in Java**: `EchoCommandOngoingMoreDataTemplate`
+    - **Shellcode project**: `CommandEchoOngoingMoreData`
 
 Additionally, there is a set of .NET utility classes that facilitate communication between the command shellcode and the agent. These are located at `shellcodes/tuoni-execunit-utils-dotnet/ExecUnitUtils` and are implemented as a shared code project, which is referenced and used by the shellcode solution. These are also available at [tuoni-execunit-utils-dotnet](https://github.com/shell-dot/tuoni-execunit-utils-dotnet) repository.
 
