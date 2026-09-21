@@ -3,7 +3,7 @@ package com.shelldot.tuoni.examples.plugin.tcplistener;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.JsonConfiguration;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.MultipartConfiguration;
@@ -33,7 +33,7 @@ public record TcpListenerPluginConfiguration(String connectBackAddress, int port
       }
       """;
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final JsonMapper MAPPER = JsonMapper.builderWithJackson2Defaults().build();
 
   public static TcpListenerPluginConfiguration fromConfiguration(Configuration configuration)
       throws ValidationException {
