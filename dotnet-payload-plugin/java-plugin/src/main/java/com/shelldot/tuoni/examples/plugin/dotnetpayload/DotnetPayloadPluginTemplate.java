@@ -13,7 +13,7 @@ import com.shelldot.tuoni.plugin.sdk.common.configuration.ConfigurationSchema;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.NamedConfiguration;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.SerializationException;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.ValidationException;
-import com.shelldot.tuoni.plugin.sdk.payload.ListenerShellCode;
+import com.shelldot.tuoni.plugin.sdk.payload.ListenerCode;
 import com.shelldot.tuoni.plugin.sdk.payload.Payload;
 import com.shelldot.tuoni.plugin.sdk.payload.PayloadTemplate;
 import com.shelldot.tuoni.plugin.sdk.payload.PayloadType;
@@ -55,9 +55,9 @@ public class DotnetPayloadPluginTemplate implements PayloadTemplate {
 
     @Override
     public Payload createPayload(
-            long payloadId, Configuration configuration, List<ListenerShellCode> listenerShellCodes)
+            long payloadId, Configuration configuration, List<ListenerCode> listenerShellCodes)
             throws SerializationException, ValidationException {
-        ListenerShellCode listenerShellCode = listenerShellCodes.get(0);
+        ListenerCode listenerShellCode = listenerShellCodes.get(0);
         listenerShellCode.setAgentConfiguration(
                 ByteBuffer.allocate(Long.BYTES)
                         .order(ByteOrder.LITTLE_ENDIAN)
@@ -67,9 +67,9 @@ public class DotnetPayloadPluginTemplate implements PayloadTemplate {
 
     public class DotnetPayloadImpl implements Payload
     {
-        ListenerShellCode listenerShellCode;
+        ListenerCode listenerShellCode;
 
-        public DotnetPayloadImpl(ListenerShellCode listenerShellCode) {
+        public DotnetPayloadImpl(ListenerCode listenerShellCode) {
             this.listenerShellCode = listenerShellCode;
         }
 

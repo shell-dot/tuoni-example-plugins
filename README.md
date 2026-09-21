@@ -6,7 +6,7 @@ This repository contains example plugins for the [Tuoni](https://github.com/shel
 Each plugin consists of two parts:
 
 1. **Execution codes and agent executables**: Written in C# .NET framework (`exec-code/`).
-2. **Server Plugin** (`java-plugin/`): Written in Java against the Tuoni plugin SDK, requiring Java 21 and Gradle for building.
+2. **Server Plugin** (`java-plugin/`): Written in Java against the Tuoni plugin SDK, requiring Java 21+ and Gradle for building.
 
 ## Table of Contents
 
@@ -21,7 +21,7 @@ Each plugin consists of two parts:
 
 Before you begin, ensure you have the following installed on your machine:
 
-- Java 21
+- Java 21+
 - Gradle
 
 ### Building the Server Plugin
@@ -30,7 +30,7 @@ Each plugin's server part can be built using Gradle. Navigate to the individual 
 ```
 ./gradlew assemble
 ```
-This command will compile the Java code and build the server plugin.
+This command will compile the Java code for Java 21 and build the server plugin.
 Build the C# component first where required; see each plugin's README for its build order.
 
 ## Plugins

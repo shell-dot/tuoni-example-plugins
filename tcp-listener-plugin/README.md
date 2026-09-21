@@ -92,7 +92,7 @@ Output: `exec-code/tcp-listener/bin/Release/tcp-listener.shellcode`.
 
 ### 2. Build the Java plugin
 
-You need an installed JDK 21.
+You need an installed JDK 21 or newer.
 
 ```sh
 cd java-plugin

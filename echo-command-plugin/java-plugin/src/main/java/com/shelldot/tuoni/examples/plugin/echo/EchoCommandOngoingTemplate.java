@@ -1,8 +1,8 @@
 package com.shelldot.tuoni.examples.plugin.echo;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.shelldot.tuoni.examples.plugin.echo.configuration.JacksonJsonConfiguration;
 import com.shelldot.tuoni.examples.plugin.echo.configuration.SimpleConfigurationSchema;
 import com.shelldot.tuoni.plugin.sdk.common.AgentInfo;
@@ -12,7 +12,6 @@ import com.shelldot.tuoni.plugin.sdk.command.Command;
 import com.shelldot.tuoni.plugin.sdk.command.CommandContext;
 import com.shelldot.tuoni.plugin.sdk.command.CommandPluginContext;
 import com.shelldot.tuoni.plugin.sdk.command.CommandTemplate;
-import com.shelldot.tuoni.plugin.sdk.common.AgentMetadata;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.ConfigurationSchema;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.JsonConfiguration;
@@ -26,7 +25,7 @@ import java.util.List;
 public class EchoCommandOngoingTemplate implements CommandTemplate {
 
   static final String NAME = "echo-ongoing";
-  static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  static final JsonMapper OBJECT_MAPPER = JsonMapper.builderWithJackson2Defaults().build();
 
   public EchoCommandOngoingTemplate(CommandPluginContext pluginContext) {
   }
@@ -61,7 +60,7 @@ public class EchoCommandOngoingTemplate implements CommandTemplate {
   }
 
   @Override
-  public void validateConfiguration(AgentMetadata agentMetadata, Configuration configuration)
+  public void validateConfiguration(Configuration configuration, AgentInfo agentInfo)
       throws ValidationException {
     EchoConfiguration echoConfiguration = parseConfiguration(configuration);
     validateEchoConfiguration(echoConfiguration);
@@ -104,7 +103,7 @@ public class EchoCommandOngoingTemplate implements CommandTemplate {
 
     try {
       return OBJECT_MAPPER.readValue(jsonConfiguration.toJSON(), EchoConfiguration.class);
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       String errorDescription =
           "error while parsing configuration JSON: %s".formatted(e.getMessage());
       throw new ValidationException(

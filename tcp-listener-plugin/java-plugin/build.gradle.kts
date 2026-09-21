@@ -2,7 +2,7 @@ version = "0.0.1"
 
 plugins {
   java
-  id("com.gradleup.shadow") version "9.2.2"
+  id("com.gradleup.shadow") version "9.6.1"
 }
 
 repositories {
@@ -16,7 +16,11 @@ dependencies {
 
 tasks.test { useJUnitPlatform() }
 
-java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+// Tuoni plugins support Java 21+
+java {
+  sourceCompatibility = JavaVersion.VERSION_21
+  targetCompatibility = JavaVersion.VERSION_21
+}
 
 tasks {
   jar { archiveClassifier = "shallow" }
@@ -25,12 +29,14 @@ tasks {
     archiveBaseName = "tuoni-example-plugin-tcp-listener"
     archiveClassifier = ""
 
+    val pluginVersion = project.version.toString()
+
     doFirst {
       manifest {
         attributes(
             mapOf(
                 "Plugin-Id" to "shelldot.listener.examples.tcp",
-                "Plugin-Version" to project.version.toString(),
+                "Plugin-Version" to pluginVersion,
                 "Plugin-Provider" to "shelldot",
                 "Plugin-Name" to "TCP Listener Plugin",
                 "Plugin-Description" to "An example TCP listener plugin",

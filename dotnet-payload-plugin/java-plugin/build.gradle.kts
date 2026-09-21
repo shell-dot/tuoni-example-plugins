@@ -2,7 +2,7 @@ version = "0.0.1"
 
 plugins {
   java
-  id("com.gradleup.shadow") version "9.2.2"
+  id("com.gradleup.shadow") version "9.6.1"
 }
 
 repositories {
@@ -18,7 +18,11 @@ dependencies {
   implementation(libs.jackson.databind)
 }
 
-java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+// Tuoni plugins support Java 21+
+java {
+  sourceCompatibility = JavaVersion.VERSION_21
+  targetCompatibility = JavaVersion.VERSION_21
+}
 
 tasks {
   jar { archiveClassifier = "shallow" }
