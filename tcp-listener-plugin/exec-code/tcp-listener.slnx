@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="exec-unit-utils/exec-unit-utils.shproj" />
+  <Project Path="tcp-listener/tcp-listener.csproj" Id="7a323a58-a5d1-41bd-b7f5-499f3efbbbfa" />
+</Solution>
