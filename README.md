@@ -11,11 +11,27 @@ Each plugin consists of two parts:
 ## Table of Contents
 
 - [Getting Started](#getting-started)
+    - [Building with Docker](#building-with-docker)
     - [Prerequisites](#prerequisites)
     - [Building the Server Plugin](#building-the-server-plugin)
 - [Plugins](#plugins)
 
 ## Getting Started
+
+### Building with Docker
+
+Each example includes a Makefile that builds both its .NET component and Java plugin inside Docker.
+With Docker and Make installed, run these commands from the example's directory:
+
+```sh
+make build    # Extract the plugin JAR and .NET artifacts to build/
+make install  # Build, copy the JAR to the Tuoni server, and restart it
+make clean    # Remove build artifacts
+make help     # List available targets
+```
+
+Use `make install PLUGIN_DIR=/path/to/plugins` to choose the server's plugin directory.
+The `install` target requires the `tuoni` command to be available.
 
 ### Prerequisites
 

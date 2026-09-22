@@ -26,7 +26,7 @@ build:
 	@echo "[+] Build complete: $(BUILD_DIR)/$(JAR_NAME)"
 	@echo "[+] Build complete: $(BUILD_DIR)/dotnet-agent.exe"
 
-PLUGIN_DIR := /srv/tuoni/plugins/server
+PLUGIN_DIR ?= /srv/tuoni/plugins/server
 
 ## install: Copy plugin JAR to Tuoni server and restart
 .PHONY: install
