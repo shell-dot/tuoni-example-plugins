@@ -1,19 +1,19 @@
 #!make
 .DEFAULT_GOAL := help
 
-IMAGE_NAME := tuoni-example-payload-plugin-builder
+IMAGE_NAME := tuoni-example-command-plugin-builder
 BUILD_DIR  := build
-JAR_NAME   := tuoni-example-plugin-dotnet-payload-0.0.1.jar
+JAR_NAME   := tuoni-example-plugin-echo-command-0.0.1.jar
+COMMANDS   := echo echo-ongoing echo-ongoing-file echo-ongoing-more-data
 
 ##### GENERAL #####
 ## help: List all available make targets with descriptions
 .PHONY: help
 help:
-	@echo -e "[*] usage: make <target>"
-	@echo ""
+	@printf '[*] usage: make <target>\n\n'
 	@sed -nr 's/^##\s+/\t/p' $(MAKEFILE_LIST) | column -t -s ':'
 
-## build: Build the plugin JAR inside Docker and extract to build/
+## build: Build the plugin JAR and commands inside Docker and extract to build/
 .PHONY: build
 build:
 	@mkdir -p $(BUILD_DIR)
@@ -24,7 +24,10 @@ build:
 		.
 	@echo ""
 	@echo "[+] Build complete: $(BUILD_DIR)/$(JAR_NAME)"
-	@echo "[+] Build complete: $(BUILD_DIR)/dotnet-agent.exe"
+	@for command in $(COMMANDS); do \
+		echo "[+] Build complete: $(BUILD_DIR)/$$command.exe"; \
+		echo "[+] Build complete: $(BUILD_DIR)/$$command.shellcode"; \
+	done
 
 PLUGIN_DIR ?= /srv/tuoni/plugins/server
 
