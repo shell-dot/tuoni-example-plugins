@@ -1,0 +1,26 @@
+# Gradle and Java build outputs
+.gradle/
+build/
+*.class
+
+# .NET build outputs
+[Bb]in/
+[Oo]bj/
+*.pdb
+
+# IDE state and user preferences
+.vs/
+.idea/
+*.iml
+*.iws
+*.ipr
+*.user
+*.suo
+*.rsuser
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Build logs
+*.log
+*.binlog

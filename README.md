@@ -15,6 +15,7 @@ Each plugin consists of two parts:
     - [Prerequisites](#prerequisites)
     - [Building the Server Plugin](#building-the-server-plugin)
 - [Plugins](#plugins)
+- [Skeleton Templates](#skeleton-templates)
 
 ## Getting Started
 
@@ -67,6 +68,14 @@ Here is a list of the example plugins included in this repository:
 * **[.NET Payload Plugin](dotnet-payload-plugin/README.md)**
   - **Server Plugin**: `dotnet-payload-plugin/java-plugin/`
   - **Execution code**: `dotnet-payload-plugin/exec-code/`
+
+## Skeleton Templates
+
+The [templates](templates/README.md) folder contains minimal starting points for
+[command](templates/command/README.md), [listener](templates/listener/README.md),
+and [payload](templates/payloads/README.md) plugins. Each includes a Java server
+plugin skeleton, a C# `exec-code` skeleton, build files, and customization notes.
+Behavior is left as TODO hooks so you can start without the examples' business logic.
 
 ---
 
