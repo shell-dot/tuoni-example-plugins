@@ -88,7 +88,7 @@ The Gradle build automatically copies `dotnet-agent.exe` from the Release output
 **Using the Gradle wrapper (recommended):**
 ```bash
 cd java-plugin
-./gradlew build
+sh gradlew build
 ```
 
 **On Windows (CMD):**
@@ -101,7 +101,11 @@ The plugin JAR will be at: `java-plugin/build/libs/tuoni-example-plugin-dotnet-p
 
 ### Building with Docker (recommended for quick testing)
 
-The entire project can be built inside Docker using the provided Makefile. This requires only Docker and Make — no Windows, Visual Studio, or Java installation needed.
+The entire project can be built inside Docker using the provided Makefile. Use a
+Linux shell (WSL on Windows), GNU Make, Docker configured for Linux containers,
+and standard Unix file utilities. The help target also requires GNU `sed` and
+`column`. Docker must be accessible from that shell. Native Visual Studio and
+Java installations are unnecessary for this build.
 
 ```bash
 # Build the plugin JAR and agent EXE

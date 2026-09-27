@@ -28,7 +28,11 @@ COPY java-plugin/ java-plugin/
 WORKDIR /build/java-plugin
 RUN chmod +x gradlew && ./gradlew build --no-daemon
 
-# Stage 4: Minimal image with just the artifacts for extraction
+# Export only the .NET executable when the build-dotnet Make target is used.
+FROM scratch AS dotnet-artifacts
+COPY --from=csharp-build /build/exec-code/tcp-listener/bin/Release/tcp-listener.exe /tcp-listener.exe
+
+# Export the full set of artifacts by default.
 FROM scratch AS artifacts
 COPY --from=shellcode-build /build/exec-code/tcp-listener/bin/Release/tcp-listener.exe \
      /tcp-listener.exe

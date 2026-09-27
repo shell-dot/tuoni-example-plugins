@@ -21,34 +21,62 @@ Each plugin consists of two parts:
 
 ### Building with Docker
 
-Each example includes a Makefile that builds both its .NET component and Java plugin inside Docker.
-With Docker and Make installed, run these commands from the repository root for all examples,
-or from an individual example's directory for just that example:
+Each example and template includes a Makefile that builds its .NET component and Java plugin inside Docker.
+Run the Makefiles from a Linux shell with GNU Make, Docker configured for Linux
+containers, and standard Unix file utilities (`mkdir`, `rm`, and `cp`). The example
+help targets also require GNU `sed` and `column`.
+On Windows, use a Linux shell in WSL with Docker accessible from that environment;
+these Makefile recipes cannot run directly in PowerShell or CMD.
+
+Run these commands from the repository root for all projects, or from an
+individual project's directory for just that project:
 
 ```sh
-make build    # Extract each example's plugin JAR and .NET artifacts to its build/ directory
-make install  # Build, copy the JAR to the Tuoni server, and restart it
+make build    # Extract each project's plugin JAR and .NET artifacts to its build/ directory
+make build-dotnet  # Extract only .NET executables to each project's build/ directory
+make install  # Install the example plugins; templates are skipped
 make clean    # Remove build artifacts
 make help     # List available targets
 ```
 
-The root Makefile discovers subdirectory Makefiles automatically and stops if a command fails.
+The root Makefile discovers subdirectory Makefiles automatically, including
+`templates/Makefile`, and stops if a command fails.
+`make build-dotnet` compiles the C# projects in Docker without building Java
+plugins or generating command and listener shellcode.
 Use `make install PLUGIN_DIR=/path/to/plugins` to choose the server's plugin directory;
 command-line overrides are passed to every example.
 The `install` target requires the `tuoni` command to be available.
 
+All examples and templates use `docker` by default. If your Docker setup requires
+sudo, run `make build DOCKER="sudo docker"` (or use the same override with
+`build-dotnet` or `clean`). The override also reaches every project when invoked
+from the repository root.
+
+Use `BUILD_DIR="build/custom output"` to choose a different output subdirectory,
+including one with spaces. Keeping it under `build/` preserves the existing Git
+ignore rules. If you choose a directory outside `build/`, add that directory to
+the project's `.gitignore` before building. Reserve the output directory for
+generated files: `make clean` removes it completely, including artifacts from
+older versions. Cleanup refuses the project directory itself and any path that
+resolves outside it.
+
 ### Prerequisites
 
-Before you begin, ensure you have the following installed on your machine:
-
-- Java 21+
-- Gradle
+For a Java build outside Docker, install JDK 21+. The included Gradle wrapper
+downloads Gradle on its first run, so a separate Gradle installation is unnecessary.
+See each project's README for its native C# build prerequisites.
 
 ### Building the Server Plugin
 
 Each plugin's server part can be built using Gradle. Navigate to the individual plugin's `java-plugin/` directory and run the following command:
+```sh
+sh gradlew assemble
 ```
-./gradlew assemble
+
+On Windows PowerShell, run:
+
+```powershell
+.\gradlew.bat assemble
 ```
 This command will compile the Java code for Java 21 and build the server plugin.
 Build the C# component first where required; see each plugin's README for its build order.

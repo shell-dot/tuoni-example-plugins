@@ -35,7 +35,14 @@ COPY java-plugin/ java-plugin/
 WORKDIR /build/java-plugin
 RUN chmod +x gradlew && ./gradlew build --no-daemon
 
-# Stage 4: Minimal image with just the artifacts for extraction
+# Export only the .NET executables when the build-dotnet Make target is used.
+FROM scratch AS dotnet-artifacts
+COPY --from=csharp-build /build/exec-code/echo/bin/Release/echo.exe /echo.exe
+COPY --from=csharp-build /build/exec-code/echo-ongoing/bin/Release/echo-ongoing.exe /echo-ongoing.exe
+COPY --from=csharp-build /build/exec-code/echo-ongoing-file/bin/Release/echo-ongoing-file.exe /echo-ongoing-file.exe
+COPY --from=csharp-build /build/exec-code/echo-ongoing-more-data/bin/Release/echo-ongoing-more-data.exe /echo-ongoing-more-data.exe
+
+# Export the full set of artifacts by default.
 FROM scratch AS artifacts
 COPY --from=shellcode-build /artifacts/ /
 COPY --from=java-build \

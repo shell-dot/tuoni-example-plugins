@@ -1,0 +1,4 @@
+# Keep scripts and build files usable in Linux containers after Windows checkout.
+gradlew text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
