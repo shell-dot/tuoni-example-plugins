@@ -96,7 +96,7 @@ You need an installed JDK 21 or newer.
 
 ```sh
 cd java-plugin
-./gradlew shadowJar
+sh gradlew shadowJar
 ```
 
 Output: `java-plugin/build/libs/tuoni-example-plugin-tcp-listener-0.0.1.jar` — a single fat

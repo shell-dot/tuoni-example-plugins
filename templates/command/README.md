@@ -39,3 +39,8 @@ msbuild exec-code/command-execunit.sln /p:Configuration=Release
 
 Output: `exec-code/bin/Release/command-execunit-template.exe`.
 Java output: `java-plugin/build/libs/command-plugin-template-0.0.1.jar`.
+
+Use a Linux shell (WSL on Windows), GNU Make, standard Unix file utilities, and
+Docker configured for Linux containers. Run `make build` from this folder. The JAR, EXE, and
+generated shellcode are extracted to `build/`.
+Run `make build-dotnet` to compile and extract only the EXE to `build/`.

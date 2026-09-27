@@ -24,7 +24,9 @@ the listener includes a cancellable idle wait after its initialization hook.
 
 ## Customize a copy
 
-1. Copy the entire `command`, `listener`, or `payloads` folder to your own project.
+1. Copy the entire `command`, `listener`, or `payloads` folder to your own project,
+   including `.gitattributes` and the other dotfiles. The attributes keep the
+   Gradle wrapper and Docker build files in LF format on Windows checkouts.
 2. Rename `com.example.tuoni.*`, the Java classes, and the C# namespace. Update the
    provider class name in `java-plugin/src/main/resources/META-INF/services/` to
    match your renamed plugin class. Keep the service file's SDK interface name.
@@ -33,7 +35,14 @@ the listener includes a cancellable idle wait after its initialization hook.
 4. Rename the C# project, `RootNamespace`, and `AssemblyName` in its `.csproj`,
    and update the project name and path in its `.sln`. Keep the project GUID
    consistent between the two files.
-5. Define configuration fields in `TemplateConfigurationSchema`, then implement
+5. Update `scripts/docker/Dockerfile` for the renamed `.csproj` and all renamed
+   output files in its build and copy instructions. Update both the full build
+   and the `dotnet-artifacts` export stage. In `Makefile`, set `JAR_NAME` to the
+   complete Gradle output filename (including its version and `.jar` extension)
+   and `EXEC_NAME` to the C# `AssemblyName` without `.exe`. These Makefile variables
+   do not change the Dockerfile paths; both files must agree with your project
+   settings. Update the project README's build commands and output names too.
+6. Define configuration fields in `TemplateConfigurationSchema`, then implement
    the validation and behavior hooks marked `TODO`.
 
 The Java builds use SDK **0.15.0**, matching the examples, as a `compileOnly`
@@ -42,6 +51,33 @@ additional runtime dependencies, so the standard Gradle JAR task is sufficient.
 If you add runtime libraries, bundle those dependencies in your plugin JAR.
 
 ## Build
+
+Use GNU Make from a Linux shell with Docker configured for Linux containers and
+standard Unix file utilities. On Windows, run the Make targets from a Linux shell
+in WSL with Docker accessible there; PowerShell and CMD cannot run these recipes.
+The repository's example help targets additionally require GNU `sed` and `column`.
+
+Run `make build` in an individual template folder, `templates/`, or the repository
+root. A template build compiles the C# and Java
+projects inside Docker and extracts the plugin JAR and .NET artifacts to that
+template's `build/` directory. Run `make build-dotnet` in the same locations to
+compile and extract only the C# executable, without building Java or generating
+shellcode. Run `make clean` in the same location to remove
+the extracted artifacts. The templates are skeletons, so the aggregate
+`make install` target does not install them.
+
+The Docker command defaults to `docker`. If your setup requires sudo, use
+`make build DOCKER="sudo docker"`; the same override works for `build-dotnet` and
+is passed through when building from `templates/` or the repository root.
+
+Use `BUILD_DIR="build/custom output"` for another output subdirectory, including
+one with spaces. Paths under `build/` are covered by the template's `.gitignore`.
+If you choose a directory outside `build/`, add it to `.gitignore` before building.
+Reserve it for generated files: `make clean` removes the entire directory,
+including outputs from previous versions or project names. Cleanup requires the
+resolved output directory to be a subdirectory of the project.
+
+To build directly without Docker, follow the steps below.
 
 Java requires **JDK 21+**. Each folder includes the repository's Gradle wrapper;
 the first build needs network access to obtain Gradle and the SDK dependencies.
