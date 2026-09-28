@@ -13,6 +13,7 @@ import com.shelldot.tuoni.plugin.sdk.command.Command;
 import com.shelldot.tuoni.plugin.sdk.command.CommandContext;
 import com.shelldot.tuoni.plugin.sdk.command.CommandPluginContext;
 import com.shelldot.tuoni.plugin.sdk.command.CommandTemplate;
+import com.shelldot.tuoni.plugin.sdk.command.ExecUnitType;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.ConfigurationSchema;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.JsonConfiguration;
@@ -24,6 +25,7 @@ import com.shelldot.tuoni.plugin.sdk.common.validation.ValidationViolation;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class EchoCommandOngoingMoreDataTemplate implements CommandTemplate {
 
@@ -36,6 +38,11 @@ public class EchoCommandOngoingMoreDataTemplate implements CommandTemplate {
   @Override
   public String getName() {
     return NAME;
+  }
+
+  @Override
+  public Set<ExecUnitType> getSupportedExecUnitTypes() {
+    return Set.of(ExecUnitType.SHELLCODE_NATIVE, ExecUnitType.NATIVE_LIB);
   }
 
   @Override

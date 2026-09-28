@@ -3,7 +3,8 @@ package com.shelldot.tuoni.examples.plugin.tcplistener;
 import com.shelldot.tuoni.plugin.sdk.common.Architecture;
 import com.shelldot.tuoni.plugin.sdk.common.OperatingSystem;
 import com.shelldot.tuoni.plugin.sdk.common.PluginIpcType;
-import com.shelldot.tuoni.plugin.sdk.common.ShellCodeWithConf;
+import com.shelldot.tuoni.plugin.sdk.command.ExecUnit;
+import com.shelldot.tuoni.plugin.sdk.command.ExecUnitType;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.ExecutionException;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.SerializationException;
@@ -11,7 +12,7 @@ import com.shelldot.tuoni.plugin.sdk.common.exceptions.ValidationException;
 import com.shelldot.tuoni.plugin.sdk.listener.Listener;
 import com.shelldot.tuoni.plugin.sdk.listener.ListenerContext;
 import com.shelldot.tuoni.plugin.sdk.listener.ListenerStatus;
-import com.shelldot.tuoni.plugin.sdk.listener.ShellcodeListener;
+import com.shelldot.tuoni.plugin.sdk.listener.ExecUnitListener;
 import com.shelldot.tuoni.plugin.sdk.payload.PayloadType;
 
 import java.io.IOException;
@@ -27,7 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class TcpListener implements ShellcodeListener {
+public class TcpListener implements ExecUnitListener {
 
   private static final Logger LOG = Logger.getLogger(TcpListener.class.getName());
 
@@ -35,6 +36,8 @@ public class TcpListener implements ShellcodeListener {
   private static final Charset PIPE_NAME_CHARSET = StandardCharsets.UTF_16LE;
   private static final String WINDOWS_SHELLCODE_PATH = "/shellcodes/tcp-listener.shellcode";
   private static final String LINUX_EXECUNIT_PATH = "/shellcodes/tcp-listener-linux.native64_so";
+  private static final PayloadType LINUX_X64 =
+      PayloadType.of(OperatingSystem.LINUX, Architecture.X64);
 
   private final long listenerId;
   private final ListenerContext ctx;
@@ -156,16 +159,28 @@ public class TcpListener implements ShellcodeListener {
     return Set.of(
         PayloadType.of(OperatingSystem.WINDOWS, Architecture.X64),
         PayloadType.of(OperatingSystem.WINDOWS, Architecture.X86),
-        PayloadType.of(OperatingSystem.LINUX, Architecture.X64));
+        LINUX_X64);
   }
 
   @Override
-  public ShellCodeWithConf generateShellCode(String pipeName, PayloadType payloadType)
-      throws SerializationException {
-    if (payloadType == null || !getSupportedPayloadTypes().contains(payloadType)) {
-      throw new SerializationException("Unsupported payload type: " + payloadType);
+  public Set<ExecUnitType> getSupportedExecUnitTypes(PayloadType payloadType) {
+    if (LINUX_X64.equals(payloadType)) {
+      return Set.of(ExecUnitType.NATIVE_LIB);
     }
-    boolean linux = payloadType.equals(PayloadType.of(OperatingSystem.LINUX, Architecture.X64));
+    if (getSupportedPayloadTypes().contains(payloadType)) {
+      return Set.of(ExecUnitType.SHELLCODE_NATIVE);
+    }
+    return Set.of();
+  }
+
+  @Override
+  public ExecUnit generateExecUnit(ExecUnitType type, String pipeName, PayloadType payloadType)
+      throws SerializationException {
+    if (!getSupportedExecUnitTypes(payloadType).contains(type)) {
+      throw new SerializationException(
+          "Unsupported execution unit type " + type + " for payload type " + payloadType);
+    }
+    boolean linux = LINUX_X64.equals(payloadType);
     ByteBuffer implantBuffer = ShellcodeUtil.readClasspathResourceToBuffer(
         getClass(), linux ? LINUX_EXECUNIT_PATH : WINDOWS_SHELLCODE_PATH);
     if (!linux) {
@@ -174,8 +189,13 @@ public class TcpListener implements ShellcodeListener {
       ShellcodeUtil.replaceBytesInBuffer(implantBuffer, defaultPipeBytes, newPipeBytes);
     }
 
-    return new ShellCodeWithConf(
-        implantBuffer, config.serializeForShellcode(), PluginIpcType.NAMED_PIPE);
+    return ExecUnit.builder()
+        .code(implantBuffer)
+        .type(type)
+        .ipcType(PluginIpcType.NAMED_PIPE)
+        .configuration(config.serializeForShellcode())
+        .entrypoint(linux ? "run" : null)
+        .build();
   }
 
   @Override

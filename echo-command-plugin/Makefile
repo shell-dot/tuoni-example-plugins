@@ -3,7 +3,7 @@
 
 DOCKER ?= docker
 IMAGE_NAME := tuoni-example-command-plugin-builder
-BUILD_DIR  := build
+BUILD_DIR  := public
 JAR_NAME   := tuoni-example-plugin-echo-command-0.0.1.jar
 COMMANDS   := echo echo-ongoing echo-ongoing-file echo-ongoing-more-data
 
@@ -14,7 +14,7 @@ help:
 	@printf '[*] usage: make <target>\n\n'
 	@sed -nr 's/^##\s+/\t/p' $(MAKEFILE_LIST) | column -t -s ':'
 
-## build: Build the plugin JAR and commands inside Docker and extract to build/
+## build: Build the plugin JAR and commands inside Docker and extract to public/
 .PHONY: build
 build:
 	@mkdir -p -- "$(BUILD_DIR)"

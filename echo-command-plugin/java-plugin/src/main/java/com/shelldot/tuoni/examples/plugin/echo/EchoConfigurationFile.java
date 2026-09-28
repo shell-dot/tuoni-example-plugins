@@ -18,17 +18,12 @@ public record EchoConfigurationFile(Integer lines, byte[] echos) {
         "properties": {
           "lines": {
             "description": "How many lines per second to echo",
-            "type": "integer"
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "default": 1
           }
-        },
-        "files": {
-          "echos": {
-            "type": "file",
-            "description": "file to echo back",
-            "required": true
-          }
-        },
-        "required": ["message"]
+        }
       }
       """;
 

@@ -36,6 +36,9 @@ sh gradlew assemble
 Gradle compiles the Java code for Java 21 and packages both Linux execunits and
 the bundled Windows shellcodes. `make build` builds fresh binaries for both
 platforms inside Docker.
+All four command templates advertise `SHELLCODE_NATIVE` and `NATIVE_LIB`.
+Each command selects Windows shellcode or the Linux x64 native library according
+to the target agent and uses the Linux `run` export as its entrypoint.
 
 ## Plugins
 
@@ -73,11 +76,12 @@ Windows shellcode output is at `exec-code/win/{command}/bin/Release/{command}.sh
 ### Linux execunits
 
 Run `make build-linux` with Docker to compile all four Linux x64 native shared
-objects in the container. The target writes them to `exec-code/linux/build/` for
-Gradle and copies them into `build/`. The sources and FIFO/TLV protocol implementation are
+objects in an Ubuntu 18.04 amd64 container. The target writes them to `exec-code/linux/build/` for
+Gradle and copies them into `public/`. The sources and FIFO/TLV protocol implementation are
 under `exec-code/linux/`: `echo/`, `echo-ongoing/`, `echo-ongoing-file/`, and
 `echo-ongoing-more-data/` each contain their own `Main.cpp`. `make build` builds
-both platforms inside Docker and packages them in the plugin JAR.
+both platforms inside Docker and packages them in the plugin JAR. The JAR and
+both platforms' artifacts are exported to `public/`; `BUILD_DIR` overrides that location.
 
 The Java command templates accept Windows and Linux shellcode agents. Windows payloads
 retain their UTF-16LE pipe-name patch; Linux payloads use the native `run` export and
