@@ -32,8 +32,8 @@ Run these commands from the repository root for all projects, or from an
 individual project's directory for just that project:
 
 ```sh
-make build    # Extract plugin JARs and all Windows/Linux execunits to each build/ directory
-make build-dotnet  # Extract only .NET executables to each project's build/ directory
+make build    # Extract plugin JARs and Windows/Linux execunits to each project's output directory
+make build-dotnet  # Extract only .NET executables to each project's output directory
 make build-linux   # Extract Linux execunits for plugins that provide them
 make install  # Install the example plugins; templates are skipped
 make clean    # Remove build artifacts
@@ -46,6 +46,9 @@ The root Makefile discovers subdirectory Makefiles automatically, including
 `.native64_so` files alongside the Windows artifacts, and embeds both platforms
 in each plugin JAR. `make build-linux` runs only the Linux build targets for
 plugins with `exec-code/linux/build_linux.sh`.
+The echo and TCP listener examples use Ubuntu 18.04 amd64 for their native Linux
+and Windows conversion stages, and export artifacts to `public/` by default.
+Other examples and templates retain their `build/` output directory.
 `make build-dotnet` compiles the C# projects in Docker without building Java
 plugins or generating command and listener shellcode.
 Use `make install PLUGIN_DIR=/path/to/plugins` to choose the server's plugin directory;
@@ -58,8 +61,8 @@ sudo, run `make build DOCKER="sudo docker"` (or use the same override with
 from the repository root.
 
 Use `BUILD_DIR="build/custom output"` to choose a different output subdirectory,
-including one with spaces. Keeping it under `build/` preserves the existing Git
-ignore rules. If you choose a directory outside `build/`, add that directory to
+including one with spaces. The default output directories are ignored by Git.
+If you choose another output directory, add that directory to
 the project's `.gitignore` before building. Reserve the output directory for
 generated files: `make clean` removes it completely, including artifacts from
 older versions. Cleanup refuses the project directory itself and any path that

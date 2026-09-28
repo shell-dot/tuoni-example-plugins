@@ -1,12 +1,19 @@
 # Stage 1: Build the .NET listener with Mono, skipping the Windows post-build event
-FROM mono:6 AS csharp-build
+FROM --platform=linux/amd64 mono:6 AS csharp-build
 WORKDIR /build/exec-code/win
 COPY exec-code/win/ .
 RUN msbuild tcp-listener/tcp-listener.csproj /p:Configuration=Release /p:PostBuildEvent=
 
 # Stage 2: Convert the listener with the bundled Windows Donut executable
-FROM debian:bookworm-slim AS shellcode-build
-RUN apt-get update \
+FROM --platform=linux/amd64 ubuntu:18.04 AS shellcode-build
+ENV DEBIAN_FRONTEND=noninteractive
+RUN if ! apt-get update; then \
+        sed -i \
+            -e 's|http://archive.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g' \
+            -e 's|http://security.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g' \
+            /etc/apt/sources.list; \
+        apt-get update; \
+    fi \
     && apt-get install -y --no-install-recommends wine \
     && rm -rf /var/lib/apt/lists/*
 ENV WINEDEBUG=-all \
@@ -20,8 +27,15 @@ RUN wine ./donut.exe -z 1 -e 1 \
     && test -s tcp-listener/bin/Release/tcp-listener.shellcode
 
 # Stage 3: Build the Linux x64 execunit.
-FROM debian:bookworm-slim AS linux-build
-RUN apt-get update \
+FROM --platform=linux/amd64 ubuntu:18.04 AS linux-build
+ENV DEBIAN_FRONTEND=noninteractive
+RUN if ! apt-get update; then \
+        sed -i \
+            -e 's|http://archive.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g' \
+            -e 's|http://security.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g' \
+            /etc/apt/sources.list; \
+        apt-get update; \
+    fi \
     && apt-get install -y --no-install-recommends g++ \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /build/exec-code/linux

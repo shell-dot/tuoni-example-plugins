@@ -3,11 +3,11 @@ package com.shelldot.tuoni.examples.plugin.echo;
 import com.shelldot.tuoni.plugin.sdk.common.AgentInfo;
 import com.shelldot.tuoni.plugin.sdk.command.CommandContext;
 import com.shelldot.tuoni.plugin.sdk.command.CommandStatus;
-import com.shelldot.tuoni.plugin.sdk.command.ShellcodeCommand;
+import com.shelldot.tuoni.plugin.sdk.command.ExecUnit;
+import com.shelldot.tuoni.plugin.sdk.command.ExecUnitCommand;
+import com.shelldot.tuoni.plugin.sdk.command.ExecUnitType;
 import com.shelldot.tuoni.plugin.sdk.command.result.CommandResultCollection;
 import com.shelldot.tuoni.plugin.sdk.command.result.CommandResultEditor;
-import com.shelldot.tuoni.plugin.sdk.common.AgentMetadata;
-import com.shelldot.tuoni.plugin.sdk.common.ShellCodeWithConf;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.CommandUpdateUnsupportedException;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.ExecutionException;
@@ -15,9 +15,11 @@ import com.shelldot.tuoni.plugin.sdk.common.exceptions.SerializationException;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.ValidationException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
-public class EchoCommand implements ShellcodeCommand {
+public class EchoCommand implements ExecUnitCommand {
 
+  private final AgentInfo agentInfo;
   private final EchoConfiguration echoConfiguration;
 
   public EchoCommand(
@@ -25,14 +27,21 @@ public class EchoCommand implements ShellcodeCommand {
       AgentInfo agentInfo,
       EchoConfiguration echoConfiguration,
       CommandContext commandContext) {
+    this.agentInfo = agentInfo;
     this.echoConfiguration = echoConfiguration;
   }
 
   @Override
-  public ShellCodeWithConf generateShellCode(String pipeName, AgentMetadata latestAgentMetadata)
+  public Set<ExecUnitType> getSupportedExecUnitTypes() {
+    return EchoPayloads.supportedTypes(agentInfo.getLatestMetadata());
+  }
+
+  @Override
+  public ExecUnit generateExecUnit(ExecUnitType type, String pipeName)
       throws SerializationException, ValidationException {
     return EchoPayloads.generate(
-        getClass(), "echo", pipeName, latestAgentMetadata, echoConfiguration.serializeForShellcode());
+        getClass(), "echo", type, pipeName, agentInfo.getLatestMetadata(),
+        echoConfiguration.serializeForShellcode());
   }
 
   @Override

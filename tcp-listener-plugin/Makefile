@@ -3,7 +3,7 @@
 
 DOCKER ?= docker
 IMAGE_NAME := tuoni-example-listener-plugin-builder
-BUILD_DIR  := build
+BUILD_DIR  := public
 JAR_NAME   := tuoni-example-plugin-tcp-listener-0.0.1.jar
 
 ##### GENERAL #####
@@ -13,7 +13,7 @@ help:
 	@printf '[*] usage: make <target>\n\n'
 	@sed -nr 's/^##\s+/\t/p' $(MAKEFILE_LIST) | column -t -s ':'
 
-## build: Build the plugin JAR and listener inside Docker and extract to build/
+## build: Build the plugin JAR and listener inside Docker and extract to public/
 .PHONY: build
 build:
 	@mkdir -p -- "$(BUILD_DIR)"

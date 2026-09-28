@@ -39,6 +39,8 @@ alone.
 The Java plugin embeds a **Donut-converted shellcode** for Windows and a native shared object
 for Linux x64. For Windows payloads it patches the shellcode with a per-payload pipe name.
 The Linux agent loader supplies FIFO paths to the native `run` entrypoint.
+The plugin advertises Windows as `SHELLCODE_NATIVE` and Linux x64 as `NATIVE_LIB` through
+the listener exec-unit API.
 
 ### Frame protocol
 
@@ -92,14 +94,15 @@ Output: `exec-code/win/tcp-listener/bin/Release/tcp-listener.shellcode`.
 
 ### 1b. Build the Linux execunit
 
-Run the Docker build target from `tcp-listener-plugin/`:
+Run the Ubuntu 18.04 amd64 Docker build target from `tcp-listener-plugin/`:
 
 ```sh
 make build-linux
 ```
 
 Output: `exec-code/linux/build/tcp-listener-linux.native64_so` for Gradle and
-`build/tcp-listener-linux.native64_so` for direct use.
+`public/tcp-listener-linux.native64_so` for direct use. The full `make build`
+also exports its JAR and Windows artifacts to `public/`; `BUILD_DIR` overrides that location.
 
 ### 2. Build the Java plugin
 
@@ -147,7 +150,7 @@ string `"QQQWWWEEE"`. This is **not** a bug or a leftover — it is a deliberate
 
 - In the .NET exec unit it is used as the named-pipe name to connect to.
 - In the compiled shellcode it appears verbatim as a UTF-16LE byte sequence.
-- When the Java plugin generates a payload, `TcpListener#generateShellCode` searches the
+- When the Java plugin generates a payload, `TcpListener#generateExecUnit` searches the
   shellcode bytes for that exact UTF-16LE sequence and overwrites it in place with the
   per-payload pipe name supplied by Tuoni.
 
