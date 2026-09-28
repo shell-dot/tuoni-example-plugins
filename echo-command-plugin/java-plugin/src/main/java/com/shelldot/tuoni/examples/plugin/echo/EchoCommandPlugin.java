@@ -18,10 +18,10 @@ public class EchoCommandPlugin implements CommandPlugin {
     }
     this.initialized = true;
     this.cachedCommandTemplates = List.of(
-      new EchoCommandTemplate(pluginContext), 
-      new EchoCommandOngoingTemplate(pluginContext), 
-      new EchoCommandOngoingFileTemplate(pluginContext), 
-      new EchoCommandOngoingMoreDataTemplate(pluginContext));
+      new EchoCommandTemplate(),
+      new EchoCommandOngoingTemplate(),
+      new EchoCommandOngoingFileTemplate(),
+      new EchoCommandOngoingMoreDataTemplate());
   }
 
   @Override

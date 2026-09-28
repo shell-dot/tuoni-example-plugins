@@ -11,7 +11,6 @@ import com.shelldot.tuoni.plugin.sdk.common.Architecture;
 import com.shelldot.tuoni.plugin.sdk.common.OperatingSystem;
 import com.shelldot.tuoni.plugin.sdk.command.Command;
 import com.shelldot.tuoni.plugin.sdk.command.CommandContext;
-import com.shelldot.tuoni.plugin.sdk.command.CommandPluginContext;
 import com.shelldot.tuoni.plugin.sdk.command.CommandTemplate;
 import com.shelldot.tuoni.plugin.sdk.command.ExecUnitType;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
@@ -31,9 +30,6 @@ public class EchoCommandOngoingMoreDataTemplate implements CommandTemplate {
 
   static final String NAME = "echo-ongoing-more-data";
   static final JsonMapper OBJECT_MAPPER = JsonMapper.builderWithJackson2Defaults().build();
-
-  public EchoCommandOngoingMoreDataTemplate(CommandPluginContext pluginContext) {
-  }
 
   @Override
   public String getName() {

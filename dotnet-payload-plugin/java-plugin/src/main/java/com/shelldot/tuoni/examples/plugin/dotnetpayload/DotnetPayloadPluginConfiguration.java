@@ -1,5 +1,4 @@
 package com.shelldot.tuoni.examples.plugin.dotnetpayload;
-import java.nio.ByteBuffer;
 
 public record DotnetPayloadPluginConfiguration() {
   public static final String JSON_SCHEMA =
@@ -21,7 +20,4 @@ public record DotnetPayloadPluginConfiguration() {
       }
       """;
 
-  public ByteBuffer serializeForShellcode() {
-    return ByteBuffer.allocate(0);
-  }
 }

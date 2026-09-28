@@ -2,8 +2,7 @@
 .DEFAULT_GOAL := help
 
 DOCKER ?= docker
-IMAGE_NAME := tuoni-example-command-plugin-builder
-BUILD_DIR  := public
+BUILD_DIR  := build
 JAR_NAME   := tuoni-example-plugin-echo-command-0.0.1.jar
 COMMANDS   := echo echo-ongoing echo-ongoing-file echo-ongoing-more-data
 
@@ -14,7 +13,7 @@ help:
 	@printf '[*] usage: make <target>\n\n'
 	@sed -nr 's/^##\s+/\t/p' $(MAKEFILE_LIST) | column -t -s ':'
 
-## build: Build the plugin JAR and commands inside Docker and extract to public/
+## build: Build the plugin JAR and commands inside Docker and extract to build/
 .PHONY: build
 build:
 	@mkdir -p -- "$(BUILD_DIR)"
@@ -64,7 +63,7 @@ install: build
 	tuoni server restart
 	@echo "[+] Installed $(JAR_NAME) to $(PLUGIN_DIR) and restarted tuoni"
 
-## clean: Remove build artifacts and Docker images
+## clean: Remove build artifacts
 .PHONY: clean
 clean:
 	@set -eu; \
@@ -76,5 +75,4 @@ clean:
 		*) printf '%s\n' "Refusing to clean outside a project subdirectory: $$artifact_dir" >&2; exit 1 ;; \
 	esac; \
 	rm -rf -- "$$artifact_dir"
-	@$(DOCKER) image rm "$(IMAGE_NAME)" 2>/dev/null || true
 	@echo "[+] Cleaned"

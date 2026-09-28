@@ -39,6 +39,9 @@ platforms inside Docker.
 All four command templates advertise `SHELLCODE_NATIVE` and `NATIVE_LIB`.
 Each command selects Windows shellcode or the Linux x64 native library according
 to the target agent and uses the Linux `run` export as its entrypoint.
+For Windows agents that report no exec-unit capabilities, the commands also
+support the server's legacy shellcode fallback. Linux native libraries still
+require the agent to advertise `NATIVE_LIB` support.
 
 ## Plugins
 
@@ -77,11 +80,11 @@ Windows shellcode output is at `exec-code/win/{command}/bin/Release/{command}.sh
 
 Run `make build-linux` with Docker to compile all four Linux x64 native shared
 objects in an Ubuntu 18.04 amd64 container. The target writes them to `exec-code/linux/build/` for
-Gradle and copies them into `public/`. The sources and FIFO/TLV protocol implementation are
+Gradle and copies them into `build/`. The sources and FIFO/TLV protocol implementation are
 under `exec-code/linux/`: `echo/`, `echo-ongoing/`, `echo-ongoing-file/`, and
 `echo-ongoing-more-data/` each contain their own `Main.cpp`. `make build` builds
 both platforms inside Docker and packages them in the plugin JAR. The JAR and
-both platforms' artifacts are exported to `public/`; `BUILD_DIR` overrides that location.
+both platforms' artifacts are exported to `build/`; `BUILD_DIR` overrides that location.
 
 The Java command templates accept Windows and Linux shellcode agents. Windows payloads
 retain their UTF-16LE pipe-name patch; Linux payloads use the native `run` export and

@@ -101,8 +101,8 @@ make build-linux
 ```
 
 Output: `exec-code/linux/build/tcp-listener-linux.native64_so` for Gradle and
-`public/tcp-listener-linux.native64_so` for direct use. The full `make build`
-also exports its JAR and Windows artifacts to `public/`; `BUILD_DIR` overrides that location.
+`build/tcp-listener-linux.native64_so` for direct use. The full `make build`
+also exports its JAR and Windows artifacts to `build/`; `BUILD_DIR` overrides that location.
 
 ### 2. Build the Java plugin
 

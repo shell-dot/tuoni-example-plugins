@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.shelldot.tuoni.examples.plugin.dotnetpayload.configuration.SimpleConfigurationSchema;
 import com.shelldot.tuoni.examples.plugin.dotnetpayload.utils.ShellcodeUtil;
+import com.shelldot.tuoni.plugin.sdk.command.ExecUnitType;
 import com.shelldot.tuoni.plugin.sdk.common.Architecture;
 import com.shelldot.tuoni.plugin.sdk.common.OperatingSystem;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
@@ -46,6 +47,11 @@ public class DotnetPayloadPluginTemplate implements PayloadTemplate {
     @Override
     public PayloadType getPayloadType() {
         return PayloadType.of(OperatingSystem.WINDOWS, Architecture.X64);
+    }
+
+    @Override
+    public List<ExecUnitType> getSupportedExecUnitTypes(Configuration configuration) {
+        return List.of(ExecUnitType.SHELLCODE_NATIVE);
     }
 
     @Override
