@@ -33,7 +33,8 @@ public class TcpListener implements ShellcodeListener {
 
   private static final String DEFAULT_PIPE_NAME = "QQQWWWEEE";
   private static final Charset PIPE_NAME_CHARSET = StandardCharsets.UTF_16LE;
-  private static final String SHELLCODE_PATH = "/shellcodes/tcp-listener.shellcode";
+  private static final String WINDOWS_SHELLCODE_PATH = "/shellcodes/tcp-listener.shellcode";
+  private static final String LINUX_EXECUNIT_PATH = "/shellcodes/tcp-listener-linux.native64_so";
 
   private final long listenerId;
   private final ListenerContext ctx;
@@ -154,18 +155,24 @@ public class TcpListener implements ShellcodeListener {
   public Set<PayloadType> getSupportedPayloadTypes() {
     return Set.of(
         PayloadType.of(OperatingSystem.WINDOWS, Architecture.X64),
-        PayloadType.of(OperatingSystem.WINDOWS, Architecture.X86));
+        PayloadType.of(OperatingSystem.WINDOWS, Architecture.X86),
+        PayloadType.of(OperatingSystem.LINUX, Architecture.X64));
   }
 
   @Override
   public ShellCodeWithConf generateShellCode(String pipeName, PayloadType payloadType)
       throws SerializationException {
-    byte[] defaultPipeBytes = DEFAULT_PIPE_NAME.getBytes(PIPE_NAME_CHARSET);
-    byte[] newPipeBytes = pipeName.getBytes(PIPE_NAME_CHARSET);
-
-    ByteBuffer implantBuffer =
-        ShellcodeUtil.readClasspathResourceToBuffer(getClass(), SHELLCODE_PATH);
-    ShellcodeUtil.replaceBytesInBuffer(implantBuffer, defaultPipeBytes, newPipeBytes);
+    if (payloadType == null || !getSupportedPayloadTypes().contains(payloadType)) {
+      throw new SerializationException("Unsupported payload type: " + payloadType);
+    }
+    boolean linux = payloadType.equals(PayloadType.of(OperatingSystem.LINUX, Architecture.X64));
+    ByteBuffer implantBuffer = ShellcodeUtil.readClasspathResourceToBuffer(
+        getClass(), linux ? LINUX_EXECUNIT_PATH : WINDOWS_SHELLCODE_PATH);
+    if (!linux) {
+      byte[] defaultPipeBytes = DEFAULT_PIPE_NAME.getBytes(PIPE_NAME_CHARSET);
+      byte[] newPipeBytes = pipeName.getBytes(PIPE_NAME_CHARSET);
+      ShellcodeUtil.replaceBytesInBuffer(implantBuffer, defaultPipeBytes, newPipeBytes);
+    }
 
     return new ShellCodeWithConf(
         implantBuffer, config.serializeForShellcode(), PluginIpcType.NAMED_PIPE);

@@ -14,9 +14,9 @@ This example contains **two cooperating projects**:
 | Project | Language | Role |
 |---|---|---|
 | `java-plugin/` | Java 21 / Gradle | Server-side plugin that loads inside the Tuoni server. Opens a TCP `ServerSocket`, accepts implant connections, and bridges them into the Tuoni agent runtime. |
-| `exec-code/` | C# / .NET Framework 4.6.2 | Client-side "exec unit" that runs **inside the implant process** on the target. Talks to the Tuoni agent over a local **named pipe** and forwards traffic to the listener over **TCP**. |
+| `exec-code/` | C# / .NET Framework 4.6.2 and Linux C++ | Client-side execunits that run inside the agent process. They talk to the agent over local IPC and forward traffic to the listener over TCP. |
 
-`exec-code/exec-unit-utils/` is a shared MSBuild project provided by Tuoni — leave it
+`exec-code/win/exec-unit-utils/` is a shared MSBuild project provided by Tuoni — leave it
 alone.
 
 ### Architecture at a glance
@@ -36,10 +36,9 @@ alone.
                                                └──────────────────────────┘
 ```
 
-The Java plugin produces a **Donut-converted shellcode** of the .NET exec unit, embedded as a
-classpath resource. When Tuoni asks the plugin to generate a payload, the plugin patches the
-shellcode with a per-payload pipe name and hands it back; Tuoni does the rest (delivery, injection,
-running it inside an implant).
+The Java plugin embeds a **Donut-converted shellcode** for Windows and a native shared object
+for Linux x64. For Windows payloads it patches the shellcode with a per-payload pipe name.
+The Linux agent loader supplies FIFO paths to the native `run` entrypoint.
 
 ### Frame protocol
 
@@ -73,22 +72,34 @@ or
 
 Run the commands below from `tcp-listener-plugin/`.
 
-The build has **two halves and one ordering rule**: the .NET exec unit must be built first,
-because the Gradle build embeds the resulting `.shellcode` file into the plugin JAR.
+The Gradle build embeds both the Windows `.shellcode` and Linux x64 `.native64_so`
+execunits. Build both before building the Java plugin. `make build` performs all
+steps in Docker.
 
 ### 1. Build the .NET exec unit
 
 You need:
 - MSBuild (Visual Studio Build Tools, .NET Framework 4.6.2 targeting pack)
-- [`donut.exe`](https://github.com/TheWover/donut) on disk at `exec-code/donut.exe`
+- [`donut.exe`](https://github.com/TheWover/donut) on disk at `exec-code/win/donut.exe`
   (the `.csproj` post-build event invokes it to convert the built `.exe` into position-independent
   shellcode)
 
 ```sh
-msbuild exec-code/tcp-listener.slnx /p:Configuration=Release
+msbuild exec-code/win/tcp-listener.slnx /p:Configuration=Release
 ```
 
-Output: `exec-code/tcp-listener/bin/Release/tcp-listener.shellcode`.
+Output: `exec-code/win/tcp-listener/bin/Release/tcp-listener.shellcode`.
+
+### 1b. Build the Linux execunit
+
+Run the Docker build target from `tcp-listener-plugin/`:
+
+```sh
+make build-linux
+```
+
+Output: `exec-code/linux/build/tcp-listener-linux.native64_so` for Gradle and
+`build/tcp-listener-linux.native64_so` for direct use.
 
 ### 2. Build the Java plugin
 
@@ -100,8 +111,9 @@ sh gradlew shadowJar
 ```
 
 Output: `java-plugin/build/libs/tuoni-example-plugin-tcp-listener-0.0.1.jar` — a single fat
-jar containing the plugin code, its runtime dependencies, and the embedded shellcode at
-`shellcodes/tcp-listener.shellcode`.
+jar containing the plugin code, its runtime dependencies, the Windows shellcode at
+`shellcodes/tcp-listener.shellcode`, and the Linux execunit at
+`shellcodes/tcp-listener-linux.native64_so`.
 
 ### 3. Deploy
 
@@ -143,6 +155,9 @@ Both sides therefore must declare the **exact same literal**, and the literal mu
 the compiled binary as a contiguous UTF-16LE string. If you change one side, change the other,
 and keep the byte length identical (the patch is in-place, not a resize).
 
+Linux uses the native `run` export and receives two FIFO paths from the agent loader;
+its shared object does not contain or require this placeholder.
+
 ---
 
 ## Customising this template for your own listener
@@ -180,10 +195,13 @@ tcp-listener-plugin/
 │       ├── TcpListenerPluginConfiguration.java   Config record + JSON schema
 │       ├── ShellcodeUtil.java                Read/patch the embedded shellcode
 │       └── configuration/                    Thin SDK adapters
-└── exec-code/                        .NET exec unit (target-side)
-    ├── exec-unit-utils/              **Untouched — provided by Tuoni**
-    └── tcp-listener/
-        ├── Program.cs                Pipe ↔ TCP bridge
-        ├── tcp-listener.csproj
-        └── properties/AssemblyInfo.cs
+└── exec-code/                        Agent execunits
+    ├── win/
+    │   ├── exec-unit-utils/          Shared .NET project
+    │   ├── tcp-listener.slnx
+    │   └── tcp-listener/             Windows pipe ↔ TCP bridge
+    └── linux/
+        ├── common/                   FIFO/TLV communication
+        ├── tcp-listener/Main.cpp     Linux FIFO ↔ TCP bridge
+        └── build_linux.sh
 ```

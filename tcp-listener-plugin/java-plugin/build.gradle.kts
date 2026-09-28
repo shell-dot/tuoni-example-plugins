@@ -50,16 +50,24 @@ tasks {
 }
 
 tasks.processResources {
-  from("../exec-code/tcp-listener/bin/Release") {
+  from("../exec-code/win/tcp-listener/bin/Release") {
     include("tcp-listener.shellcode")
     into("shellcodes/")
   }
+  from("../exec-code/linux/build") {
+    include("tcp-listener-linux.native64_so")
+    into("shellcodes/")
+  }
   doFirst {
-    val shellcode = file("../exec-code/tcp-listener/bin/Release/tcp-listener.shellcode")
+    val shellcode = file("../exec-code/win/tcp-listener/bin/Release/tcp-listener.shellcode")
     if (!shellcode.exists()) {
       throw GradleException(
           "Missing shellcode at ${shellcode.path}. Build the .NET exec unit (Release) first " +
               "so that the donut post-build step produces tcp-listener.shellcode.")
+    }
+    val native = file("../exec-code/linux/build/tcp-listener-linux.native64_so")
+    if (!native.isFile) {
+      throw GradleException("Missing ${native.path}; run make build-linux first.")
     }
   }
 }

@@ -28,6 +28,7 @@ build:
 	@for command in $(COMMANDS); do \
 		echo "[+] Build complete: $(BUILD_DIR)/$$command.exe"; \
 		echo "[+] Build complete: $(BUILD_DIR)/$$command.shellcode"; \
+		echo "[+] Build complete: $(BUILD_DIR)/$$command-linux.native64_so"; \
 	done
 
 ## build-dotnet: Build and extract only the .NET command executables with Docker
@@ -42,6 +43,17 @@ build-dotnet:
 	@for command in $(COMMANDS); do \
 		echo "[+] Build complete: $(BUILD_DIR)/$$command.exe"; \
 	done
+
+## build-linux: Build Linux x64 native execunits inside Docker
+.PHONY: build-linux
+build-linux:
+	@mkdir -p -- "$(BUILD_DIR)" exec-code/linux/build
+	DOCKER_BUILDKIT=1 $(DOCKER) build \
+		-f scripts/docker/Dockerfile \
+		--target linux-artifacts \
+		--output "type=local,dest=exec-code/linux/build/" \
+		.
+	cp exec-code/linux/build/*-linux.native64_so "$(BUILD_DIR)/"
 
 PLUGIN_DIR ?= /srv/tuoni/plugins/server
 
