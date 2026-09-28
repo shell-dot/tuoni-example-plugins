@@ -5,7 +5,7 @@ Welcome to the Tuoni Plugin Examples repository!
 This repository contains example plugins for the [Tuoni](https://github.com/shell-dot/tuoni) Command and Control (C2) framework. \
 Each plugin consists of two parts:
 
-1. **Shellcodes**: Written in C# .NET framework.
+1. **Agent execunits**: Windows shellcode written in C# and Linux x64 shared objects written in C++.
 2. **Server Plugin**: Written in Java against the Tuoni plugin SDK, requiring Java 21+ and Gradle for building.
 
 ## Table of Contents
@@ -23,14 +23,19 @@ Before you begin, ensure you have the following installed on your machine:
 
 - Java 21+
 - Gradle
+- Docker and Make for building the Linux execunits
 
 ### Building the Server Plugin
 
-Each plugin's server part can be built using Gradle. From `echo-command-plugin/`, navigate to `java-plugin/` and run the following command:
+Build the Linux native execunits in Docker before Gradle. From `echo-command-plugin/`, run:
 ```
+make build-linux
+cd java-plugin
 sh gradlew assemble
 ```
-This command will compile the Java code for Java 21 and build the server plugin.
+Gradle compiles the Java code for Java 21 and packages both Linux execunits and
+the bundled Windows shellcodes. `make build` builds fresh binaries for both
+platforms inside Docker.
 
 ## Plugins
 
@@ -38,7 +43,7 @@ Here is a list of the example plugins included in this repository:
 
 * **Echo Command Plugin (contains 4 commands)**
   - **Server Plugin**: `java-plugin/`
-  - **Shellcodes solution**: `exec-code/echo-commands.sln`
+  - **Windows shellcodes solution**: `exec-code/win/echo-commands.sln`
   - **"echo" command**
     - **Description**: Demonstrates most simple type of command
     - **Command class in Java**: `EchoCommand`
@@ -60,10 +65,23 @@ Here is a list of the example plugins included in this repository:
     - **Command template class in Java**: `EchoCommandOngoingMoreDataTemplate`
     - **Shellcode project**: `echo-ongoing-more-data`
 
-Additionally, there is a set of .NET utility classes that facilitate communication between the command shellcode and the agent. These are located at `exec-code/exec-unit-utils` and are implemented as a shared code project, which is referenced and used by the shellcode solution. These are also available at [tuoni-execunit-utils-dotnet](https://github.com/shell-dot/tuoni-execunit-utils-dotnet) repository.
+Additionally, there is a set of .NET utility classes that facilitate communication between the command shellcode and the agent. These are located at `exec-code/win/exec-unit-utils` and are implemented as a shared code project, which is referenced and used by the shellcode solution. These are also available at [tuoni-execunit-utils-dotnet](https://github.com/shell-dot/tuoni-execunit-utils-dotnet) repository.
 
-Each plugin folder contains both the shellcode source code and the Java plugin source code.
-Build binaries for the shellcode can be found at `exec-code/{command project}/bin/Release/{command project}.shellcode` and after building the plugin, the server plugin JAR can be found at `java-plugin/build/libs/tuoni-example-plugin-echo-command-0.0.1.jar`.
+Each plugin folder contains both the agent execunit source code and the Java plugin source code.
+Windows shellcode output is at `exec-code/win/{command}/bin/Release/{command}.shellcode`. The server plugin JAR is at `java-plugin/build/libs/tuoni-example-plugin-echo-command-0.0.1.jar`.
+
+### Linux execunits
+
+Run `make build-linux` with Docker to compile all four Linux x64 native shared
+objects in the container. The target writes them to `exec-code/linux/build/` for
+Gradle and copies them into `build/`. The sources and FIFO/TLV protocol implementation are
+under `exec-code/linux/`: `echo/`, `echo-ongoing/`, `echo-ongoing-file/`, and
+`echo-ongoing-more-data/` each contain their own `Main.cpp`. `make build` builds
+both platforms inside Docker and packages them in the plugin JAR.
+
+The Java command templates accept Windows and Linux shellcode agents. Windows payloads
+retain their UTF-16LE pipe-name patch; Linux payloads use the native `run` export and
+receive their FIFO paths from the agent loader.
 
 
 ---

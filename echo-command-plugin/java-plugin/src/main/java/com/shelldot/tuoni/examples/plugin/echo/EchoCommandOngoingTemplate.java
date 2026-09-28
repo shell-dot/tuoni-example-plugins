@@ -7,6 +7,7 @@ import com.shelldot.tuoni.examples.plugin.echo.configuration.JacksonJsonConfigur
 import com.shelldot.tuoni.examples.plugin.echo.configuration.SimpleConfigurationSchema;
 import com.shelldot.tuoni.plugin.sdk.common.AgentInfo;
 import com.shelldot.tuoni.plugin.sdk.common.AgentType;
+import com.shelldot.tuoni.plugin.sdk.common.Architecture;
 import com.shelldot.tuoni.plugin.sdk.common.OperatingSystem;
 import com.shelldot.tuoni.plugin.sdk.command.Command;
 import com.shelldot.tuoni.plugin.sdk.command.CommandContext;
@@ -56,7 +57,10 @@ public class EchoCommandOngoingTemplate implements CommandTemplate {
 
   @Override
   public boolean canSendToAgent(AgentInfo agentInfo) {
-    return AgentType.SHELLCODE_AGENT == agentInfo.getType() && agentInfo.getLatestMetadata().os() == OperatingSystem.WINDOWS;
+    return AgentType.SHELLCODE_AGENT == agentInfo.getType()
+        && (agentInfo.getLatestMetadata().os() == OperatingSystem.WINDOWS
+            || (agentInfo.getLatestMetadata().os() == OperatingSystem.LINUX
+                && agentInfo.getLatestMetadata().processArch() == Architecture.X64));
   }
 
   @Override

@@ -32,8 +32,9 @@ Run these commands from the repository root for all projects, or from an
 individual project's directory for just that project:
 
 ```sh
-make build    # Extract each project's plugin JAR and .NET artifacts to its build/ directory
+make build    # Extract plugin JARs and all Windows/Linux execunits to each build/ directory
 make build-dotnet  # Extract only .NET executables to each project's build/ directory
+make build-linux   # Extract Linux execunits for plugins that provide them
 make install  # Install the example plugins; templates are skipped
 make clean    # Remove build artifacts
 make help     # List available targets
@@ -41,6 +42,10 @@ make help     # List available targets
 
 The root Makefile discovers subdirectory Makefiles automatically, including
 `templates/Makefile`, and stops if a command fails.
+`make build` builds the echo and TCP Linux execunits inside Docker, exports their
+`.native64_so` files alongside the Windows artifacts, and embeds both platforms
+in each plugin JAR. `make build-linux` runs only the Linux build targets for
+plugins with `exec-code/linux/build_linux.sh`.
 `make build-dotnet` compiles the C# projects in Docker without building Java
 plugins or generating command and listener shellcode.
 Use `make install PLUGIN_DIR=/path/to/plugins` to choose the server's plugin directory;
@@ -49,7 +54,7 @@ The `install` target requires the `tuoni` command to be available.
 
 All examples and templates use `docker` by default. If your Docker setup requires
 sudo, run `make build DOCKER="sudo docker"` (or use the same override with
-`build-dotnet` or `clean`). The override also reaches every project when invoked
+`build-dotnet`, `build-linux`, or `clean`). The override also reaches every project when invoked
 from the repository root.
 
 Use `BUILD_DIR="build/custom output"` to choose a different output subdirectory,

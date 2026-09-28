@@ -26,6 +26,7 @@ build:
 	@echo "[+] Build complete: $(BUILD_DIR)/$(JAR_NAME)"
 	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.exe"
 	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.shellcode"
+	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener-linux.native64_so"
 
 ## build-dotnet: Build and extract only the .NET listener executable with Docker
 .PHONY: build-dotnet
@@ -37,6 +38,17 @@ build-dotnet:
 		--output "type=local,dest=$(BUILD_DIR)/" \
 		.
 	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.exe"
+
+## build-linux: Build the Linux x64 native execunit inside Docker
+.PHONY: build-linux
+build-linux:
+	@mkdir -p -- "$(BUILD_DIR)" exec-code/linux/build
+	DOCKER_BUILDKIT=1 $(DOCKER) build \
+		-f scripts/docker/Dockerfile \
+		--target linux-artifacts \
+		--output "type=local,dest=exec-code/linux/build/" \
+		.
+	cp exec-code/linux/build/tcp-listener-linux.native64_so "$(BUILD_DIR)/"
 
 PLUGIN_DIR ?= /srv/tuoni/plugins/server
 

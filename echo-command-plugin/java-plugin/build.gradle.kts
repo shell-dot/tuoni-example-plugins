@@ -68,12 +68,23 @@ sourceSets {
 tasks.processResources {
   commandShellcodes.forEach { command ->
     val compiledShellcode =
-        layout.projectDirectory.file("../exec-code/$command/bin/Release/$command.shellcode").asFile
+        layout.projectDirectory.file("../exec-code/win/$command/bin/Release/$command.shellcode").asFile
     val bundledShellcode =
         layout.projectDirectory.file("src/main/resources/shellcode/$command.shellcode").asFile
 
     from(providers.provider { if (compiledShellcode.isFile) compiledShellcode else bundledShellcode }) {
       into("shellcode/")
+    }
+    from("../exec-code/linux/build/${command}-linux.native64_so") {
+      into("shellcode/")
+    }
+  }
+  doFirst {
+    commandShellcodes.forEach { command ->
+      val native = file("../exec-code/linux/build/${command}-linux.native64_so")
+      if (!native.isFile) {
+        throw GradleException("Missing ${native.path}; run make build-linux first.")
+      }
     }
   }
 }
