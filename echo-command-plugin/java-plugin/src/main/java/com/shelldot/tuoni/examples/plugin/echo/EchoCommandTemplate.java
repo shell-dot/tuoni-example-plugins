@@ -11,7 +11,6 @@ import com.shelldot.tuoni.plugin.sdk.common.Architecture;
 import com.shelldot.tuoni.plugin.sdk.common.OperatingSystem;
 import com.shelldot.tuoni.plugin.sdk.command.Command;
 import com.shelldot.tuoni.plugin.sdk.command.CommandContext;
-import com.shelldot.tuoni.plugin.sdk.command.CommandPluginContext;
 import com.shelldot.tuoni.plugin.sdk.command.CommandTemplate;
 import com.shelldot.tuoni.plugin.sdk.command.ExecUnitType;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
@@ -29,9 +28,6 @@ public class EchoCommandTemplate implements CommandTemplate {
 
   static final String NAME = "echo";
   static final JsonMapper OBJECT_MAPPER = JsonMapper.builderWithJackson2Defaults().build();
-
-  public EchoCommandTemplate(CommandPluginContext pluginContext) {
-  }
 
   @Override
   public String getName() {
@@ -86,7 +82,7 @@ public class EchoCommandTemplate implements CommandTemplate {
       throws ValidationException, InitializationException {
     EchoConfiguration echoConfiguration = parseConfiguration(configuration);
     validateEchoConfiguration(echoConfiguration);
-    return new EchoCommand(commandId, agentInfo, echoConfiguration, commandContext);
+    return new EchoCommand(agentInfo, echoConfiguration);
   }
 
   private void validateEchoConfiguration(EchoConfiguration echoConfiguration)

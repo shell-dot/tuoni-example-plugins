@@ -47,6 +47,10 @@ namespace DotNetAgent
         private const byte TLV_AGENT_TYPE = 0x40;
         private const byte TLV_AGENT_VERSION = 0x41;
         private const byte TLV_PAYLOAD_ID = 0x43;
+        private const byte TLV_CAPABILITIES = 0x44;
+
+        private const int CAPABILITIES_SELF_EXEC_UNIT_TYPES_OFFSET = 8;
+        private const byte EXEC_UNIT_SHELLCODE_NATIVE = 0x01;
 
         private const byte ENCRYPTION_TYPE_AES_GCM = 0x02;
         private const string AGENT_TYPE = "CUSTOM";
@@ -142,6 +146,9 @@ namespace DotNetAgent
             parent.AddChild(new TLV(TLV_AGENT_VERSION, BitConverter.GetBytes(AGENT_VERSION)));
             if (_payloadId.HasValue)
                 parent.AddChild(new TLV(TLV_PAYLOAD_ID, BitConverter.GetBytes(_payloadId.Value)));
+            byte[] capabilities = new byte[CAPABILITIES_SELF_EXEC_UNIT_TYPES_OFFSET + 1];
+            capabilities[CAPABILITIES_SELF_EXEC_UNIT_TYPES_OFFSET] = EXEC_UNIT_SHELLCODE_NATIVE;
+            parent.AddChild(new TLV(TLV_CAPABILITIES, capabilities));
             return parent.GetFullBuffer();
         }
 

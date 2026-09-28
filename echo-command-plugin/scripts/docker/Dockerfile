@@ -17,7 +17,7 @@ RUN if ! apt-get update; then \
             /etc/apt/sources.list; \
         apt-get update; \
     fi \
-    && apt-get install -y --no-install-recommends wine \
+    && apt-get install -y --no-install-recommends wine-stable wine64 \
     && rm -rf /var/lib/apt/lists/*
 ENV WINEDEBUG=-all \
     WINEDLLOVERRIDES=mscoree,mshtml= \

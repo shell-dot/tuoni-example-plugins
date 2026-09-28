@@ -57,8 +57,8 @@ standard Unix file utilities. On Windows, run the Make targets from a Linux shel
 in WSL with Docker accessible there; PowerShell and CMD cannot run these recipes.
 The repository's example help targets additionally require GNU `sed` and `column`.
 
-Run `make build` in an individual template folder, `templates/`, or the repository
-root. A template build compiles the C# and Java
+Run `make build` in an individual template folder or `templates/`.
+A template build compiles the C# and Java
 projects inside Docker and extracts the plugin JAR and .NET artifacts to that
 template's `build/` directory. Run `make build-dotnet` in the same locations to
 compile and extract only the C# executable, without building Java or generating
@@ -68,7 +68,7 @@ the extracted artifacts. The templates are skeletons, so the aggregate
 
 The Docker command defaults to `docker`. If your setup requires sudo, use
 `make build DOCKER="sudo docker"`; the same override works for `build-dotnet` and
-is passed through when building from `templates/` or the repository root.
+is passed through when building from `templates/`.
 
 Use `BUILD_DIR="build/custom output"` for another output subdirectory, including
 one with spaces. Paths under `build/` are covered by the template's `.gitignore`.

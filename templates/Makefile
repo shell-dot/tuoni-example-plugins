@@ -10,6 +10,6 @@ help build build-dotnet clean:
 		$(MAKE) -C "$$template" $@; \
 	done
 
-# The repository root invokes install on every immediate child Makefile.
+# Templates are skeletons and are not installed.
 install:
 	@printf '%s\n' 'Templates are skeletons; no template plugin is installed.'

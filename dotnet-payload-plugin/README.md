@@ -33,7 +33,6 @@ dotnet-payload-plugin/
     │   ├── DotnetPayloadPluginTemplate.java      # Payload template & serialization
     │   ├── DotnetPayloadPluginConfiguration.java # Configuration schema
     │   ├── configuration/
-    │   │   ├── JacksonJsonConfiguration.java     # JSON config adapter
     │   │   └── SimpleConfigurationSchema.java    # Schema wrapper
     │   └── utils/
     │       └── ShellcodeUtil.java                # Binary resource loader
@@ -163,9 +162,15 @@ The agent uses a two-layer architecture that separates network communication fro
 - **Listener Shellcode** — a shellcode blob provided by the Tuoni framework at deployment time; handles network communication with the C2 server and relays messages to/from the .NET agent via a named pipe
 - **.NET Agent** — the core payload; receives commands over the named pipe, executes them, and queues results for the listener to pick up
 
+The plugin supports native shellcode exec units only. The server selects this format when the listener supports it. The agent checks the execution format in listener TLV child `0x07` and rejects other formats. Older listener TLVs without child `0x07` still load as shellcode.
+
 ### Payload Identity Metadata
 
 When Tuoni creates a payload, the Java plugin writes the SDK `payloadId` to the optional agent configuration (listener child `0x02`) as an eight-byte, little-endian signed integer. The .NET agent reports the same eight bytes as metadata child `0x43`; this payload-specific field remains separate from the global public-key configuration appended by the listener serializer. Older payloads without the optional configuration remain supported and omit `payloadId`, while a present value must be exactly eight bytes or listener configuration loading fails.
+
+The agent reports metadata capabilities in child `0x44`: the self-process exec-unit bitmap contains only `SHELLCODE_NATIVE`. This lets the server select the Windows shellcode supplied by the example echo commands. The agent does not advertise execution in other processes.
+
+To check listener TLV parsing and command capabilities after building the agent, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File exec-code/tests/ExecUnitTests.ps1` from this directory.
 
 ### Encryption
 

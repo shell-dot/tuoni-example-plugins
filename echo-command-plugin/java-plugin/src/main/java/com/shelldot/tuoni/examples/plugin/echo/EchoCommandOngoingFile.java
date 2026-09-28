@@ -1,13 +1,15 @@
 package com.shelldot.tuoni.examples.plugin.echo;
 
 import com.shelldot.tuoni.plugin.sdk.common.AgentInfo;
-import com.shelldot.tuoni.plugin.sdk.command.CommandContext;
 import com.shelldot.tuoni.plugin.sdk.command.CommandStatus;
 import com.shelldot.tuoni.plugin.sdk.command.ExecUnit;
 import com.shelldot.tuoni.plugin.sdk.command.ExecUnitCommand;
 import com.shelldot.tuoni.plugin.sdk.command.ExecUnitType;
+import com.shelldot.tuoni.plugin.sdk.command.ShellcodeCommand;
 import com.shelldot.tuoni.plugin.sdk.command.result.CommandResultCollection;
 import com.shelldot.tuoni.plugin.sdk.command.result.CommandResultEditor;
+import com.shelldot.tuoni.plugin.sdk.common.AgentMetadata;
+import com.shelldot.tuoni.plugin.sdk.common.ShellCodeWithConf;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.CommandUpdateUnsupportedException;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.ExecutionException;
@@ -17,16 +19,12 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
-public class EchoCommandOngoingFile implements ExecUnitCommand {
+public class EchoCommandOngoingFile implements ExecUnitCommand, ShellcodeCommand {
 
   private final AgentInfo agentInfo;
   private final EchoConfigurationFile echoConfiguration;
 
-  public EchoCommandOngoingFile(
-      int commandId,
-      AgentInfo agentInfo,
-      EchoConfigurationFile echoConfiguration,
-      CommandContext commandContext) {
+  public EchoCommandOngoingFile(AgentInfo agentInfo, EchoConfigurationFile echoConfiguration) {
     this.agentInfo = agentInfo;
     this.echoConfiguration = echoConfiguration;
   }
@@ -41,6 +39,14 @@ public class EchoCommandOngoingFile implements ExecUnitCommand {
       throws SerializationException, ValidationException {
     return EchoPayloads.generate(
         getClass(), "echo-ongoing-file", type, pipeName, agentInfo.getLatestMetadata(),
+        echoConfiguration.serializeForShellcode());
+  }
+
+  @Override
+  public ShellCodeWithConf generateShellCode(String pipeName, AgentMetadata latestAgentMetadata)
+      throws SerializationException, ValidationException {
+    return EchoPayloads.generateShellCode(
+        getClass(), "echo-ongoing-file", pipeName, latestAgentMetadata,
         echoConfiguration.serializeForShellcode());
   }
 

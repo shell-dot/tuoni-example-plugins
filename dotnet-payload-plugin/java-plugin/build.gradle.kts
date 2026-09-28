@@ -14,8 +14,6 @@ dependencies {
   // Tuoni SDK must be included as compile dependency
   // The SDK is provided by the Tuoni server
   compileOnly(libs.tuoni.sdk)
-  // All other dependencies should be included as runtime dependencies
-  implementation(libs.jackson.databind)
 }
 
 // Tuoni plugins support Java 21+

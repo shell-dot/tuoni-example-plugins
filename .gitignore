@@ -417,8 +417,6 @@ FodyWeavers.xsd
 .gradle
 *.class
 **/build/
-/echo-command-plugin/public/
-/tcp-listener-plugin/public/
 !**/gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/

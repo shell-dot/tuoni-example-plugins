@@ -7,6 +7,7 @@ import com.shelldot.tuoni.plugin.sdk.common.AgentMetadata;
 import com.shelldot.tuoni.plugin.sdk.common.Architecture;
 import com.shelldot.tuoni.plugin.sdk.common.OperatingSystem;
 import com.shelldot.tuoni.plugin.sdk.common.PluginIpcType;
+import com.shelldot.tuoni.plugin.sdk.common.ShellCodeWithConf;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.SerializationException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -62,5 +63,23 @@ final class EchoPayloads {
         .configuration(configuration)
         .entrypoint(os == OperatingSystem.LINUX ? "run" : null)
         .build();
+  }
+
+  static ShellCodeWithConf generateShellCode(
+      Class<?> resourceOwner,
+      String commandName,
+      String pipeName,
+      AgentMetadata metadata,
+      ByteBuffer configuration)
+      throws SerializationException {
+    ExecUnit execUnit =
+        generate(
+            resourceOwner,
+            commandName,
+            ExecUnitType.SHELLCODE_NATIVE,
+            pipeName,
+            metadata,
+            configuration);
+    return new ShellCodeWithConf(execUnit.code(), execUnit.configuration(), execUnit.ipcType());
   }
 }

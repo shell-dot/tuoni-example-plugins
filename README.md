@@ -28,7 +28,7 @@ help targets also require GNU `sed` and `column`.
 On Windows, use a Linux shell in WSL with Docker accessible from that environment;
 these Makefile recipes cannot run directly in PowerShell or CMD.
 
-Run these commands from the repository root for all projects, or from an
+Run these commands from the repository root for all example plugins, or from an
 individual project's directory for just that project:
 
 ```sh
@@ -40,15 +40,16 @@ make clean    # Remove build artifacts
 make help     # List available targets
 ```
 
-The root Makefile discovers subdirectory Makefiles automatically, including
-`templates/Makefile`, and stops if a command fails.
+The root Makefile discovers Makefiles in immediate `*-plugin/` directories
+automatically and stops if a command fails. Build templates separately with
+`make -C templates build` or from an individual template directory.
 `make build` builds the echo and TCP Linux execunits inside Docker, exports their
 `.native64_so` files alongside the Windows artifacts, and embeds both platforms
 in each plugin JAR. `make build-linux` runs only the Linux build targets for
 plugins with `exec-code/linux/build_linux.sh`.
 The echo and TCP listener examples use Ubuntu 18.04 amd64 for their native Linux
-and Windows conversion stages, and export artifacts to `public/` by default.
-Other examples and templates retain their `build/` output directory.
+and Windows conversion stages. All examples and templates export artifacts to
+their `build/` output directory by default.
 `make build-dotnet` compiles the C# projects in Docker without building Java
 plugins or generating command and listener shellcode.
 Use `make install PLUGIN_DIR=/path/to/plugins` to choose the server's plugin directory;
@@ -57,7 +58,7 @@ The `install` target requires the `tuoni` command to be available.
 
 All examples and templates use `docker` by default. If your Docker setup requires
 sudo, run `make build DOCKER="sudo docker"` (or use the same override with
-`build-dotnet`, `build-linux`, or `clean`). The override also reaches every project when invoked
+`build-dotnet` or `build-linux`). The override also reaches every example when invoked
 from the repository root.
 
 Use `BUILD_DIR="build/custom output"` to choose a different output subdirectory,

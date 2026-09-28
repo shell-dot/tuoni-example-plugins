@@ -6,8 +6,11 @@ import com.shelldot.tuoni.plugin.sdk.command.CommandStatus;
 import com.shelldot.tuoni.plugin.sdk.command.ExecUnit;
 import com.shelldot.tuoni.plugin.sdk.command.ExecUnitCommand;
 import com.shelldot.tuoni.plugin.sdk.command.ExecUnitType;
+import com.shelldot.tuoni.plugin.sdk.command.ShellcodeCommand;
 import com.shelldot.tuoni.plugin.sdk.command.result.CommandResultCollection;
 import com.shelldot.tuoni.plugin.sdk.command.result.CommandResultEditor;
+import com.shelldot.tuoni.plugin.sdk.common.AgentMetadata;
+import com.shelldot.tuoni.plugin.sdk.common.ShellCodeWithConf;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.CommandUpdateUnsupportedException;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.ExecutionException;
@@ -18,7 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
-public class EchoCommandOngoingMoreData implements ExecUnitCommand {
+public class EchoCommandOngoingMoreData implements ExecUnitCommand, ShellcodeCommand {
 
   private final AgentInfo agentInfo;
   private final EchoConfigurationOngoingMoreData echoConfiguration;
@@ -49,6 +52,14 @@ public class EchoCommandOngoingMoreData implements ExecUnitCommand {
       throws SerializationException, ValidationException {
     return EchoPayloads.generate(
         getClass(), "echo-ongoing-more-data", type, pipeName, agentInfo.getLatestMetadata(),
+        echoConfiguration.serializeForShellcode());
+  }
+
+  @Override
+  public ShellCodeWithConf generateShellCode(String pipeName, AgentMetadata latestAgentMetadata)
+      throws SerializationException, ValidationException {
+    return EchoPayloads.generateShellCode(
+        getClass(), "echo-ongoing-more-data", pipeName, latestAgentMetadata,
         echoConfiguration.serializeForShellcode());
   }
 
