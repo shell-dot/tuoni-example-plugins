@@ -4,10 +4,10 @@
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
-    <ProjectGuid>{12D68607-4A8C-4F49-985C-E0EA3DF43B2E}</ProjectGuid>
+    <ProjectGuid>{F2DFB624-6F58-42CC-B4CF-9C245E68DA61}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>ListenerExecUnitTemplate</RootNamespace>
-    <AssemblyName>listener-execunit-template</AssemblyName>
+    <RootNamespace>CommandExecUnitTemplate</RootNamespace>
+    <AssemblyName>command-execunit-template</AssemblyName>
     <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <OutputPath>bin\$(Configuration)\</OutputPath>
@@ -28,12 +28,12 @@
     <Compile Include="Program.cs" />
     <Compile Include="exec-unit-utils\TLV.cs" />
     <Compile Include="exec-unit-utils\CommunicationNamedPipes.cs" />
-    <Compile Include="exec-unit-utils\CommunicationNamedPipesListener.cs" />
+    <Compile Include="exec-unit-utils\CommunicationNamedPipesCommand.cs" />
     <None Include="App.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>$(SolutionDir)donut.exe -z 1 -e 1 -o "$(TargetDir)$(TargetName).shellcode" -i "$(TargetPath)"
-copy "$(TargetDir)$(TargetName).shellcode" "$(SolutionDir)../java-plugin/src/main/resources/listener.shellcode"</PostBuildEvent>
+copy "$(TargetDir)$(TargetName).shellcode" "$(SolutionDir)../../java-plugin/src/main/resources/command.shellcode"</PostBuildEvent>
   </PropertyGroup>
 </Project>
