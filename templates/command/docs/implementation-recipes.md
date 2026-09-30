@@ -31,6 +31,8 @@ Read root context first. Resolve generated names from the source map; paths belo
 
 In the fresh scaffold, the Windows branches of `TemplateCommandTemplate.canSendToAgent` and `TemplateCommand.supportedTypes` check only the OS. During step 6, restrict both to the process architectures supported by the built artifact (X86/X64 for the existing Windows shellcode), and retain the same guard in direct generation calls. ARM or unknown architecture must not select that resource implicitly.
 
+Before declaring steps 4-5 complete, apply the [host process and unload requirements](native-runtime.md#host-process-and-unload-requirements): the host stays alive, all owned workers/callbacks end before entrypoint return, and the relevant lifecycle checks pass. Repair helper lifetime issues on the implemented path; copied examples do not establish safety.
+
 Do not stop at a schema, native function, or compiling Java class: steps 3-5 form one user-visible path. For an existing plugin, keep working portions and apply the checkpoints only to the requested change.
 
 
