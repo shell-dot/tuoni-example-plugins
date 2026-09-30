@@ -6,9 +6,9 @@ BUILD_DIR := build
 JAR_NAME := listener-plugin-template-0.0.1.jar
 EXEC_NAME := listener-execunit-template
 
-.PHONY: help build build-dotnet clean
+.PHONY: help build build-dotnet build-linux clean
 help:
-	@printf '%s\n' 'make build         Build the listener execunit and plugin JAR with Docker' 'make build-dotnet  Build only the .NET listener executable with Docker' 'make clean         Remove the extracted build artifacts'
+	@printf '%s\n' 'make build         Build both listener execunits and the plugin JAR with Docker' 'make build-dotnet  Build only the .NET listener executable with Docker' 'make build-linux   Build only the Linux x64 native execunit with Docker' 'make clean         Remove the extracted build artifacts'
 
 build:
 	@mkdir -p -- "$(BUILD_DIR)"
@@ -17,7 +17,7 @@ build:
 		--target artifacts \
 		--output "type=local,dest=$(BUILD_DIR)/" \
 		.
-	@printf '%s\n' "Built $(BUILD_DIR)/$(JAR_NAME)" "Built $(BUILD_DIR)/$(EXEC_NAME).exe" "Built $(BUILD_DIR)/$(EXEC_NAME).shellcode"
+	@printf '%s\n' "Built $(BUILD_DIR)/$(JAR_NAME)" "Built $(BUILD_DIR)/$(EXEC_NAME).exe" "Built $(BUILD_DIR)/$(EXEC_NAME).shellcode" "Built $(BUILD_DIR)/listener-linux.native64_so"
 
 build-dotnet:
 	@mkdir -p -- "$(BUILD_DIR)"
@@ -27,6 +27,15 @@ build-dotnet:
 		--output "type=local,dest=$(BUILD_DIR)/" \
 		.
 	@printf '%s\n' "Built $(BUILD_DIR)/$(EXEC_NAME).exe"
+
+build-linux:
+	@mkdir -p -- "$(BUILD_DIR)" exec-code/linux/build
+	DOCKER_BUILDKIT=1 $(DOCKER) build \
+		-f scripts/docker/Dockerfile \
+		--target linux-artifacts \
+		--output "type=local,dest=exec-code/linux/build/" \
+		.
+	cp exec-code/linux/build/listener-linux.native64_so "$(BUILD_DIR)/"
 
 clean:
 	@set -eu; \

@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
-/** Loads a packaged execunit and replaces its fixed pipe-name placeholder. */
+/** Loads packaged execunits and patches the Windows pipe-name placeholder. */
 final class ShellcodeResource {
 
   private static final byte[] PIPE_PLACEHOLDER =
@@ -25,16 +25,8 @@ final class ShellcodeResource {
       throw new SerializationException("Pipe name must match the placeholder length");
     }
 
-    byte[] shellcode;
-    try (InputStream resource = owner.getResourceAsStream(resourcePath)) {
-      if (resource == null) {
-        throw new SerializationException("Missing shellcode resource: " + resourcePath);
-      }
-      shellcode = resource.readAllBytes();
-    } catch (IOException e) {
-      throw new SerializationException("Failed to read shellcode resource: " + resourcePath, e);
-    }
-
+    ByteBuffer payload = read(owner, resourcePath);
+    byte[] shellcode = payload.array();
     boolean replaced = false;
     for (int offset = indexOf(shellcode, PIPE_PLACEHOLDER, 0);
         offset >= 0;
@@ -45,7 +37,19 @@ final class ShellcodeResource {
     if (!replaced) {
       throw new SerializationException("Pipe-name placeholder missing from " + resourcePath);
     }
-    return ByteBuffer.wrap(shellcode).order(ByteOrder.LITTLE_ENDIAN);
+    return payload;
+  }
+
+  /** Linux loaders pass FIFO paths to the native run export; no byte patch is needed. */
+  static ByteBuffer read(Class<?> owner, String resourcePath) throws SerializationException {
+    try (InputStream resource = owner.getResourceAsStream(resourcePath)) {
+      if (resource == null) {
+        throw new SerializationException("Missing execunit resource: " + resourcePath);
+      }
+      return ByteBuffer.wrap(resource.readAllBytes()).order(ByteOrder.LITTLE_ENDIAN);
+    } catch (IOException e) {
+      throw new SerializationException("Failed to read execunit resource: " + resourcePath, e);
+    }
   }
 
   private static int indexOf(byte[] bytes, byte[] sought, int start) {

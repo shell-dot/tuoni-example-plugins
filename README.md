@@ -5,7 +5,7 @@ Welcome to the Tuoni Plugin Examples repository!
 This repository contains example plugins for the [Tuoni](https://github.com/shell-dot/tuoni) Command and Control (C2) framework. \
 Each plugin consists of two parts:
 
-1. **Execution codes and agent executables**: Written in C# .NET framework (`exec-code/`).
+1. **Execution codes and agent executables**: Windows C# and, where supported, Linux C++ (`exec-code/`).
 2. **Server Plugin** (`java-plugin/`): Written in Java against the Tuoni plugin SDK, requiring Java 21+ and Gradle for building.
 
 ## Table of Contents
@@ -16,12 +16,13 @@ Each plugin consists of two parts:
     - [Building the Server Plugin](#building-the-server-plugin)
 - [Plugins](#plugins)
 - [Skeleton Templates](#skeleton-templates)
+- [Create a Plugin from a Template](#create-a-plugin-from-a-template)
 
 ## Getting Started
 
 ### Building with Docker
 
-Each example and template includes a Makefile that builds its .NET component and Java plugin inside Docker.
+Each example and template includes a Makefile that builds its execunits and Java plugin inside Docker.
 Run the Makefiles from a Linux shell with GNU Make, Docker configured for Linux
 containers, and standard Unix file utilities (`mkdir`, `rm`, and `cp`). The example
 help targets also require GNU `sed` and `column`.
@@ -47,6 +48,8 @@ automatically and stops if a command fails. Build templates separately with
 `.native64_so` files alongside the Windows artifacts, and embeds both platforms
 in each plugin JAR. `make build-linux` runs only the Linux build targets for
 plugins with `exec-code/linux/build_linux.sh`.
+The command and listener templates also provide Linux x64 C++ execunits and a
+`make build-linux` target. Their Java plugin JARs include both platforms.
 The echo and TCP listener examples use Ubuntu 18.04 amd64 for their native Linux
 and Windows conversion stages. All examples and templates export artifacts to
 their `build/` output directory by default.
@@ -88,7 +91,8 @@ On Windows PowerShell, run:
 .\gradlew.bat assemble
 ```
 This command will compile the Java code for Java 21 and build the server plugin.
-Build the C# component first where required; see each plugin's README for its build order.
+Build the Windows C# and Linux C++ components first where required; see each
+plugin's README for its build order.
 
 ## Plugins
 
@@ -111,8 +115,20 @@ Here is a list of the example plugins included in this repository:
 The [templates](templates/README.md) folder contains minimal starting points for
 [command](templates/command/README.md), [listener](templates/listener/README.md),
 and [payload](templates/payloads/README.md) plugins. Each includes a Java server
-plugin skeleton, a C# `exec-code` skeleton, build files, and customization notes.
+plugin skeleton, Windows C# execunit code, build files, and customization notes.
+The command and listener templates keep Windows code in `exec-code/win/` and Linux
+C++ code in `exec-code/linux/`.
 Behavior is left as TODO hooks so you can start without the examples' business logic.
+
+## Create a Plugin from a Template
+
+The repository provides `new-command` and `new-listener` skills for Codex CLI and
+Claude Code. In Codex, invoke `$new-command` or `$new-listener`; in Claude Code,
+invoke `/new-command` or `/new-listener`. Give a name and optional destination
+folder. Without a folder, the skill creates `command_<name>` or `listener_<name>`
+in the current directory. The skills use `tools/scaffold_plugin.py` to copy the
+appropriate template and rename its Java, Windows, Linux, and build identifiers.
+They leave the behavior TODO hooks for you to implement.
 
 ---
 
