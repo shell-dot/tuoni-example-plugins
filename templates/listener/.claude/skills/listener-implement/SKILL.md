@@ -9,6 +9,8 @@ Use this skill in the listener plugin root containing `java-plugin/` and `exec-c
 
 Start with [the implementation recipes](../../../docs/implementation-recipes.md): select the transport shape, fill in the small contract, and follow the minimum complete implementation in order. Direct streams, HTTP polling, relays, and external controllers have different Java/native ownership. Choose the matching shape before adapting a reference. A simple direct listener needs configuration, IPC, transport, SDK handoffs, and lifecycle; add telemetry, jobs, rotation, uploads, and live updates only when requested or required by existing behavior.
 
+**Exec-unit safety is mandatory.** The host may unload the code immediately when `Main` / `run` returns. Never crash, stop, or terminate the host process. Contain failures, and leave no invocation-owned thread, task, timer, queued work, or callback running or callable after return. Cancel, unblock, unregister, drain, and join/await before releasing shared state. Detaching a worker, marking it as background, or timing out its wait does not prove completion. When changing exec-unit code, read and apply the [host process and unload requirements](../../../docs/native-runtime.md#host-process-and-unload-requirements), including their verification checks.
+
 ## Establish the contract
 
 Read the plugin-root `AGENTS.md` and `CLAUDE.md` when present and follow the [context maintenance guide](../../../docs/project-context.md). Verify recorded facts against the source before using them. Work in the existing plugin; creating another scaffold is not part of this skill.
@@ -33,6 +35,7 @@ A focused skill may report behavior outside its scope as remaining work. Here, c
 
 ## Integrate and verify
 
+- Treat the [lifecycle verification](../../../docs/native-runtime.md#required-lifecycle-verification) as a completion gate for every in-scope exec-unit. Repair unsafe worker/callback lifetimes in selected helpers, including reused code. Keep the entrypoint alive through shutdown; a terminal message or cancellation request does not make the code safe to unload.
 - Trace schema and validation through listener creation, both exec-unit generation paths, native configuration decoding, local-agent IPC, native-to-Java transport, Java receive/dispatch handling, output, and cleanup. Resolve remaining scaffold TODOs on that path, including helper stubs and unconditional validation failures. Prove metadata-only registration, an agent request, and a returned queued command; a bound endpoint alone is not a complete listener. Preserve explicit unsupported behavior for features outside the requested contract.
 - Keep the local-agent pipe/FIFO separate from the listener's application transport. `ExecUnitListener` has no command-style `parseResult`; follow the [Java listener walkthrough](../../../docs/listener-java.md) for actual receive hooks and lifecycle ownership. Base Java resource status on owned resources and remote health on received observations. Trace supported updates through delivery and application, including rollback on failure.
 - Keep Windows source lists, Linux source lists, Java dependencies, support declarations, and packaged resource names aligned with the implementation. Preserve the pipe-name placeholder and native entrypoints as required by the focused skills.

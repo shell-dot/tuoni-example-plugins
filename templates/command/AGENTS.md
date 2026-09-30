@@ -12,6 +12,10 @@ This is the initial scaffold snapshot. When editing the source template itself, 
 - Existing exec-units: Windows shellcode and Linux x64 native library. Both remain in scope unless the user limits the task. Advertised support does not establish runtime readiness.
 - The scaffold's Windows capability checks currently filter by OS only. Reconcile process-architecture guards with actual artifacts during implementation; this scaffold does not establish ARM or unknown-architecture support.
 
+## Required exec-unit safety
+
+Exec-units share the host process, and their code may be unloaded immediately after `Main` / `run` returns. They must never crash or terminate that process. Before any return, cancel and unblock owned work, unregister/drain callbacks, join/await all workers, and only then release shared state. No invocation-owned background activity may survive. Apply the [host process and unload requirements](docs/native-runtime.md#host-process-and-unload-requirements), including to reused helpers. These are implementation requirements; the fresh scaffold has not passed lifecycle or unload verification.
+
 ## Source map
 
 | Responsibility | File / method |
