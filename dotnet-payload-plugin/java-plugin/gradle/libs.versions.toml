@@ -1,0 +1,5 @@
+[versions]
+tuoni = "0.15.0"
+
+[libraries]
+tuoni-sdk = { module = "com.shelldot:tuoni-plugin-sdk", version.ref = "tuoni" }
