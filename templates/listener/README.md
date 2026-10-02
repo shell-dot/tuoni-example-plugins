@@ -72,6 +72,11 @@ a direct Java build so Gradle can include it.
 Startup, reconfiguration, and updated configuration serialization remain TODO hooks;
 stop and delete only update local status.
 
+Skills build with Docker unless the user explicitly requests another route. If Docker
+is missing or unusable, inform the user and report the blocked build; do not fall
+back to local tools. The local build examples below apply only to an explicitly
+requested non-Docker route.
+
 Open [exec-code/win/listener-execunit.sln](exec-code/win/listener-execunit.sln) in Visual Studio,
 or build the C# skeleton from this folder:
 

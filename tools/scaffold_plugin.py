@@ -18,6 +18,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_WORKSPACE_ROOT = REPO_ROOT / "workspace"
 IGNORED_DIRECTORIES = {".git", ".gradle", ".vs", "bin", "build", "obj", "__pycache__"}
 IGNORED_SUFFIXES = {".class", ".log", ".native64_so", ".pdb", ".pyc", ".shellcode"}
 TEXT_SUFFIXES = {".config", ".cpp", ".cs", ".csproj", ".h", ".java", ".kt", ".kts", ".md", ".sh", ".sln"}
@@ -146,7 +147,7 @@ def scaffold(kind: str, name: str | None, folder: str | None) -> tuple[Path, str
     if not source.is_dir():
         raise FileNotFoundError(f"Missing {kind} template: {source}")
 
-    destination = Path(folder) if folder is not None else Path.cwd() / f"{kind}_{slug}"
+    destination = Path(folder) if folder is not None else DEFAULT_WORKSPACE_ROOT / f"{kind}s" / slug
     destination = destination.resolve()
     if destination.exists():
         raise FileExistsError(f"Destination already exists: {destination}")
@@ -175,7 +176,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("kind", choices=("command", "listener"))
     parser.add_argument("--name", help="Plugin name; words are normalized for identifiers")
-    parser.add_argument("--folder", help="Exact destination directory; must not already exist")
+    parser.add_argument(
+        "--folder",
+        help=(
+            "Exact destination directory; relative paths use the current working directory. "
+            "Defaults to this repository's workspace/{commands,listeners}/<normalized-name>. "
+            "The destination must not already exist."
+        ),
+    )
     args = parser.parse_args()
     try:
         destination, slug = scaffold(args.kind, args.name, args.folder)

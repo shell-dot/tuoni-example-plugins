@@ -19,6 +19,8 @@ The native helpers retain the host-controlled protocol below. Their `TLV.cs` and
 
 ## Connection and framing
 
+For configuration-frame errors or IPC changes, follow the [byte-verification and diagnosis guide](payload-verification.md). Compare the Java producer bytes with the bytes actually returned by the native connection helper before changing field parsing. Verify the initial envelope shape against the actual compatible host; later message IDs do not establish its tag or parent/leaf flag.
+
 These conventions describe the bundled helpers. Verify any changes against the plugin's current host/SDK version.
 
 - Windows uses one duplex named pipe. Open a `NamedPipeClientStream` for the patched pipe name, then read the initial frame. The Windows examples do not send the Linux readiness byte. Keep the UTF-16LE `QQQWWWEEE` placeholder and its encoded length compatible with `ShellcodeResource`.

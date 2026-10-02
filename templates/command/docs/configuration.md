@@ -210,6 +210,10 @@ In C#, `new System.Text.UTF8Encoding(false, true).GetString(bytes)` rejects malf
 
 ## Verify the complete handoff
 
+Apply the [Java artifact and initialization gate](java-verification.md) whenever this configuration work introduces or changes Java code/dependencies. Verify the exported JAR contains the parser and its transitive runtime classes, including `tools/jackson/core/JacksonException.class` for Jackson 3, then exercise real provider initialization and valid/invalid factory calls with an isolated loader. Tests against Gradle's normal runtime classpath do not establish that the delivered JAR can load.
+
+Apply the [byte-verification gate](payload-verification.md) before declaring this handoff complete. Assert position zero and exact payload limit on both Java generation paths and supported updates. Test real Java-produced bytes against every native decoder, then through the actual native connection helper with verified startup framing; parser-only fixtures bypass that failure-prone boundary. Check a native response through the real Java receiver as well.
+
 Verify factory creation with valid/invalid JSON and each decoder against the agreed bytes. For the five-byte example include defaulted false, minimum/maximum attempts, wrong lengths and invalid boolean values. For text include Unicode, empty text when allowed, malformed encodings and the byte limit. For uploads verify both metadata and actual bytes arrive, including the accepted empty-file case.
 
 Exercise both generation methods: equal payload bytes and independent buffer positions should emerge. Run native result fixtures through Java to check the return path. `validateConfiguration`, `createCommand` and supported updates report field errors as `ValidationException`; encoding/resource failures use `SerializationException`. Keep unavailable platform/runtime checks explicit.

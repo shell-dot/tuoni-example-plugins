@@ -6,7 +6,7 @@ Read this when implementing `parseResult` in `java-plugin/src/main/java/com/exam
 
 Decode the format agreed with each native sender: raw UTF-8 for simple text, JSON when structured data and parser dependencies warrant it, or an explicit binary layout for fields/files. The SDK delivers inner payload bytes after host framing; Java requires no host-envelope codec. Use standard Java text/byte APIs for raw payloads and declare/bundle any JSON parser in the plugin build.
 
-Validate field types, lengths, size limits and malformed text before publishing. For chunked records, retain incomplete bytes until a whole record is available, then parse it; reject an incomplete record at final notification. For file results, pass the actual file bytes to the result editor. Native helpers own error/completion messages separately from successful payloads.
+Validate field types, lengths, size limits and malformed text before publishing. For chunked records, retain incomplete bytes until a whole record is available, then parse it; reject an incomplete record at final notification. For file results, pass the actual file bytes to the result editor. Native helpers own error/completion messages separately from successful payloads. Apply the [command completion gate](command-completion.md): even an empty result needs terminal success, and failed encoding must reach terminal failure. Error text and `isFinalResult` are not terminal success/failure reports; test the host's final command state as well as displayed output.
 
 ## State ownership and multipart results
 
@@ -120,5 +120,7 @@ Place the helper in the same Java package (or adapt an existing parser), retain 
 For structured streams, keep at most the agreed maximum incomplete record, process complete records once, and retain only the suffix. On the final call reject a remaining incomplete header/body. For file streams, append the actual content bytes under the agreed file name; exclude any application metadata and do not decode file bytes as text. Configure ongoing/block-relay options before native sends, as described in the IPC reference.
 
 ## Focused checks
+
+Use the [two-level payload verification](payload-verification.md) to prove each native encoder agrees with the actual Java parser and the real transport delivers the expected inner bytes. Retest startup configuration when output changes affect shared helpers or resources; the final integrated smoke check covers both directions.
 
 Send fixtures from each native encoder into the Java parser. Include direct/read-only/sliced buffers, empty data, two chunks splitting a multibyte character or record, malformed text/lengths, an empty final notification, and a truncated final record where applicable. Assert accumulated text/file bytes and entry names, not only that parsing returns. For the UTF-8 helper above, the chunks `41 E2`, `82`, `AC 42`, then an empty final chunk must produce `A`, empty text, `\u20acB`, then empty text; `E2` followed by a final empty chunk must fail.

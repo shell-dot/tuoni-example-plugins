@@ -224,6 +224,10 @@ For example, `U+00E9` encodes as `c3 a9`: two bytes, one character. Test a multi
 
 ## Verify the complete handoff
 
+Apply the [Java artifact and initialization gate](java-verification.md) whenever this configuration work introduces or changes Java code/dependencies. Verify the exported JAR contains the parser and its transitive runtime classes, including `tools/jackson/core/JacksonException.class` for Jackson 3, then exercise real provider initialization and valid/invalid factory calls with an isolated loader. Tests against Gradle's normal runtime classpath do not establish that the delivered JAR can load.
+
+Apply the [byte-verification gate](payload-verification.md) before declaring this handoff complete. Assert position zero and exact payload limit on both Java generation paths and supported updates. Test real Java-produced bytes against every native decoder, then through the actual native connection helper with verified startup framing; parser-only fixtures bypass that failure-prone boundary. Check a native response through the real Java receiver as well.
+
 Verify Java encoder output and both native decoders against the five-byte fixture when using this example. Check field values, defaulted enabled=false, minimum/maximum attempts, wrong length, out-of-range values, and invalid boolean bytes. Exercise the actual factory and both generation methods: equal inner payloads and independently readable buffers should emerge from each call. For another chosen format, make a fixture for its actual contract instead of changing it to match this example.
 
 `serializeUpdatedConfiguration`, `generateExecUnit`, and `generateShellCode` permit `SerializationException`, not `ValidationException`. Parse initial input at the factory boundary; wrap candidate validation failures where only serialization errors are permitted, for example `throw new SerializationException("Invalid listener configuration", error);`. Do not widen the SDK method signatures or swallow the failure.
