@@ -41,6 +41,7 @@ Every implemented invocation must reach one completion owner. Before closing a u
 
 ## Logic and output status
 
+- Inline comments describe the unfinished Java and native hooks, including configuration handoff, result framing, completion, and resource ownership. They are implementation guidance; the TODOs and stub behavior remain in place.
 - Windows `Program` and IPC helper implementations are stubs; pipe ownership must span initialization, execution, reporting, and cleanup.
 - Linux connects and reports an unimplemented-command failure; command behavior remains TODO.
 - `parseResult` is unimplemented. There is no established result payload or presentation contract yet. Command updates explicitly report unsupported.

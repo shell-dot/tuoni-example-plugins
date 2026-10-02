@@ -5,6 +5,9 @@ COPY exec-code/ .
 RUN msbuild payload.csproj /p:Configuration=Release
 
 # Build the Java plugin; payload serialization remains a TODO in this template.
+# This stage compiles the server-side builder separately from the payload program above.
+# If serialization needs bundled program bytes, add an explicit resource-copy/package step
+# matching the loader used by TemplatePayload; exporting an EXE does not embed it in this JAR.
 FROM eclipse-temurin:21-jdk AS java-build
 WORKDIR /build
 COPY java-plugin/ java-plugin/
