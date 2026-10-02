@@ -10,6 +10,8 @@ The native pipe/FIFO helpers wrap outgoing payloads and unwrap incoming envelope
 
 ## Connection and framing
 
+For configuration-frame errors or IPC changes, follow the [byte-verification and diagnosis guide](payload-verification.md). Compare the Java producer bytes with the bytes actually returned by the native connection helper before changing field parsing. Verify the initial envelope shape against the actual compatible host; later message IDs do not establish its tag or parent/leaf flag.
+
 These conventions describe the bundled helpers. Verify any changes against the plugin's current host/SDK version.
 
 - Windows uses one duplex named pipe. Open a `NamedPipeClientStream` for the patched pipe name, then read the initial frame. The Windows examples do not send the Linux readiness byte. Keep the UTF-16LE `QQQWWWEEE` placeholder and its encoded length compatible with `ShellcodeResource`.
@@ -25,12 +27,18 @@ Types in this table are logical IDs, before adding the parent flag.
 
 | Direction | Type | Value / handling |
 | --- | --- | --- |
-| Exec-unit to agent | `0x30` | Result bytes; `sendResult`. Java receives the result payload in `TemplateCommand.parseResult`. |
+| Exec-unit to agent | `0x30` | Result bytes; `sendResult`. Java receives the result payload in `TemplateCommand.parseResult`. This is not terminal completion. |
 | Exec-unit to agent | `0x31` parent | Command handling options, described below. |
-| Exec-unit to agent | `0x32` | UTF-8 error bytes; `sendError`. |
-| Exec-unit to agent | `0x33` / `0x34` | Empty success / failure completion. Send exactly one terminal outcome. Existing helpers encode these as an empty leaf or empty parent; keep host compatibility. |
+| Exec-unit to agent | `0x32` | UTF-8 error bytes; `sendError`. Error text is not failure completion. |
+| Exec-unit to agent | `0x33` / `0x34` | Empty success / failure completion. One owner must send exactly one checked terminal outcome on every path with a usable connection, including successful commands with no output. Existing helpers encode these as an empty leaf or empty parent; keep host compatibility. |
 | Agent to exec-unit | `0x39` | Update bytes from `serializeCommandUpdate`; dispatch to the registered update callback. |
 | Agent to exec-unit | `0x3f` | Stop request; signal cancellation and finish within the advertised grace period. |
+
+Use [one completion owner and checked finalization](command-completion.md#one-owner-and-checked-finalization). Every success, failure, cancellation, and early return must reach that owner; logs, return codes, `sendResult`, `sendError`, and Java's `isFinalResult` do not replace terminal reporting. Resolve operation-worker/callback failures and drain required result writes before choosing success. Keep the connection and any transport work needed to finish reporting alive until the terminal send completes or fails, then perform the remaining [shutdown sequence](native-runtime.md#shutdown-sequence). No result frames may follow the terminal frame.
+
+Result/error/terminal writes are fallible, but terminal completion is mandatory while the channel is usable. Error text is optional and bounded; text encoding/allocation failure must not suppress failure completion. Propagate actual complete-frame write/flush outcomes: the bundled Linux `void` send methods discard `putData` failures, and `putData` accepts short writes; repair them when implementing the command. The Windows methods are stubs until implemented. A successful local write does not prove host receipt or acknowledgement. Verify terminal frames and the host's final state with the [completion regression checks](command-completion.md#required-completion-tests); do not add an invented acknowledgement message.
+
+Protect all FIFO writes, including the initial readiness byte, against host-terminating `SIGPIPE`; a C++ catch does not catch this signal. Continue recoverable short writes from the unwritten offset; an unrecoverable transport error or a frame abandoned after partial emission makes the stream unusable and ends further reporting on that connection. Do not retry the terminal frame blindly, append a failure frame after a partial success frame, or retry indefinitely. Always reach the [failure-path cleanup gate](native-runtime.md#failure-path-cleanup-before-return). When startup fails before a reporting channel exists or the peer disconnects, native delivery is impossible: verify the actual compatible host converts that loss into a visible failed command instead of leaving it running indefinitely, and report unverified or missing host handling explicitly. Do not claim a completion was delivered in these cases.
 
 For example, the UTF-8 payload `A` is the single byte `41`. Calling `sendResult` with that byte makes the native helper write `06 00 00 00 30 01 00 00 00 41`: a four-byte frame length, the host result envelope, and one payload byte. Java receives only `41`.
 

@@ -1,7 +1,9 @@
 #!make
 .DEFAULT_GOAL := help
 
-DOCKER ?= docker
+# The runner uses sudo only when the local Docker socket denies access.
+# An explicit DOCKER override bypasses automatic detection.
+DOCKER ?= sh scripts/docker/run-docker.sh
 BUILD_DIR := build
 JAR_NAME := payload-plugin-template-0.0.1.jar
 EXEC_NAME := payload-template

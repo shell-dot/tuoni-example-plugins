@@ -82,9 +82,16 @@ the same location to remove the extracted artifacts. The templates are
 skeletons, so the aggregate
 `make install` target does not install them.
 
-The Docker command defaults to `docker`. If your setup requires sudo, use
-`make build DOCKER="sudo docker"`; the same override works for `build-dotnet`
-and `build-linux`, and is passed through when building from `templates/`.
+The default Docker runner checks access when a build runs and automatically uses
+`sudo` if the local socket denies permission, including users outside the Docker
+group. Sudo may prompt for authentication. Accessible Docker/rootless setups run
+directly; missing Docker, unavailable daemons and remote failures are reported.
+The runner preserves the selected socket and BuildKit setting.
+
+An explicit `DOCKER=...` override bypasses detection; for example,
+`make build DOCKER="sudo env DOCKER_BUILDKIT=1 docker"` forces sudo. Overrides also
+work for `build-dotnet` and `build-linux` and propagate from `templates/`.
+Help, clean and dry runs do not probe Docker.
 
 Use `BUILD_DIR="build/custom output"` for another output subdirectory, including
 one with spaces. Paths under `build/` are covered by the template's `.gitignore`.
@@ -93,7 +100,10 @@ Reserve it for generated files: `make clean` removes the entire directory,
 including outputs from previous versions or project names. Cleanup requires the
 resolved output directory to be a subdirectory of the project.
 
-To build directly without Docker, follow the steps below.
+Command/listener skills always use Docker unless the user explicitly requests
+another build route. If Docker is missing or unusable, inform the user and report
+the blocked build instead of falling back to local tools. The direct build steps
+below apply to skills only with that explicit override.
 
 Java requires **JDK 21+**. Each folder includes the repository's Gradle wrapper;
 the first build needs network access to obtain Gradle and the SDK dependencies.

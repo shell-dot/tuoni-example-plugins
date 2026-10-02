@@ -29,7 +29,7 @@ These files do not exist until implemented. Gradle compiles new Java sources und
 
 ## SDK receive and command-send recipe
 
-Use the current SDK signatures; the following calls are available in SDK 0.15.0. Import `Agent`, `SerializedCommand`, and `SendStatus` from `com.shelldot.tuoni.plugin.sdk.listener`.
+Follow [Java verification](java-verification.md) for dependency ownership, packaged-JAR loading and actual startup order. The reviewed host reads listener examples/schema before `init`; metadata must not require initialized context. Use the current SDK signatures; the following calls are available in SDK 0.15.0. Import `Agent`, `SerializedCommand`, and `SendStatus` from `com.shelldot.tuoni.plugin.sdk.listener`.
 
 1. Decode one complete, bounded application message. Keep its opaque agent metadata and request bytes separate from custom telemetry.
 2. Call `listenerContext.readMetadata(ByteBuffer.wrap(metadataBytes))`. It returns `Optional<AgentMetadata>`; an empty value is invalid metadata, not a new agent with default fields.

@@ -7,7 +7,9 @@ import re
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+import scaffold_plugin
 from scaffold_plugin import REPO_ROOT, scaffold
 
 
@@ -16,6 +18,10 @@ class ScaffoldPluginTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix=".scaffold-check-", dir=REPO_ROOT)
         self.output_root = Path(self.temporary.name).resolve()
         self.assertTrue(self.output_root.is_relative_to(REPO_ROOT))
+        self.workspace_root = self.output_root / "workspace"
+        self.workspace_patch = patch.object(scaffold_plugin, "DEFAULT_WORKSPACE_ROOT", self.workspace_root)
+        self.workspace_patch.start()
+        self.addCleanup(self.workspace_patch.stop)
 
     def tearDown(self) -> None:
         self.assertTrue(self.output_root.is_relative_to(REPO_ROOT))
@@ -24,12 +30,12 @@ class ScaffoldPluginTests(unittest.TestCase):
     def test_named_command_in_default_folder(self) -> None:
         original_cwd = Path.cwd()
         try:
-            os.chdir(self.output_root)
+            os.chdir(REPO_ROOT.parent)
             destination, slug = scaffold("command", "Port Scan", None)
         finally:
             os.chdir(original_cwd)
         self.assertEqual(slug, "port-scan")
-        self.assertEqual(destination, self.output_root / "command_port-scan")
+        self.assertEqual(destination, self.workspace_root / "commands/port-scan")
 
         java_root = destination / "java-plugin/src/main/java/com/example/tuoni/command/port_scan"
         template = java_root / "PortScanCommandTemplate.java"
@@ -64,6 +70,63 @@ class ScaffoldPluginTests(unittest.TestCase):
         self.assertIn("command-plugin-port-scan-0.0.1.jar", (destination / "Makefile").read_text(encoding="utf-8"))
         self.assertNotIn("../README.md", (destination / "README.md").read_text(encoding="utf-8"))
 
+    def test_named_listener_in_default_folder(self) -> None:
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(REPO_ROOT.parent)
+            destination, slug = scaffold("listener", "Event Relay", None)
+        finally:
+            os.chdir(original_cwd)
+        self.assertEqual(slug, "event-relay")
+        self.assertEqual(destination, self.workspace_root / "listeners/event-relay")
+        self.assertTrue(
+            (destination / "java-plugin/src/main/java/com/example/tuoni/listener/event_relay/EventRelayListener.java").is_file()
+        )
+
+    def test_default_reuses_existing_workspace_and_category_directories(self) -> None:
+        for kind in ("command", "listener"):
+            with self.subTest(kind=kind):
+                category = self.workspace_root / f"{kind}s"
+                sibling = category / "existing-plugin"
+                sibling.mkdir(parents=True)
+                marker = sibling / "keep.txt"
+                marker.write_text("existing plugin", encoding="utf-8")
+                destination, slug = scaffold(kind, "Another Plugin", None)
+                self.assertEqual((destination, slug), (category / "another-plugin", "another-plugin"))
+                self.assertEqual(marker.read_text(encoding="utf-8"), "existing plugin")
+
+    def test_explicit_destination_overrides_workspace_default(self) -> None:
+        invocation = self.output_root / "invocation"
+        invocation.mkdir()
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(invocation)
+            for kind in ("command", "listener"):
+                for relative in (True, False):
+                    with self.subTest(kind=kind, relative=relative):
+                        folder = Path("chosen") / f"{kind}-relative" if relative else self.output_root / f"{kind}-absolute"
+                        expected = (invocation / folder).resolve() if relative else folder
+                        destination, slug = scaffold(kind, "Explicit Name", str(folder))
+                        self.assertEqual((destination, slug), (expected, "explicit-name"))
+                        self.assertTrue((destination / "AGENTS.md").is_file())
+        finally:
+            os.chdir(original_cwd)
+        self.assertFalse(self.workspace_root.exists())
+
+    def test_default_destination_refuses_overwrite(self) -> None:
+        for kind in ("command", "listener"):
+            with self.subTest(kind=kind):
+                destination, _ = scaffold(kind, "Keep Plugin", None)
+                marker = destination / "keep.txt"
+                marker.write_text("user changes", encoding="utf-8")
+                java_file = next((destination / "java-plugin/src/main/java").rglob("*.java"))
+                original_source = java_file.read_bytes()
+                with self.assertRaises(FileExistsError):
+                    scaffold(kind, "keep-plugin", None)
+                self.assertEqual(marker.read_text(encoding="utf-8"), "user changes")
+                self.assertEqual(java_file.read_bytes(), original_source)
+                self.assertEqual(list(destination.parent.iterdir()), [destination])
+
     def test_listener_uses_folder_name_and_refuses_overwrite(self) -> None:
         destination = self.output_root / "listener_beacon"
         created, slug = scaffold("listener", None, str(destination))
@@ -83,17 +146,13 @@ class ScaffoldPluginTests(unittest.TestCase):
         self.assertTrue((java_root / "BeaconListener.java").is_file())
 
     def test_missing_name_uses_default(self) -> None:
-        original_cwd = Path.cwd()
-        try:
-            os.chdir(self.output_root)
-            destination, slug = scaffold("command", None, None)
-        finally:
-            os.chdir(original_cwd)
-        self.assertEqual(slug, "new-command")
-        self.assertEqual(destination, self.output_root / "command_new-command")
-        self.assertTrue(
-            (destination / "java-plugin/src/main/java/com/example/tuoni/command/new_command/NewCommand.java").is_file()
-        )
+        for kind in ("command", "listener"):
+            with self.subTest(kind=kind):
+                destination, slug = scaffold(kind, None, None)
+                self.assertEqual(slug, f"new-{kind}")
+                self.assertEqual(destination, self.workspace_root / f"{kind}s" / f"new-{kind}")
+                java_file = f"java-plugin/src/main/java/com/example/tuoni/{kind}/new_{kind}/New{kind.capitalize()}.java"
+                self.assertTrue((destination / java_file).is_file())
 
     def test_reserved_words_and_leading_digits_use_valid_java_packages(self) -> None:
         cases = {
