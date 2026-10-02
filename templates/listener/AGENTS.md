@@ -35,6 +35,7 @@ Exec-units share the host process, and their code may be unloaded immediately af
 
 ## Logic, lifecycle, and output status
 
+- Inline comments describe the unfinished Java and native hooks, including configuration handoff, agent/server data flow, lifecycle, and resource ownership. They are implementation guidance; the TODOs and stub behavior remain in place.
 - Windows `Program` and IPC helpers are stubs. Linux has an exported entry point but no listener transport loop.
 - Java startup, reconfiguration, and configuration-update serialization remain TODO. Stop/delete currently change status without an implemented resource lifecycle; `getInfo()` is placeholder text.
 - No Java connection handler, custom telemetry model, or output contract exists yet. The suggested files in [listener-java.md](docs/listener-java.md) are not existing implementations.

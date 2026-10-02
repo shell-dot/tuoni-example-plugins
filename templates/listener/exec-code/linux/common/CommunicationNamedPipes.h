@@ -28,6 +28,10 @@ private:
     CallbackFunc* callback;
 
 public:
+    // Retain the two local-agent FIFO paths and optional host-message callback;
+    // this constructor does not open descriptors or start a reader. The invocation
+    // owner must connect later and prove close/draining/joining complete before its
+    // state is destroyed; this helper currently has no automatic shutdown destructor.
     CommunicationNamedPipes(const std::string &pipeNameReadIn, const std::string &pipeNameWriteIn, CallbackFunc* callbackIn)
         : pipeNameRead(pipeNameReadIn), pipeNameWrite(pipeNameWriteIn), callback(callbackIn) {}
 

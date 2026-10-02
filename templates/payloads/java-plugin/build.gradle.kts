@@ -20,6 +20,10 @@ tasks.compileJava {
 
 tasks.jar {
   // TODO: Replace the plugin identity before distributing your plugin.
+  // These manifest attributes describe the plugin JAR to Tuoni's plugin loader. Choose a stable,
+  // unique Plugin-Id, set the provider/name/description/URL to identify your distribution, and keep
+  // Plugin-Version aligned with releases. The manifest identifies the plugin; individual payload
+  // template names are defined in Java, and the service provider file identifies its entry class.
   manifest {
     attributes(
         "Plugin-Id" to "example.payload.template",

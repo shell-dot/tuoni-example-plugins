@@ -20,6 +20,11 @@ tasks.compileJava {
 
 tasks.jar {
   // TODO: Replace the plugin identity before distributing your plugin.
+  // Set a unique, stable Plugin-Id and meaningful provider/name/description/URL;
+  // the host uses these manifest entries to identify the installed plugin. Keep
+  // Plugin-Version aligned with project.version and keep renamed Java packages
+  // consistent with the META-INF/services provider entry. Identity changes must
+  // not leave the generated artifact or documentation claiming the template ID.
   manifest {
     attributes(
         "Plugin-Id" to "example.listener.template",

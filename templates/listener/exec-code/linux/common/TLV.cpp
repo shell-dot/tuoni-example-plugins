@@ -7,6 +7,9 @@
 
 TLV::TLV()
 {
+    // An empty decode target uses the member defaults declared in TLV.h. load()
+    // populates it from one host IPC envelope; callers must check that method's
+    // result before accessing a value or required child.
 }
 
 TLV::TLV(UINT8 type)
