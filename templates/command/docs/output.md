@@ -2,6 +2,8 @@
 
 Read this when implementing `parseResult` in `java-plugin/src/main/java/com/example/tuoni/command/TemplateCommand.java`. The buffer contains the result payload after agent IPC handling; do not parse the outer `0x30` frame again. Define the payload contract with every native sender using the [IPC reference](execunit-ipc.md).
 
+The [implemented default](../README.md#default-behavior) sends exact UTF-8 `DONE` (`44 4f 4e 45`), with no newline or terminator. `TemplateCommand.parseResult` strictly decodes each complete nonempty payload using a read-only buffer, calls `appendTextResult("output", text)`, then `commit()`. Empty notifications return without editing results. Keep that simple path for complete text; add stateful reassembly only when the requested output needs split characters or records.
+
 ## Payload formats
 
 Decode the format agreed with each native sender: raw UTF-8 for simple text, JSON when structured data and parser dependencies warrant it, or an explicit binary layout for fields/files. The SDK delivers inner payload bytes after host framing; Java requires no host-envelope codec. Use standard Java text/byte APIs for raw payloads and declare/bundle any JSON parser in the plugin build.

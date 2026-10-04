@@ -7,6 +7,8 @@ description: Change the behavior of an existing Tuoni command in workspace/comma
 
 This is the repository-root router for `command-logic`. Before editing, read and follow the [workspace routing guide](../../../.agents/references/workspace-skills.md). Operate only on an existing command under this repository's `workspace/commands/`.
 
+Consult the routing guide's [current template defaults](../../../.agents/references/workspace-skills.md#current-template-defaults), then verify the selected copy's actual behavior. Extend its implemented helpers and hooks within the user's scope.
+
 Resolve the target from the current prompt or unambiguous conversation context. A sole candidate, a recent timestamp, or a similar name does not identify the user's intended target. If no target is clear, inventory candidates and explain what the user must specify; do not start implementation or create a plugin.
 
 Use the [read-only resolver](../../../tools/resolve_workspace_plugin.py) from the located repository:

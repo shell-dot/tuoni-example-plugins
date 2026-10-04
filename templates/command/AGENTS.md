@@ -2,15 +2,15 @@
 
 Read this file before changing the plugin. After a command, skill, or partial implementation, update the relevant facts here using the [context maintenance guide](docs/project-context.md). Preserve user-authored instructions and replace outdated facts rather than appending a session transcript. The companion CLAUDE.md points here and can hold additional client-specific instructions.
 
-This is the initial scaffold snapshot. When editing the source template itself, keep this snapshot accurate for a fresh copy; verification of the template repository is not verification of a newly generated plugin.
+This is the current source-template snapshot. When editing the source template itself, keep this snapshot accurate for a fresh copy; verification of the template repository is not verification of a newly generated plugin.
 
 ## Purpose and scope
 
 - Command name: `template-command`; plugin ID: `example.command.template`.
 - Java package: `com.example.tuoni.command`.
-- Purpose: named command scaffold; user-requested command behavior has not been implemented.
+- Purpose: working no-op starting point. The default command accepts `{}`, performs no operation, emits `DONE` as UTF-8 result text, and then reports success on a usable connection.
 - Existing exec-units: Windows shellcode and Linux x64 native library. Both remain in scope unless the user limits the task. Advertised support does not establish runtime readiness.
-- The scaffold's Windows capability checks currently filter by OS only. Reconcile process-architecture guards with actual artifacts during implementation; this scaffold does not establish ARM or unknown-architecture support.
+- Capability checks share the same OS/process-architecture guard: Windows X86/X64 shellcode (the bundled converter defaults to dual architecture), Linux X64 native library. ARM and unknown metadata are rejected.
 
 ## Required exec-unit safety
 
@@ -34,17 +34,18 @@ Every implemented invocation must reach one completion owner. Before closing a u
 ## Configuration and protocol
 
 - Java and native code agree on an inner payload format suited to the requested data, such as UTF-8 text, JSON or an explicit binary layout. The SDK/agent and native helpers own the host pipe envelope; Java handles only payload bytes and requires no extra transport-codec classes. See the [payload boundary](docs/execunit-ipc.md#payload-boundary).
-- Schema currently declares an empty object with no additional properties and no file fields. Java validation still throws a TODO exception, so the factory is not operational even for `{}`.
-- No typed plugin configuration class or plugin-specific payload format exists yet. Both generation methods supply an empty configuration buffer. The examples in [configuration.md](docs/configuration.md) are guidance, not this plugin's implemented contract.
+- Schema declares an empty object with no additional properties and no file fields. Java validation accepts `{}` with JSON whitespace, including multipart JSON with no files; other values, fields, malformed JSON, and uploads are rejected. The `default` example uses `{}`.
+- Both generation methods call `serializeConfiguration()` and supply fresh zero-length buffers at position/limit zero. Both native entrypoints require exactly zero payload bytes. Windows startup failure returns `null`; Linux startup failure throws, so neither is confused with valid empty input. No private JSON dependency or typed configuration is needed for this no-field contract. Add a typed parser and encoder when fields are introduced; the examples in [configuration.md](docs/configuration.md) are guidance.
 - Agent IPC framing and message IDs are described in [execunit-ipc.md](docs/execunit-ipc.md). Record future plugin configuration fields, encoding, defaults, validation, versioning, and update semantics here or link the implemented codec/contract document.
 - Windows preserves `QQQWWWEEE` for pipe-name patching. Linux uses agent-supplied FIFO paths and the `run` export.
 
 ## Logic and output status
 
-- Inline comments describe the unfinished Java and native hooks, including configuration handoff, result framing, completion, and resource ownership. They are implementation guidance; the TODOs and stub behavior remain in place.
-- Windows `Program` and IPC helper implementations are stubs; pipe ownership must span initialization, execution, reporting, and cleanup.
-- Linux connects and reports an unimplemented-command failure; command behavior remains TODO.
-- `parseResult` is unimplemented. There is no established result payload or presentation contract yet. Command updates explicitly report unsupported.
+- Windows `Main` owns the pipe through `Initialize`, `Execute`, one checked `Complete`, and `Cleanup` in `finally`. `Execute` sends `DONE` with `sendResult` and throws if the write fails; success is selected only after the result write succeeds. Failure diagnostics cannot skip failure completion. No callbacks are registered, so no reader worker starts. Disposal releases resources even after failed startup/disconnect; optional readers are unblocked and joined before disposal returns.
+- Linux `run` owns the pipe through RAII and contains startup/operation/reporting exceptions. `execute` sends `DONE` with `sendResult` and throws if the write fails; success is selected only after the result write succeeds. Invalid payload selects failure. One checked terminal attempt precedes destruction. No callbacks/workers are installed, and there is no artificial completion delay.
+- Both transports bound frame allocation, check complete reads/writes, and return `bool` from result/error/terminal sends. A failed write disables further reporting. Linux blocks/consumes generated `SIGPIPE` on the calling thread without changing host-wide handlers, including for the readiness byte.
+- Result payload contract: both exec-units send exactly `44 4f 4e 45` (`DONE`, UTF-8, no newline or terminator) before terminal success. `parseResult` decodes complete UTF-8 payloads, appends to the visible `output` text result, and commits. Empty final notifications preserve `DONE` without editor changes; malformed UTF-8 is rejected before editing, and input buffer positions are preserved. Streaming/block splitting needs additional decoding state if enabled. Live updates remain explicitly unsupported. Java initialization/status/stop hooks intentionally own no resources.
+- Linux optional callback helpers still detach their listener; the default no-op never invokes them. Before enabling updates/stop/streaming, replace that path with synchronized, cancellable, joined ownership as required above. Blocking transport startup/I/O and actual host disconnect handling still require runtime verification.
 - Use the [native implementation map](docs/native-runtime.md) and [output guide](docs/output.md) when implementing these areas; keep this section aligned with the actual code afterward.
 
 ## Builds and verification
@@ -56,13 +57,13 @@ Every implemented invocation must reach one completion owner. Before closing a u
 - Default build from the plugin root: `make build` in a Linux/WSL shell with Docker available there. Local compiler/Gradle commands in the build guide apply only when the user explicitly requests a non-Docker route. The Makefile uses `scripts/docker/run-docker.sh` to select `sudo` automatically for a local Docker socket permission denial, preserving the selected socket and BuildKit setting; explicit `DOCKER=...` overrides bypass detection.
 - Native resource names: `command.shellcode` and `command-linux.native64_so`. Local distributable: `java-plugin/build/libs/command-plugin-template-0.0.1.jar`; Docker export: `build/command-plugin-template-0.0.1.jar`.
 - Follow [building.md](docs/building.md) for platform tools, native conversion, dependency packaging, and checks against fresh artifact bytes.
-- Verification for this generated instance: not recorded yet. Record commands, outcomes, unavailable checks, and whether native resources/JARs were rebuilt. Compilation alone does not establish runtime behavior.
+- Template-source verification: cached SDK 0.15.0 signatures inspected with `javap`; bundled converter help confirms X86/X64 default; `python -m unittest discover -s tools -p test_scaffold_plugin.py` passed (12 tests), and `git diff --check` passed. Full `make build` blocked: Make/Docker unavailable; `wsl --exec sh -lc 'make build'` from the template root returned exit 1 because WSL is not installed. No native resources or JAR were rebuilt; archive hash, isolated Java initialization, real IPC completion, host failure state, and unload/repeated invocation checks remain unverified. These source-template checks are not verification of a generated instance. Documentation now describes the implemented default and extension points across the README, guides, and mirrored skills; keep those references synchronized when changing the contract. Documentation verification: all 36 repository skill files passed the skill validator; 669 local links/anchors and 18 mirrored skill pairs passed consistency checks; all 12 scaffolding tests passed after the documentation update. No code/build inputs changed in this documentation pass.
 
 ## Next work and skill routing
 
 - Start with the [implementation recipe](docs/implementation-recipes.md) for the minimum complete path, optional feature selection, and a worked JSON -> native -> Java result trace. Its fields and fixtures are examples, not implemented scaffold behavior.
-- [Existing plugin patterns](docs/existing-plugins.md) maps reviewed Java/native counterparts, source ownership, compatibility constraints, and focused verification. These are reference patterns; the fresh scaffold still has the implementation TODOs listed above.
+- [Existing plugin patterns](docs/existing-plugins.md) maps reviewed Java/native counterparts, source ownership, compatibility constraints, and focused verification. These are reference patterns for replacing the working no-op with command behavior.
 
 1. Record the user's intended behavior and any platform limits.
 2. Use [command-implement](.agents/skills/command-implement/SKILL.md) to implement the entire command from the prompt; it coordinates `command-conf`, `command-logic`, and `command-output` through builds and verification. Use those focused skills directly for configuration, execution, or result content/presentation changes. All four skills are under `.agents/skills/` and `.claude/skills/`.
-3. Replace the appropriate TODO paths and record implemented contracts, remaining limitations, and actual verification here before finishing the task.
+3. Extend the appropriate hooks and record implemented contracts, remaining limitations, and actual verification here before finishing the task.

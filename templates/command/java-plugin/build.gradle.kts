@@ -34,7 +34,7 @@ tasks.jar {
         "Plugin-Version" to project.version.toString(),
         "Plugin-Provider" to "example",
         "Plugin-Name" to "Command Plugin Template",
-        "Plugin-Description" to "Unimplemented command plugin skeleton",
+        "Plugin-Description" to "No-op command plugin template",
         "Plugin-Url" to "https://example.com"
     )
   }

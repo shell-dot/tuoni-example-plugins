@@ -2,6 +2,8 @@
 
 Use this reference to locate source evidence for configuration, lifecycle, transport, or output patterns. For the ordered implementation path and topology selection, begin with [implementation recipes](implementation-recipes.md). The reviewed sources include direct TCP and HTTP listener pairs, relay command routing, shared artifact helpers, DNS expiry state, and focused Java tests. Adapt the parts required by the user's transport.
 
+The [idle template](../README.md#default-behavior) already supplies empty-object validation, Java lifecycle, and native local-agent IPC startup/disconnect waiting. The application data traffic channel is intentionally TODO. Use these pairs to implement a requested channel; a local status-formatting or idle-startup task can keep the default.
+
 ## Locate a matching pair
 
 Locate sibling `listeners_default` and `tuoni-server` checkouts when available. Server implementations live under `tuoni-server/plugin/` (singular); native implementations are under `listeners_default/listeners/<name>/execunits/`. Generated plugins can live elsewhere and do not require those checkouts to use this guide.

@@ -2,6 +2,8 @@
 
 Use this gate when implementing a plugin or changing configuration, payload codecs, IPC helpers, native resources, or response handling. A successful build or a same-language encode/decode round trip does not establish Java/native compatibility. Keep the plugin's chosen UTF-8, JSON, or explicit binary payload; Java uses standard APIs or declared bundled parser dependencies.
 
+The [idle contract](../README.md#default-behavior) has zero configuration payload bytes for startup and valid empty replacement encoding. Both native entrypoints reject nonempty startup payloads. There is no application response sender or Java receiver; mark that boundary as intentionally absent rather than inventing a listener result fixture. Verify startup framing and idle disconnect cleanup, and add response checks when the data traffic channel is implemented.
+
 ## Record the byte contract
 
 Record these decisions beside the codecs or in project context before changing either end:
@@ -36,7 +38,7 @@ Run a compatible agent or a focused pipe/FIFO peer against the **actual native c
 
 Exercise normal delivery, a split four-byte prefix, a split body, and consecutive frames. The native helper must read exactly the bounded prefix/body, reject premature EOF, and loop until all output bytes are written. One read/write call is not a complete-message guarantee. Verify the platform's actual startup handshake, keep one reader owner across startup and the receive loop, and ensure a background reader cannot consume initial configuration first. Linux readiness traffic and Windows startup must follow their respective contracts.
 
-Treat successful connection with zero payload bytes separately from failed connection. The bundled Linux helpers currently return an empty vector for multiple failure paths as well as valid empty configuration; implementations must provide an unambiguous connection/error status when that distinction matters.
+Treat successful connection with zero payload bytes separately from failed connection. The bundled Linux `connect` throws on startup/framing failure; Windows `Connect` returns `null`. A successful zero-length payload is valid for this idle template. Preserve that distinction when extending the configuration.
 
 Trace the response through its real delivery path too:
 

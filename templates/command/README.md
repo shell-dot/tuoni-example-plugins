@@ -36,28 +36,55 @@ The following guides are copied into generated plugins:
 | Adapt an existing Java/native command pair | [Existing plugin patterns](docs/existing-plugins.md) |
 | Maintain context for later commands and skills | [Context maintenance](docs/project-context.md) |
 | Add configuration and validate its payload encoding | [Configuration walkthrough](docs/configuration.md) |
-| Implement native helpers and own the IPC connection | [Native runtime](docs/native-runtime.md) |
+| Extend native behavior and preserve IPC ownership | [Native runtime](docs/native-runtime.md) |
+| Keep one checked terminal success/failure report | [Command completion](docs/command-completion.md) |
 | Check message IDs, framing, updates, and stop handling | [IPC reference](docs/execunit-ipc.md) |
 | Parse and format complete or streaming results | [Output examples](docs/output.md) |
 | Add dependencies, build, and verify the JAR | [Build guide](docs/building.md) |
+| Check the exported JAR and isolated Java initialization | [Java verification](docs/java-verification.md) |
+| Compare real encoders, decoders, and IPC framing | [Payload verification](docs/payload-verification.md) |
 
-`exec-code/win/Program.cs` contains initialization, an empty execution hook, completion,
-and cleanup. Initialization and completion throw `NotImplementedException`; the
-program currently prints the initialization error and exits with code 1.
+## Default behavior
 
-`exec-code/linux/command/Main.cpp` exports `run(char*, char*)` for the Linux agent.
-It uses the example FIFO transport helpers under `exec-code/linux/common/` to connect and
-report an unimplemented command failure. Replace that TODO with command behavior.
+The default command accepts this configuration:
 
-`exec-code/win/exec-unit-utils/` contains minimal **API stubs** for the host envelope helper `TLV`,
-`CommunicationNamedPipes`, and `CommunicationNamedPipesCommand`. The project
-compiles them directly, so they appear in the solution without a shared project.
-These are a subset of the example utility APIs, not copies of their implementations.
-Encoding, decoding, connection, and reporting methods are unimplemented. The
-entry point does not call these transport stubs or report success to an agent.
+```json
+{}
+```
+
+Validation accepts JSON whitespace around the empty object, including multipart
+configuration with no uploaded files. Other fields, values, malformed JSON, and
+uploads are rejected. The `default` example is `{}`. Java serializes this input as
+zero native payload bytes, with each buffer's position and limit both zero;
+`{}` is not sent as text to the exec-unit.
+
+It connects to the agent, validates an empty configuration payload, sends `DONE`
+as UTF-8 result text, and then sends one success completion. Java displays `DONE`
+in the `output` text result. The result payload is exactly four bytes (`44 4f 4e 45`), with no newline or terminator. Startup/validation
+or result-send errors select failure completion when the reporting channel is usable.
+Both native entrypoints contain exceptions and release the connection before returning.
+
+## Extend the template
+
+Add Windows behavior in `exec-code/win/Program.cs`'s `Execute`, and the matching
+Linux behavior in `exec-code/linux/command/Main.cpp`'s `execute`. Windows retains
+`Initialize`, `Complete`, and `Cleanup` hooks; Linux uses scoped pipe cleanup.
+The implemented IPC utilities are compiled directly into each exec-unit. Check the
+boolean returned by result/error/terminal sends. Completion has one owner, so the
+operation hook must not send an additional terminal message.
+
+To add fields, extend `TemplateConfigurationSchema`, Java validation and the shared
+`serializeConfiguration()` encoder, then both native configuration decoders. To
+add text output, send complete UTF-8 payloads with `sendResult`; Java's `parseResult`
+already appends them to the `output` text result. Empty final notifications require
+no editor changes. Updates are explicitly unsupported until implemented.
+
+The no-op installs no callbacks or background workers. Before adding asynchronous
+behavior, apply the [native ownership requirements](docs/native-runtime.md),
+including replacing the Linux optional detached callback reader with joined work.
 
 The Java class implements `ExecUnitCommand` and `ShellcodeCommand` and accepts
-Windows and Linux x64 `SHELLCODE_AGENT` agents. It advertises `SHELLCODE_NATIVE`
+Windows x86/x64 and Linux x64 `SHELLCODE_AGENT` agents. It advertises `SHELLCODE_NATIVE`
 for Windows and `NATIVE_LIB` for Linux x64. Linux loads
 `/command-linux.native64_so` with the `run` export; the agent supplies FIFO paths,
 so no byte patch is needed. Windows loads `/command.shellcode` from the JAR,
@@ -67,7 +94,10 @@ must have the same encoded length as the placeholder. Build the C# Release proje
 first so its post-build step creates
 `java-plugin/src/main/resources/command.shellcode`. Build the Linux library before
 a direct Java build so Gradle can include it.
-Result parsing and command configuration are still TODO hooks.
+Configuration validation, factory creation, empty-result handling, and completion
+are implemented; developers can start by adding the desired command operation.
+
+## Build
 
 Skills build with Docker unless the user explicitly requests another route. If Docker
 is missing or unusable, inform the user and report the blocked build; do not fall
@@ -75,7 +105,7 @@ back to local tools. The local build examples below apply only to an explicitly
 requested non-Docker route.
 
 Open [exec-code/win/command-execunit.sln](exec-code/win/command-execunit.sln) in Visual Studio,
-or build the C# skeleton from this folder:
+or build the C# exec-unit from this folder:
 
 ```powershell
 msbuild exec-code/win/command-execunit.sln /p:Configuration=Release

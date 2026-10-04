@@ -10,7 +10,7 @@ public class TemplateCommandPlugin implements CommandPlugin {
 
   @Override
   public void init(CommandPluginContext pluginContext) throws InitializationException {
-    // TODO: Initialize any plugin-wide resources here.
+    // The default command requires no plugin-wide initialization.
     // The host provides pluginContext when loading this provider. Initialize shared
     // services required by all its command templates here and retain the context only
     // if needed. Keep command-specific configuration and mutable execution state in

@@ -1,4 +1,70 @@
 #include "CommunicationNamedPipes.h"
+#include <cerrno>
+#include <poll.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stdexcept>
+
+namespace {
+    bool readAll(int fd, void* data, size_t length, const std::atomic<bool>& active) {
+        uint8_t* cursor = static_cast<uint8_t*>(data);
+        while (length != 0 && active) {
+            const ssize_t count = read(fd, cursor, length);
+            if (count > 0) {
+                cursor += count;
+                length -= static_cast<size_t>(count);
+                continue;
+            }
+            if (count < 0 && errno == EINTR)
+                continue;
+            if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                pollfd descriptor = {fd, POLLIN, 0};
+                const int ready = poll(&descriptor, 1, 100);
+                if (ready < 0 && errno != EINTR)
+                    return false;
+                continue;
+            }
+            return false; // EOF or unrecoverable read failure.
+        }
+        return length == 0;
+    }
+
+    bool writeAll(int fd, const void* data, size_t length) {
+        // A disconnected FIFO must not terminate the agent. Mask SIGPIPE only on
+        // this thread, consume a newly generated signal, and restore the host mask.
+        sigset_t blocked, previous, pending;
+        sigemptyset(&blocked);
+        sigaddset(&blocked, SIGPIPE);
+        if (pthread_sigmask(SIG_BLOCK, &blocked, &previous) != 0)
+            return false;
+        if (sigpending(&pending) != 0) {
+            pthread_sigmask(SIG_SETMASK, &previous, nullptr);
+            return false;
+        }
+        const bool alreadyPending = sigismember(&pending, SIGPIPE) == 1;
+        const uint8_t* cursor = static_cast<const uint8_t*>(data);
+        bool success = true;
+        bool brokenPipe = false;
+        while (length != 0) {
+            const ssize_t count = write(fd, cursor, length);
+            if (count < 0 && errno == EINTR)
+                continue;
+            if (count <= 0) {
+                brokenPipe = count < 0 && errno == EPIPE;
+                success = false;
+                break;
+            }
+            cursor += count;
+            length -= static_cast<size_t>(count);
+        }
+        if (brokenPipe && !alreadyPending) {
+            const timespec noWait = {0, 0};
+            while (sigtimedwait(&blocked, nullptr, &noWait) < 0 && errno == EINTR) { }
+        }
+        pthread_sigmask(SIG_SETMASK, &previous, nullptr);
+        return success;
+    }
+}
 
 void CommunicationNamedPipes::setCallback(CallbackFunc* callbackIn)
 {
@@ -10,26 +76,36 @@ std::vector<uint8_t> CommunicationNamedPipes::connect()
     pipe_read = open(pipeNameRead.c_str(), O_RDONLY);
     if (pipe_read == -1)
     {
-        std::cerr << "Failed to connect to the pipe" << std::endl;
-        return {};
+        throw std::runtime_error("Unable to open the listener read FIFO.");
     }
 
     pipe_write = open(pipeNameWrite.c_str(), O_WRONLY);
     if (pipe_write == -1)
     {
         close();
-        return {};
+        throw std::runtime_error("Unable to open the listener write FIFO.");
     }
 
-    write(pipe_write, "\x00", 1);
+    // Nonblocking reads let shutdown cancel the owned reader without relying on
+    // closing a descriptor from another thread to interrupt a blocking syscall.
+    const int flags = fcntl(pipe_read, F_GETFL);
+    if (flags == -1 || fcntl(pipe_read, F_SETFL, flags | O_NONBLOCK) == -1
+        || !writeAll(pipe_write, "\x00", 1)) {
+        close();
+        throw std::runtime_error("Unable to initialize the listener FIFO connection.");
+    }
 
     active = true;
     auto data = getData();
+    uint32_t payloadLength = 0;
+    if (data.size() >= 5)
+        std::memcpy(&payloadLength, data.data() + 1, sizeof(payloadLength));
     TLV tlv;
-    if (!tlv.load(data))
+    if (data.size() < 5 || (data[0] & TLV_PARENT_TYPE_FLAG) != 0
+        || payloadLength != data.size() - 5 || !tlv.load(data))
     {
-        active = false;
-        return {};
+        close();
+        throw std::runtime_error("Unable to receive a complete listener configuration frame.");
     }
 
     listen_thread = std::thread(&CommunicationNamedPipes::listenForMessages, this);
@@ -38,36 +114,38 @@ std::vector<uint8_t> CommunicationNamedPipes::connect()
 
 void CommunicationNamedPipes::listenForMessages()
 {
-    while (true)
-    {
-        auto data = getData();
-        if (data.empty())
-        {
-            return;
-        }
+    try {
+        while (active) {
+            auto data = getData();
+            if (data.empty())
+                break;
 
-        std::shared_ptr<TLV> tlv(new TLV());
-        if (!tlv->load(data))
-        {
-            continue;
-        }
+            std::shared_ptr<TLV> tlv(new TLV());
+            if (!tlv->load(data))
+                continue;
 
-        if (tlv->getType() == 0x20 && callback)
-        {
-            callback(tlv->getChild(0x4)->getValue());
-            continue;
-        }
-        if ((tlv->getType() == 0x21 || tlv->getType() == 0x22) && tlv->getChild(0x2) != nullptr)
-        {
-            std::unique_lock<std::mutex> lock(mtx);
-            int id = tlv->getChild(0x2)->getUInt32();
-            responses[id] = tlv;
-            if(signal.count(id))
-            {
-                sem_post(&signal[id]);
+            if (tlv->getType() == 0x20 && callback) {
+                auto child = tlv->getChild(0x4);
+                if (child)
+                    callback(child->getValue());
+                continue;
+            }
+            if ((tlv->getType() == 0x21 || tlv->getType() == 0x22)
+                && tlv->getChild(0x2) != nullptr) {
+                uint32_t sequence = 0;
+                if (!tlv->getChild(0x2)->getUInt32(sequence))
+                    continue;
+                const int id = static_cast<int>(sequence);
+                std::unique_lock<std::mutex> lock(mtx);
+                responses[id] = tlv;
+                if (signal.count(id))
+                    sem_post(&signal[id]);
             }
         }
+    } catch (...) {
+        // Worker exceptions must never escape into the agent host.
     }
+    active = false;
 }
 
 std::vector<uint8_t> CommunicationNamedPipes::getData()
@@ -75,24 +153,17 @@ std::vector<uint8_t> CommunicationNamedPipes::getData()
     if (!active)
         return {};
 
-    uint32_t len;
-    ssize_t bytes_read = read(pipe_read, &len, sizeof(len));
-    if (bytes_read <= 0)
+    uint32_t len = 0;
+    if (!readAll(pipe_read, &len, sizeof(len), active) || len < 5 || len > 16 * 1024 * 1024)
     {
+        active = false;
         return {};
     }
 
     std::vector<uint8_t> buffer(len);
-    uint32_t offset = 0;
-    while(len > 0)
-    {
-        bytes_read = read(pipe_read, buffer.data() + offset, len);
-        offset += bytes_read;
-        len -= bytes_read;
-        if (bytes_read <= 0)
-        {
-            return {};
-        }
+    if (!readAll(pipe_read, buffer.data(), len, active)) {
+        active = false;
+        return {};
     }
     return buffer;
 }
@@ -103,9 +174,12 @@ bool CommunicationNamedPipes::putData(const std::vector<uint8_t> &data)
     if (!active)
         return false;
 
-    uint32_t len = data.size();
-    if (write(pipe_write, &len, sizeof(len)) == -1 || write(pipe_write, data.data(), len) == -1)
+    if (data.size() > 16 * 1024 * 1024)
+        return false;
+    uint32_t len = static_cast<uint32_t>(data.size());
+    if (!writeAll(pipe_write, &len, sizeof(len)) || !writeAll(pipe_write, data.data(), len))
     {
+        active = false;
         return false;
     }
 
@@ -114,15 +188,22 @@ bool CommunicationNamedPipes::putData(const std::vector<uint8_t> &data)
 
 void CommunicationNamedPipes::close()
 {
+    active = false;
+    waitForDisconnect();
     if (pipe_read != -1)
     {
         ::close(pipe_read);
+        pipe_read = -1;
     }
     if (pipe_write != -1)
     {
         ::close(pipe_write);
+        pipe_write = -1;
     }
-    active = false;
+}
+
+void CommunicationNamedPipes::waitForDisconnect()
+{
     if (listen_thread.joinable())
     {
         listen_thread.join();

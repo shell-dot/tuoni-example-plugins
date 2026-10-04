@@ -8,6 +8,10 @@ Each plugin consists of two parts:
 1. **Agent execunits**: Windows shellcode written in C# and Linux x64 shared objects written in C++.
 2. **Server Plugin**: Written in Java against the Tuoni plugin SDK, requiring Java 21+ and Gradle for building.
 
+For a minimal command starting point, use the [command template](../templates/command/README.md).
+It already connects native IPC, accepts `{}`, returns `DONE`, and displays that text
+with success completion. This echo example provides additional command patterns.
+
 ## Table of Contents
 
 - [Getting Started](#getting-started)

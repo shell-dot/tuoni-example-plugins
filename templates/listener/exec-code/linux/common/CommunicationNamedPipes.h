@@ -17,7 +17,7 @@ typedef void (CallbackFunc)(const std::vector<uint8_t>);
 
 class CommunicationNamedPipes {
 private:
-    bool active = false;
+    std::atomic<bool> active{false};
     int pipe_read = -1, pipe_write = -1;
     std::string pipeNameRead, pipeNameWrite;
     std::thread listen_thread;
@@ -30,10 +30,10 @@ private:
 public:
     // Retain the two local-agent FIFO paths and optional host-message callback;
     // this constructor does not open descriptors or start a reader. The invocation
-    // owner must connect later and prove close/draining/joining complete before its
-    // state is destroyed; this helper currently has no automatic shutdown destructor.
+    // owner connects later and keeps the helper alive until its reader finishes.
     CommunicationNamedPipes(const std::string &pipeNameReadIn, const std::string &pipeNameWriteIn, CallbackFunc* callbackIn)
         : pipeNameRead(pipeNameReadIn), pipeNameWrite(pipeNameWriteIn), callback(callbackIn) {}
+    ~CommunicationNamedPipes() { close(); }
 
     void setCallback(CallbackFunc* callbackIn);
     std::vector<uint8_t> connect();
@@ -41,6 +41,7 @@ public:
     std::vector<uint8_t> getData();
     bool putData(const std::vector<uint8_t> &data);
     void close();
+    void waitForDisconnect();
     std::vector<uint8_t> getMetadata();
     std::vector<uint8_t> getDataToSend();
     std::vector<uint8_t> waitForResponseData(int id);

@@ -21,6 +21,10 @@ namespace ExecUnitUtils
         protected Thread _listenThread;
         protected readonly object _sendLock;
         protected CancellationTokenSource _cts;
+        private int _disposed;
+
+        // A no-op command has no incoming callbacks and needs no reader worker.
+        protected virtual bool HasCallbacks { get { return false; } }
 
         /// <summary>
         /// Initializes a new instance with the pipe name
@@ -55,15 +59,20 @@ namespace ExecUnitUtils
                 }
 
                 TLV tlv = new TLV();
-                if (!tlv.Load(data, 0))
+                // Startup carries a leaf payload. Reject nested frames before the
+                // generic decoder can recurse into untrusted configuration bytes.
+                if ((data[0] & 0x80) != 0 || !tlv.Load(data, 0) || tlv.FullSize != data.Length)
                 {
                     _active = false;
                     return null;
                 }
 
-                _listenThread = new Thread(ListenForMessages);
-                _listenThread.IsBackground = true;
-                _listenThread.Start();
+                if (HasCallbacks)
+                {
+                    _listenThread = new Thread(ListenForMessages);
+                    _listenThread.IsBackground = true;
+                    _listenThread.Start();
+                }
 
                 return tlv.Data;
             }
@@ -97,20 +106,22 @@ namespace ExecUnitUtils
 
         protected void ListenForMessages()
         {
-            while (!_cts.IsCancellationRequested && _active)
+            try
             {
-                byte[] data = GetData();
-                if (data == null)
+                while (!_cts.IsCancellationRequested && _active)
                 {
-                    break;
+                    byte[] data = GetData();
+                    if (data == null)
+                        break;
+
+                    TLV tlv = new TLV();
+                    if (!tlv.Load(data, 0))
+                        continue;
+
+                    HandleIncomingData(tlv);
                 }
-
-                TLV tlv = new TLV();
-                if (!tlv.Load(data, 0))
-                    continue;
-
-                HandleIncomingData(tlv);
             }
+            catch (Exception) { _active = false; }
         }
 
         protected byte[] GetData()
@@ -119,7 +130,12 @@ namespace ExecUnitUtils
             try
             {
                 int len = _reader.ReadInt32();
-                return _reader.ReadBytes(len);
+                if (len < 5 || len > 16 * 1024 * 1024)
+                    throw new IOException("Invalid IPC frame length.");
+                byte[] data = _reader.ReadBytes(len);
+                if (data.Length != len)
+                    throw new EndOfStreamException("Truncated IPC frame.");
+                return data;
             }
             catch (EndOfStreamException)
             {
@@ -127,6 +143,11 @@ namespace ExecUnitUtils
                 return null;
             }
             catch (IOException)
+            {
+                _active = false;
+                return null;
+            }
+            catch (ObjectDisposedException)
             {
                 _active = false;
                 return null;
@@ -150,30 +171,30 @@ namespace ExecUnitUtils
                     _active = false;
                     return false;
                 }
+                catch (ObjectDisposedException)
+                {
+                    _active = false;
+                    return false;
+                }
             }
         }
 
         public void Dispose()
         {
-            if (!_active) return;
-            _active = false;
-            _cts.Cancel();
-
-            try
+            // Failed startup/disconnect still owns resources even when inactive.
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            lock (_sendLock)
             {
-                _client.WaitForPipeDrain();
+                _active = false;
+                _cts.Cancel();
+                // Close first to unblock any reader, then wait for it to finish.
+                // Writes are synchronous and flushed; no fixed drain delay is used.
+                try { if (_client != null) _client.Dispose(); } catch (Exception) { }
             }
-            catch {}
-
-            if (_client != null)
-                _client.Dispose();
-            if (_reader != null)
-                _reader.Dispose();
-            if (_writer != null)
-                _writer.Dispose();
-            if (_listenThread != null)
-                _listenThread.Join(2000); // Wait briefly for thread to exit
-
+            if (_listenThread != null && _listenThread != Thread.CurrentThread)
+                _listenThread.Join();
+            try { if (_reader != null) _reader.Dispose(); } catch (Exception) { }
+            try { if (_writer != null) _writer.Dispose(); } catch (Exception) { }
             _cts.Dispose();
         }
     }

@@ -2,6 +2,8 @@
 
 Choose a payload representation suited to the requested data. User configuration JSON is a server input format; the native payload need not be JSON. Plain UTF-8 suits one string, JSON can carry structured data when each platform has a declared parser, and a small documented binary layout can avoid native parser dependencies. No format is mandatory. Java supplies the inner bytes; the SDK/agent and native helper own [pipe framing](execunit-ipc.md#payload-boundary).
 
+The [default configuration](../README.md#default-behavior) is already implemented: `validateConfiguration` accepts `{}` with JSON whitespace or multipart JSON without files; extra fields, other values, malformed JSON, and uploads fail validation. The existing shared `serializeConfiguration()` returns fresh zero-length buffers for both generation paths. No typed class or parser dependency is needed until fields are added.
+
 ## Follow one typed value through the plugin
 
 For files under `java-plugin/src/main/java/com/example/tuoni/command/`:
@@ -9,9 +11,9 @@ For files under `java-plugin/src/main/java/com/example/tuoni/command/`:
 1. `TemplateCommandConfiguration.fromConfiguration(Configuration)` parses and validates one typed value. `TemplateCommandTemplate.validateConfiguration` calls the same parser.
 2. `TemplateCommandTemplate.createCommand` parses once for creation and passes that value to `new TemplateCommand(commandId, agentInfo, parsed, commandContext)`.
 3. Change the command constructor from raw SDK `Configuration` to the typed class; store it in an immutable field.
-4. Add one shared encoder such as `serializeConfiguration()` returning a fresh readable `ByteBuffer`.
-5. In `generateExecUnit`, replace `.configuration(ByteBuffer.allocate(0))` with `.configuration(serializeConfiguration())`.
-6. In `generateShellCode`, replace the second `ShellCodeWithConf` argument with the same encoder. Preserve resource selection and pipe-name patching.
+4. Extend the existing shared `serializeConfiguration()` encoder to return the typed payload in a fresh readable `ByteBuffer`.
+5. In `generateExecUnit`, keep `.configuration(serializeConfiguration())` and extend the existing shared encoder.
+6. In `generateShellCode`, keep the second `ShellCodeWithConf` argument using that same encoder. Preserve resource selection and pipe-name patching.
 7. Decode the bytes returned by Windows `Connect()` and Linux `connect()` before running the operation. Native connection failure must be distinguishable from a valid empty payload.
 8. Implement `serializeCommandUpdate` only when requested. Validate a candidate before encoding it; apply it atomically in native code and retain old state on rejection. Document whether it is a patch or complete replacement.
 

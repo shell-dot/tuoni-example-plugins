@@ -35,6 +35,8 @@ Use the existing headings where possible; create only sections that help the nex
 
 A short fact plus a relative file link is usually enough. Use repository-relative paths, not absolute workstation paths or temporary test-directory names. Do not copy secrets, private credentials, raw user transcripts, or lengthy tool logs into these files.
 
+Use the [default behavior](../README.md#default-behavior) when recording a fresh copy. Track requested extensions separately from existing boilerplate, and preserve intentional TODOs outside the user's scope. Source-template checks remain distinct from generated-instance builds and runtime checks.
+
 ## This template's starting source map
 
 The following are navigation hints for the unrenamed template. After scaffolding, record the generated names and paths that actually exist; after later refactors, replace stale entries. Artifact paths identify expected build outputs; if an output is absent, record it as not generated.
@@ -49,7 +51,7 @@ The following are navigation hints for the unrenamed template. After scaffolding
 
 When listener transport code is implemented, add its actual native sender and Java receiver files to the source map. The template does not already contain a complete transport or a command-style `parseResult` method.
 
-For a fresh scaffold, schema/behavior/helper TODOs are unfinished work. The worked fields, example payloads, and decoder snippets in `docs/configuration.md` are reference examples until implemented in source. Likewise, instructions in `docs/native-runtime.md`, `docs/execunit-ipc.md`, and `docs/building.md` are not proof that behavior exists or a build passed.
+The fresh scaffold implements empty-object validation, Java lifecycle and empty replacement encoding, native local-agent IPC startup, idle disconnect waiting, and scoped cleanup. The data traffic channel remains intentionally TODO. The worked fields, example payloads, and decoder snippets in `docs/configuration.md` are reference examples until implemented in source. Likewise, instructions in `docs/native-runtime.md`, `docs/execunit-ipc.md`, and `docs/building.md` are not proof that behavior exists or a build passed.
 
 ## Update after each skill
 
@@ -57,7 +59,7 @@ Make the context update before the skill's final report, using the files actuall
 
 | Skill | Context to create or refresh |
 | --- | --- |
-| Scaffolding (`new-listener`) | Actual name/ID/package, generated destination-relative source map, copied skills/docs, advertised and existing exec-units, untouched TODOs, and the exact scaffold/build checks completed. |
+| Scaffolding (`new-listener`) | Actual name/ID/package, generated destination-relative source map, copied skills/docs, advertised and existing exec-units, the implemented idle default and remaining channel TODOs, and the exact scaffold/build checks completed. |
 | Complete implementation (`listener-implement`) | User-requested scope and inferred decisions; integrated configuration, transport/lifecycle, and output contracts; platform coverage; build/runtime evidence and artifact freshness; any remaining work across the focused skills. |
 | Configuration (`listener-conf`) | Actual schema/typed classes, added or changed fields/defaults/validation, Java handoff methods, each native decoder, payload fields/encoding/versioning, update behavior, and cross-language checks performed. |
 | Logic (`listener-logic`) | Implemented behavior and limits, touched exec-units, entrypoints/helpers, lifecycle/cancellation/update handling, the output contract retained or added, and actual build/runtime results. |

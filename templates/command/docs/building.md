@@ -2,6 +2,8 @@
 
 Run commands from the plugin root containing `java-plugin/` and `exec-code/`. Use the actual renamed paths in a generated plugin. Preserve its SDK version, Java target, native ABI, and existing build setup unless the requested change requires updating them.
 
+The [working source default](../README.md#default-behavior) still requires native compilation, Windows shellcode conversion, and Java packaging before a generated plugin can be loaded. No prebuilt execution resources ship with the template. Its Java code uses JDK/SDK APIs only; parser/shading recipes below apply when dependencies are added. A documentation-only update does not change build inputs.
+
 ## Required build checkpoints
 
 Unless the user explicitly requests otherwise, build **the exec-units and the packaged Java plugin in Docker**. Use local build tools only when the user explicitly requests a non-Docker route; missing or unusable Docker does not authorize an automatic fallback. Apply this to complete implementations and focused configuration, logic, or output changes. Keep every existing in-scope platform in the build; lack of a compiler does not remove it from scope.

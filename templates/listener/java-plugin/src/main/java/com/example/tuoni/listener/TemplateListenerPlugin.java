@@ -2,18 +2,22 @@ package com.example.tuoni.listener;
 
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.ConfigurationSchema;
+import com.shelldot.tuoni.plugin.sdk.common.configuration.JsonConfiguration;
+import com.shelldot.tuoni.plugin.sdk.common.configuration.MultipartConfiguration;
+import com.shelldot.tuoni.plugin.sdk.common.configuration.NamedConfiguration;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.InitializationException;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.ValidationException;
 import com.shelldot.tuoni.plugin.sdk.listener.Listener;
 import com.shelldot.tuoni.plugin.sdk.listener.ListenerContext;
 import com.shelldot.tuoni.plugin.sdk.listener.ListenerPlugin;
 import com.shelldot.tuoni.plugin.sdk.listener.ListenerPluginContext;
+import java.util.List;
 
 public class TemplateListenerPlugin implements ListenerPlugin {
 
   @Override
   public void init(ListenerPluginContext pluginContext) throws InitializationException {
-    // TODO: Initialize any plugin-wide resources here.
+    // The idle template requires no plugin-wide resources.
     // Retain services from pluginContext only when instances need them, and prepare
     // shared immutable settings or helpers used by every listener from this plugin.
     // Keep per-listener sockets, sessions, and workers in TemplateListener instead.
@@ -25,6 +29,12 @@ public class TemplateListenerPlugin implements ListenerPlugin {
   @Override
   public ConfigurationSchema getConfigurationSchema() {
     return new TemplateConfigurationSchema();
+  }
+
+  @Override
+  public List<NamedConfiguration> getExampleConfigurations() {
+    JsonConfiguration empty = () -> "{}";
+    return List.of(new NamedConfiguration("default", empty));
   }
 
   @Override
@@ -41,14 +51,22 @@ public class TemplateListenerPlugin implements ListenerPlugin {
   }
 
   static void validateConfiguration(Configuration configuration) throws ValidationException {
-    // TODO: Parse and validate the configuration against your schema.
-    // Read the user JSON and declared file attachments into a complete candidate,
-    // applying the same defaults, types, required fields, ranges, and relationships
-    // advertised by TemplateConfigurationSchema. Validate both Java transport
-    // settings and values destined for native exec-units before acquiring resources.
-    // Reuse this parser for creation and updates; report malformed or unsupported
-    // values as ValidationException with useful field details and the original
-    // cause. Do not mutate a running listener while validating a candidate.
-    throw new ValidationException("TODO: Implement listener configuration validation.");
+    JsonConfiguration json;
+    if (configuration instanceof JsonConfiguration value) {
+      json = value;
+    } else if (configuration instanceof MultipartConfiguration multipart) {
+      if (!multipart.files().isEmpty()) {
+        throw new ValidationException("The template listener does not accept file uploads.");
+      }
+      json = multipart.jsonConfiguration();
+    } else {
+      throw new ValidationException("Expected an empty JSON object: {}.");
+    }
+    String text = json == null ? null : json.toJSON();
+    // Complete grammar for the current empty-object schema; add a typed parser
+    // when introducing fields for the TODO traffic channel.
+    if (text == null || !text.matches("[ \\t\\r\\n]*\\{[ \\t\\r\\n]*\\}[ \\t\\r\\n]*")) {
+      throw new ValidationException("The template listener accepts only an empty JSON object: {}.");
+    }
   }
 }

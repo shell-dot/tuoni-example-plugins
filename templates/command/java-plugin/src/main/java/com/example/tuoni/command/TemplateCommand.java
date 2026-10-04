@@ -20,6 +20,9 @@ import com.shelldot.tuoni.plugin.sdk.common.exceptions.ExecutionException;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.SerializationException;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.ValidationException;
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 public class TemplateCommand implements ExecUnitCommand, ShellcodeCommand {
@@ -34,13 +37,8 @@ public class TemplateCommand implements ExecUnitCommand, ShellcodeCommand {
       Configuration configuration,
       CommandContext commandContext) {
     this.agentInfo = agentInfo;
-    // TODO: Retain the validated configuration and context needed by this command.
-    // This object represents one invocation, identified by commandId; parsing buffers,
-    // cancellation state and owned resources must not be shared across invocations.
-    // Store an immutable typed configuration produced by the same parser used by
-    // validateConfiguration, plus commandContext only if the implementation needs it.
-    // Copy/read uploaded input while its lifetime is valid, and establish cleanup
-    // ownership before acquiring resources that forceStop or status changes release.
+    // This no-op command has no configuration fields or owned resources. Retain an
+    // immutable typed configuration/context here when adding command behavior.
   }
 
   @Override
@@ -62,8 +60,8 @@ public class TemplateCommand implements ExecUnitCommand, ShellcodeCommand {
     boolean linux = metadata.os() == OperatingSystem.LINUX;
     // The code resource is the executable artifact; configuration is a separate
     // inner payload decoded by the Windows Initialize/Linux run implementation.
-    // Replace the empty buffer with the validated configuration's shared encoder
-    // when fields are added; use the same bytes as generateShellCode and return a
+    // Extend the shared configuration encoder when fields are added; use the same
+    // bytes as generateShellCode and return a
     // fresh buffer at position zero with an exact limit. The SDK adds host framing.
     // Keep Linux's run export and Windows's patched pipe name aligned with the
     // packaged artifact; reject unavailable OS/process-architecture/type combinations.
@@ -73,7 +71,7 @@ public class TemplateCommand implements ExecUnitCommand, ShellcodeCommand {
             : ShellcodeResource.load(getClass(), SHELLCODE_RESOURCE, pipeName))
         .type(type)
         .ipcType(PluginIpcType.NAMED_PIPE)
-        .configuration(ByteBuffer.allocate(0))
+        .configuration(serializeConfiguration())
         .entrypoint(linux ? "run" : null)
         .build();
   }
@@ -85,26 +83,34 @@ public class TemplateCommand implements ExecUnitCommand, ShellcodeCommand {
       throw new SerializationException("Unsupported shellcode agent: " + latestAgentMetadata);
     }
     // This is the shellcode delivery path for the same invocation, not a second
-    // configuration format. Replace the empty buffer with the same encoder used by
-    // generateExecUnit, preserving independent readable buffer positions. pipeName
+    // configuration format. Keep the shared encoder used by generateExecUnit,
+    // preserving independent readable buffer positions. pipeName
     // is patched into the Windows resource; it must match the placeholder's encoded
     // length. Report resource/encoding failures as SerializationException.
     return new ShellCodeWithConf(
         ShellcodeResource.load(getClass(), SHELLCODE_RESOURCE, pipeName),
-        ByteBuffer.allocate(0),
+        serializeConfiguration(),
         PluginIpcType.NAMED_PIPE);
   }
 
-  private static Set<ExecUnitType> supportedTypes(AgentMetadata metadata) {
+  private ByteBuffer serializeConfiguration() {
+    // Both delivery paths use the same empty inner payload, with independent cursors.
+    // Add configuration encoding here when extending the schema and native decoders.
+    return ByteBuffer.allocate(0);
+  }
+
+  static Set<ExecUnitType> supportedTypes(AgentMetadata metadata) {
     // Match the agent process architecture to artifacts actually built and packaged;
     // the OS architecture alone cannot prove that an artifact can run in the process.
-    // Linux currently has only an x64 library. The Windows OS-only scaffold branch
-    // needs explicit architecture guards once the shellcode's supported set is known.
-    if (metadata == null) {
+    // Linux has only an x64 library; the bundled Windows converter defaults to
+    // dual x86/x64 shellcode. ARM and unknown architectures have no artifact.
+    if (metadata == null || metadata.os() == null) {
       return Set.of();
     }
     return switch (metadata.os()) {
-      case WINDOWS -> Set.of(ExecUnitType.SHELLCODE_NATIVE);
+      case WINDOWS -> metadata.processArch() == Architecture.X86
+              || metadata.processArch() == Architecture.X64
+          ? Set.of(ExecUnitType.SHELLCODE_NATIVE) : Set.of();
       case LINUX -> metadata.processArch() == Architecture.X64
           ? Set.of(ExecUnitType.NATIVE_LIB) : Set.of();
       default -> Set.of();
@@ -118,18 +124,26 @@ public class TemplateCommand implements ExecUnitCommand, ShellcodeCommand {
       CommandResultCollection previousResult,
       CommandResultEditor editor)
       throws SerializationException {
-    // TODO: Define result decoding and update the result editor.
-    // buffer contains only the native sendResult payload, with the host pipe envelope
-    // already removed. Decode the format agreed with every native sender and validate
-    // lengths, text encodings and record structure before publishing editor changes.
-    // Use stable result names and the appropriate text/binary/file editor APIs, then
-    // commit changes. previousResult supplies earlier published values; append or merge
-    // chunks instead of overwriting them, retaining incomplete records per invocation.
-    // isFinalResult can arrive with an empty buffer: finish any accumulator and reject
-    // truncated data then. It does not itself indicate native success or failure.
-    // Throw SerializationException for malformed payloads, without committing a
-    // partially decoded update. See docs/output.md for editor and streaming contracts.
-    throw new SerializationException("TODO: Implement command result parsing.");
+    // Both default exec-units send UTF-8 "DONE", displayed in the output text result.
+    // An empty final notification preserves that result; native terminal messages
+    // determine command success/failure independently of the displayed text.
+    if (!buffer.hasRemaining()) {
+      return;
+    }
+    // Each sendResult payload must contain complete UTF-8 text. Developers can
+    // replace DONE with their own output. Append to preserve previous results, and
+    // decode before editing so malformed data cannot commit a partial update.
+    final String text;
+    try {
+      text = StandardCharsets.UTF_8.newDecoder()
+          .onMalformedInput(CodingErrorAction.REPORT)
+          .onUnmappableCharacter(CodingErrorAction.REPORT)
+          .decode(buffer.asReadOnlyBuffer()).toString();
+    } catch (CharacterCodingException error) {
+      throw new SerializationException("Command output must be valid UTF-8.", error);
+    }
+    editor.appendTextResult("output", text);
+    editor.commit();
   }
 
   @Override
@@ -147,7 +161,7 @@ public class TemplateCommand implements ExecUnitCommand, ShellcodeCommand {
 
   @Override
   public void markStatus(CommandStatus status) {
-    // TODO: Handle status changes if the command maintains state.
+    // No state is owned by the default command. Handle status changes here if added.
     // The host reports lifecycle transitions through status. Track them only when
     // this invocation needs them, releasing server-side state on terminal transitions
     // and tolerating repeated notifications. This hook does not send the native
@@ -156,7 +170,7 @@ public class TemplateCommand implements ExecUnitCommand, ShellcodeCommand {
 
   @Override
   public void forceStop() throws ExecutionException {
-    // TODO: Release any resources owned by this command.
+    // No resources are owned by the default command. Release new resources here.
     // Stop work and release resources owned by this Java invocation when the host
     // requests a forced stop. Make cleanup safe after partial initialization and
     // repeated calls, and coordinate it with parsing/status callbacks. Unblock and

@@ -2,6 +2,8 @@
 
 Read this for Java lifecycle, application transport, and listener presentation changes. Paths below are relative to the plugin root. The existing class is `java-plugin/src/main/java/com/example/tuoni/listener/TemplateListener.java`; reuse its current collaborators if behavior has already been implemented.
 
+The [current default](../README.md#default-behavior) retains ID/context, starts in `CREATED`, and synchronizes start/stop/delete/reconfigure. Repeated start/stop calls and restart after stop are supported; deletion is terminal. `reconfigure({})` returns the same instance and preserves status; valid replacement encoding returns zero payload bytes. `getInfo()` shows `Listener template <id>: <status>`. No endpoint, session, or worker is owned, and `STARTED` does not assert native health. The table below describes extensions for a requested data traffic channel.
+
 ## Lifecycle methods
 
 | Place in `TemplateListener.java` | Responsibility |

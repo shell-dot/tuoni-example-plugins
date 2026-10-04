@@ -4,7 +4,7 @@ import com.shelldot.tuoni.plugin.sdk.common.configuration.ConfigurationSchema;
 import java.util.List;
 
 /**
- * TODO: Describe your configuration fields and required values here.
+ * The default no-op command accepts an empty JSON object and no file uploads.
  *
  * This schema describes operator input, not the native pipe envelope. Keep its field
  * types, required values, defaults and limits aligned with validateConfiguration and

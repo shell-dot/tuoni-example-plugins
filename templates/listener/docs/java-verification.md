@@ -2,6 +2,9 @@
 
 Apply these checks after Java source, dependency, resource, service-registration or packaging changes. The full Docker build remains required. Compilation and ordinary Gradle tests can pass even when the delivered JAR cannot initialize because their classpaths contain libraries missing from that JAR.
 
+
+For the [idle default](../README.md#default-behavior), exercise the `{}` example/factory, reject fields and uploads, and check zero-length startup/replacement buffers. Verify CREATED -> STARTED -> STOPPED -> STARTED -> DELETED, repeated lifecycle calls, unchanged instance/status on valid reconfiguration, and rejection of start/reconfigure after deletion. `getInfo()` exposes only local ID/status; no application endpoint or receive handler exists to exercise until a channel is implemented.
+
 ## Check APIs and dependency ownership first
 
 Read the actual SDK version and Java release in `java-plugin/build.gradle.kts`. Inspect SDK signatures with the [build guide](building.md#inspect-sdk-signatures-before-adding-hooks), use `@Override`, and verify constructors, return types and declared exceptions before adding hooks. Do not copy server-internal helpers or invent SDK methods. Keep fixed metadata/schema strings simple; do not introduce a JSON library just to return fixed JSON. Dynamic parsing still needs a real parser and typed validation, not hand-written string splitting.

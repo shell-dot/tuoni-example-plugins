@@ -2,6 +2,11 @@
 
 A custom .NET Framework payload agent for the [Tuoni C2 framework](https://docs.shelldot.com). This project consists of two components: a .NET Framework agent template (the executable that runs on target machines) and a Java/Gradle plugin that packages the agent for deployment through the Tuoni server.
 
+For new command and listener plugins, see the [plugin templates](../templates/README.md).
+Their native IPC and Java boilerplate are implemented: the command returns `DONE`
+and the listener starts idle with its traffic channel left TODO. Payload templates
+have their own configuration/serialization hooks and still require implementation.
+
 ## Repository Structure
 
 ```
