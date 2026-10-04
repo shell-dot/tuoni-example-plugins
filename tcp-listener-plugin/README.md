@@ -5,6 +5,11 @@ plain TCP as its C2 transport. It is intended as a starting point and learning r
 building their own listener plugin — fork it, rename it, swap the transport, and you have a new
 plugin.
 
+For a minimal listener starting point, use the [listener template](../templates/listener/README.md).
+It already accepts `{}`, implements Java lifecycle, and starts native IPC while
+idling until host disconnect. Its traffic channel remains TODO; this TCP example
+shows an implemented channel to adapt when needed.
+
 ---
 
 ## What's in the box

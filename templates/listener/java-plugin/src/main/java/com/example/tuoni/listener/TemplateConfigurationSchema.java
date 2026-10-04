@@ -4,7 +4,8 @@ import com.shelldot.tuoni.plugin.sdk.common.configuration.ConfigurationSchema;
 import java.util.List;
 
 /**
- * TODO: Describe your configuration fields and required values here.
+ * The idle default accepts an empty JSON object and no uploads.
+ * TODO: Add configuration fields when implementing the data traffic channel.
  * This is the public configuration contract used to render and validate listener
  * settings. Define Java-side transport settings and native connection settings
  * with their defaults, units, limits, and required relationships. Keep both schema

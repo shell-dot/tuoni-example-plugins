@@ -5,6 +5,8 @@ description: Implement a user's configuration fields for a Tuoni command plugin,
 
 # Command configuration
 
+The [default configuration](../../../README.md#default-behavior) already accepts only an empty JSON object (including whitespace and multipart input with no files) and rejects fields/uploads. Both generation paths share `serializeConfiguration()`, which returns a fresh zero-length buffer; both native entrypoints validate zero payload bytes. Add typed models and parsers when fields are requested, preserving the working `DONE` result and completion path.
+
 Before editing, read the plugin-root `AGENTS.md` and `CLAUDE.md` when present, including their referenced project context and applicable instructions. Follow the [context maintenance guide](../../../docs/project-context.md) to create missing context and preserve the existing organization. Verify recorded facts against the files you change.
 
 **Failure cleanup is mandatory before `Main` / `run` returns.** A failed invocation must leave the host alive and safe to unload the library immediately. Implement cleanup before operation logic: give each invocation scoped ownership (RAII in C++), contain exceptions across the entire entrypoint and every worker/callback, and make cleanup nonthrowing and safe after partial startup. Every success, error, cancellation and disconnect path must stop new work, unblock owned I/O, unregister/drain callbacks, join/await all owned workers, then release resources before returning. Never terminate the host, detach work, destroy a joinable `std::thread`, or treat a sleep/join timeout as cleanup. Read the [failure-path cleanup gate](../../../docs/native-runtime.md#failure-path-cleanup-before-return) before editing native code, including reused helpers.
@@ -39,15 +41,15 @@ For a new parser/codec, read the copied [configuration implementation guide](../
 - Reuse or create `TemplateCommandConfiguration.java` (or the current command's equivalent) as the typed configuration class. Parse `JsonConfiguration.toJSON()`, or `MultipartConfiguration.jsonConfiguration().toJSON()` plus its file parts. Reject malformed or unsupported input with field-specific `ValidationException`. Keep required values, ranges, cross-field checks, and defaults consistent with the schema, including the distinction between omitted, null, and zero values.
 - For uploads, set `fileSchemas()` and consume the matching `MultipartConfiguration` file parts. Define the size limits and how file bytes and required metadata reach the native configuration; describing a file in the schema alone does not transmit it.
 - If parsing uses Jackson or another library, update `java-plugin/build.gradle.kts` with the matching dependency and bundle its runtime dependencies in the distributable JAR as described in the build guide. The SDK supplies no JSON parser.
-- `TemplateCommandTemplate.java`: make `validateConfiguration` and `createCommand` use the same typed parser and pass validated configuration to the command. Remove unconditional validation TODO exceptions, including when the schema has no fields: a valid empty configuration must permit creation. Keep example configurations consistent with the resulting schema.
+- `TemplateCommandTemplate.java`: make `validateConfiguration` and `createCommand` use the same typed parser and pass validated configuration to the command. The default already validates `{}`; preserve valid empty input when the schema has no fields. Keep example configurations consistent with the resulting schema.
 - `TemplateCommand.java`: retain the typed configuration and serialize it consistently in `generateExecUnit` and `generateShellCode`. Preserve resource selection and pipe-name replacement. If the command accepts live updates, use the same documented contract in `serializeCommandUpdate`, register the native update callbacks described in the IPC reference, and validate before swapping active state. Retain explicit unsupported-update behavior otherwise.
 
-In a fresh template, make these concrete handoff edits:
+When adding configuration fields to a fresh template, make these concrete handoff edits:
 
 1. In `TemplateCommandTemplate.createCommand`, replace the validate-then-pass-raw sequence with a call to the typed parser and pass its result to `new TemplateCommand(...)`. Keep `validateConfiguration` calling that same parser.
-2. Change the `TemplateCommand` constructor's configuration parameter to the typed class and assign an instance field. Add one shared `serializeConfiguration()` helper that encodes that field (one immutable snapshot if updates are supported).
-3. Replace `.configuration(ByteBuffer.allocate(0))` in `generateExecUnit` with `.configuration(serializeConfiguration())`.
-4. Replace only the second argument, currently `ByteBuffer.allocate(0)`, in `new ShellCodeWithConf(...)` inside `generateShellCode` with `serializeConfiguration()`. Both paths must receive the same inner payload bytes; leave native resource selection and IPC framing with their existing owners.
+2. Change the `TemplateCommand` constructor's configuration parameter to the typed class and assign an instance field. Extend the shared `serializeConfiguration()` helper to encode that field (one immutable snapshot if updates are supported).
+3. Keep `.configuration(serializeConfiguration())` in `generateExecUnit` using that shared encoder.
+4. Keep the second argument of `new ShellCodeWithConf(...)` inside `generateShellCode` using `serializeConfiguration()`. Both paths must receive the same inner payload bytes; leave native resource selection and IPC framing with their existing owners.
 
 ## Payload contract
 
@@ -63,7 +65,7 @@ A validation or startup failure after connection must reach the completion owner
 
 Implement every exec-unit found in the inventory, including source implementations missing from the advertised list. Reconcile that discrepancy without dropping an implementation merely to avoid work. Apply the same configuration semantics to additional platforms beyond the Windows/Linux paths below.
 
-- Windows: extend the existing typed configuration/parser, or create `exec-code/win/Configuration.cs` and add it to `exec-code/win/command-execunit.csproj`. Call it from `exec-code/win/Program.cs` before behavior starts. Implement remaining helper stubs according to the IPC reference, retain the connection for subsequent messages, and keep `QQQWWWEEE` as the pipe-name placeholder.
+- Windows: extend the existing typed configuration/parser, or create `exec-code/win/Configuration.cs` and add it to `exec-code/win/command-execunit.csproj`. Call it from `exec-code/win/Program.cs` before behavior starts. Extend the implemented helper APIs according to the IPC reference, retain the connection for subsequent messages, and keep `QQQWWWEEE` as the pipe-name placeholder.
 - Linux: extend or create a typed configuration parser beside `exec-code/linux/command/Main.cpp`, include new `.cpp` sources in `exec-code/linux/build_linux.sh`, and parse `CommunicationNamedPipes::connect()` bytes before behavior starts. Update the shared helpers where needed to implement validated framing and failure handling.
 
 Test Java validation and factory creation with valid input, including `{}` when no fields are required, and malformed/invalid cases. Verify Java encoder bytes against every native decoder at startup and during supported updates. Preserve the previous working state on rejected updates. Execute the complete Docker `make build` from the plugin root, wait for its exit status, and verify its exported native artifacts and packaged JAR as the build guide describes. Record the command, working directory, exit status and artifact paths. Report unavailable checks and behavior TODOs outside the configuration request.

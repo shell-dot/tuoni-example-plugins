@@ -3,29 +3,25 @@
 Copy one of these folders to start a plugin. Each folder is independent and uses the
 same Java server plugin / `exec-code` layout as the repository examples.
 
-| Folder | Java server plugin | Execunit skeleton |
+| Folder | Java server plugin | Native starting point |
 | --- | --- | --- |
-| [command](command/README.md) | Command registration, template, and command lifecycle | Command execunit entry point |
-| [listener](listener/README.md) | Listener registration and lifecycle | Listener execunit entry point |
+| [command](command/README.md) | Empty configuration, factory, UTF-8 results, and lifecycle | Windows/Linux pipe startup, `DONE`, and success completion |
+| [listener](listener/README.md) | Empty configuration, factory, and idle lifecycle | Windows/Linux pipe startup and disconnect waiting; traffic TODO |
 | [payloads](payloads/README.md) | Payload registration, template, and output object | Payload program entry point |
 
-These are source skeletons with `TODO` markers. Java configuration validation and
-most behavior methods deliberately report that they are unimplemented. The command
-accepts Windows and Linux x64 shellcode agents, and the listener advertises
-Windows x86/x64 and Linux x64 payload types. Windows uses `SHELLCODE_NATIVE`;
-Linux x64 uses a `NATIVE_LIB` with a `run` entry point. Each C#
-program prints an unimplemented message and exits with code 1. Its entry point is
-scaffolding, not an implementation of the execunit protocol or a payload agent.
-The Linux C++ command reports an unimplemented failure; the Linux listener has
-a TODO for connecting and serving.
+The command template is a no-op starting point: Java accepts `{}`, the Windows and
+Linux exec-units connect, return `DONE`, and report success without performing an
+operation. Java displays that text in the `output` result; the execution hooks
+are ready for new code. It supports Windows x86/x64 shellcode
+agents and Linux x64 native-library agents. Windows uses `SHELLCODE_NATIVE`;
+Linux uses a `NATIVE_LIB` with a `run` entry point. Its pipe/FIFO and TLV utilities
+are implemented, with checked result and completion sends.
 
-The command and listener projects include minimal utility API stubs under
-`exec-code/win/exec-unit-utils/`: `TLV`, `CommunicationNamedPipes`, and the corresponding
-command or listener helper. These are partial declarations with unimplemented
-encoding and communication methods. Their entry points outline lifecycle hooks;
-the listener includes a cancellable idle wait after its initialization hook.
-The Linux `exec-code/linux/common/` folders contain the FIFO/TLV implementations
-from the corresponding examples.
+The listener template accepts `{}` and implements Java lifecycle and native
+local-agent IPC startup for Windows x86/x64 and Linux x64. Its exec-units remain
+idle until host disconnect; the data traffic channel is intentionally TODO in Java
+and both native entrypoints. The payload template retains unimplemented behavior.
+Native utilities live under `exec-code/win/exec-unit-utils/` and `exec-code/linux/common/`.
 
 These native helpers implement the local agent's pipe/FIFO protocol. Java
 configuration and result APIs exchange the inner payload bytes, whose format is
@@ -56,8 +52,11 @@ it does not need the native helper's envelope codec or server-internal classes.
    name in the Makefile and Gradle resource task. These Makefile variables
    do not change the Dockerfile paths; both files must agree with your project
    settings. Update the project README's build commands and output names too.
-6. Define configuration fields in `TemplateConfigurationSchema`, then implement
-   the validation and behavior hooks marked `TODO`.
+6. For commands, extend the existing `Execute`/`execute` hooks and `parseResult`.
+   For listeners, implement the requested channel at the Java/native TODO markers.
+   Add configuration fields only when needed: extend `TemplateConfigurationSchema`,
+   validation, the shared `serializeConfiguration()` encoder, and both native decoders.
+   Preserve the implemented IPC helpers and cleanup/completion ownership.
 
 The Java builds use SDK **0.15.0**, matching the examples, as a `compileOnly`
 dependency. The SDK is supplied by Tuoni at runtime. These skeletons have no
@@ -138,6 +137,8 @@ Debug and Release configurations for Any CPU. Open it in Visual Studio, or build
 it from a Visual Studio Developer PowerShell using the command in the template's
 README. Their executable is written to `exec-code/win/bin/Release/`.
 
-The templates contain no business logic or prebuilt execution artifacts. The
+The command and listener templates contain the working defaults described above,
+but no application operation or listener traffic channel. They contain no prebuilt
+execution artifacts. The
 repository's root Makefile continues to build the full examples; build a template
 directly using the commands above.

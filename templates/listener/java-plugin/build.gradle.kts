@@ -31,7 +31,7 @@ tasks.jar {
         "Plugin-Version" to project.version.toString(),
         "Plugin-Provider" to "example",
         "Plugin-Name" to "Listener Plugin Template",
-        "Plugin-Description" to "Unimplemented listener plugin skeleton",
+        "Plugin-Description" to "Idle listener plugin template",
         "Plugin-Url" to "https://example.com"
     )
   }

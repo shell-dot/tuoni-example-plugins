@@ -6,10 +6,10 @@ import com.shelldot.tuoni.plugin.sdk.command.CommandTemplate;
 import com.shelldot.tuoni.plugin.sdk.command.ExecUnitType;
 import com.shelldot.tuoni.plugin.sdk.common.AgentInfo;
 import com.shelldot.tuoni.plugin.sdk.common.AgentType;
-import com.shelldot.tuoni.plugin.sdk.common.Architecture;
-import com.shelldot.tuoni.plugin.sdk.common.OperatingSystem;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.ConfigurationSchema;
+import com.shelldot.tuoni.plugin.sdk.common.configuration.JsonConfiguration;
+import com.shelldot.tuoni.plugin.sdk.common.configuration.MultipartConfiguration;
 import com.shelldot.tuoni.plugin.sdk.common.configuration.NamedConfiguration;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.InitializationException;
 import com.shelldot.tuoni.plugin.sdk.common.exceptions.ValidationException;
@@ -37,20 +37,13 @@ public class TemplateCommandTemplate implements CommandTemplate {
 
   @Override
   public String getDescription() {
-    // TODO: Explain the operator-visible action, important inputs and resulting
-    // output. This description is command discovery/help text; describe the actual
-    // implemented behavior and any meaningful platform limitations.
-    return "TODO: Describe your command.";
+    return "Returns DONE and completes successfully without performing any operation.";
   }
 
   @Override
   public List<NamedConfiguration> getExampleConfigurations() {
-    // TODO: Add sample configurations once the schema is defined.
-    // Return named SDK configurations that pass this template's actual validator,
-    // illustrating a minimal request and useful optional fields without secrets.
-    // Keep examples in step with schema/default changes; use an empty-object example
-    // if the implemented command intentionally accepts no configuration fields.
-    return List.of();
+    JsonConfiguration empty = () -> "{}";
+    return List.of(new NamedConfiguration("default", empty));
   }
 
   @Override
@@ -66,25 +59,30 @@ public class TemplateCommandTemplate implements CommandTemplate {
     // is created. Check agent type, metadata, OS and process architecture against the
     // built artifacts; a supported OS alone does not establish architecture support.
     // Keep direct generation calls equally guarded, including unknown metadata.
-    return agentInfo.getType() == AgentType.SHELLCODE_AGENT
-        && (agentInfo.getLatestMetadata().os() == OperatingSystem.WINDOWS
-            || (agentInfo.getLatestMetadata().os() == OperatingSystem.LINUX
-                && agentInfo.getLatestMetadata().processArch() == Architecture.X64));
+    return agentInfo != null && agentInfo.getType() == AgentType.SHELLCODE_AGENT
+        && !TemplateCommand.supportedTypes(agentInfo.getLatestMetadata()).isEmpty();
   }
 
   @Override
   public void validateConfiguration(Configuration configuration, AgentInfo agentInfo)
       throws ValidationException {
-    // TODO: Parse and validate the configuration against your schema.
-    // Accept only supported SDK configuration types, parse JSON/files into one typed
-    // value, apply documented defaults and check required fields, types, bounds and
-    // cross-field rules. For multipart input, resolve uploaded bytes and metadata
-    // before validation that uses them, and bound reads/counts explicitly.
-    // Use the same parser during createCommand so acceptance and serialization agree;
-    // no runtime operation or pipe connection should start during validation.
-    // Report invalid fields as ValidationException with useful field information.
-    // A command without user fields still needs to accept its valid empty object.
-    throw new ValidationException("TODO: Implement command configuration validation.");
+    JsonConfiguration json;
+    if (configuration instanceof JsonConfiguration value) {
+      json = value;
+    } else if (configuration instanceof MultipartConfiguration multipart) {
+      if (!multipart.files().isEmpty()) {
+        throw new ValidationException("The template command does not accept file uploads.");
+      }
+      json = multipart.jsonConfiguration();
+    } else {
+      throw new ValidationException("Expected an empty JSON object: {}.");
+    }
+    String text = json == null ? null : json.toJSON();
+    // This is the complete grammar for our empty-object schema. Add a JSON parser
+    // and typed configuration when adding fields; no parser dependency is needed yet.
+    if (text == null || !text.matches("[ \\t\\r\\n]*\\{[ \\t\\r\\n]*\\}[ \\t\\r\\n]*")) {
+      throw new ValidationException("The template command accepts only an empty JSON object: {}.");
+    }
   }
 
   @Override

@@ -35,29 +35,51 @@ The following guides are copied into generated plugins:
 | Find a matching Java/native source pair | [Existing listener patterns](docs/existing-plugins.md) |
 | Maintain context for later commands and skills | [Context maintenance](docs/project-context.md) |
 | Add configuration and validate its payload encoding | [Configuration walkthrough](docs/configuration.md) |
-| Implement native helpers and own the IPC connection | [Native runtime](docs/native-runtime.md) |
+| Extend native behavior and preserve IPC ownership | [Native runtime](docs/native-runtime.md) |
 | Check message IDs, framing, and configuration delivery | [IPC and transport reference](docs/execunit-ipc.md) |
 | Implement Java lifecycle, receive data, and present output | [Java listener walkthrough](docs/listener-java.md) |
 | Add dependencies, build, and verify the JAR | [Build guide](docs/building.md) |
+| Check the exported JAR and isolated Java initialization | [Java verification](docs/java-verification.md) |
+| Compare real encoders, decoders, and IPC framing | [Payload verification](docs/payload-verification.md) |
 
-`exec-code/win/Program.cs` contains initialization, a cancellable idle wait, and
-cleanup. The wait blocks without polling; Ctrl+C signals cancellation when running
-as a console application. Initialization throws `NotImplementedException`, so the
-current program prints that error and exits with code 1 before reaching the wait.
+## Default behavior
 
-`exec-code/linux/listener/Main.cpp` exports `run(char*, char*)` for the Linux agent.
-It supplies a listener scaffold and the native FIFO/host-protocol helpers under
-`exec-code/linux/common/`. Connect to the agent, register callbacks, and implement
-the listener transport in that TODO hook.
+The default listener accepts this configuration:
 
-`exec-code/win/exec-unit-utils/` contains minimal **API stubs** for `TLV`,
-`CommunicationNamedPipes`, and `CommunicationNamedPipesListener`. The project
-compiles them directly, so they appear in the solution without a shared project.
-These are a subset of the example utility APIs, not copies of their implementations.
-Their wire framing belongs to the native host protocol; plugin configuration and
-application payloads use the format chosen for the task.
-Encoding, decoding, connection, callback registration, and data exchange are
-unimplemented. The entry point does not call these transport stubs.
+```json
+{}
+```
+
+Validation accepts JSON whitespace around the empty object, including multipart
+configuration with no uploaded files. Other fields, values, malformed JSON, and
+uploads are rejected. The `default` example is `{}`. Java serializes this input as
+zero native payload bytes, with each buffer's position and limit both zero;
+`{}` is not sent as text to the exec-unit.
+
+Java factory creation, start/stop/delete, valid empty reconfiguration, and updated
+configuration serialization work without placeholder exceptions. Repeated starts
+and stops are harmless; a stopped listener can restart. Deletion is terminal.
+`getInfo()` shows `Listener template <id>: <status>`. `STARTED` describes the Java
+object's local state; the idle template owns no endpoint and receives no native
+health observations. Start or reconfigure after deletion rejects the invalid lifecycle request.
+
+Both native entrypoints use the implemented pipe/FIFO utilities to connect to the
+local agent, receive and validate an empty configuration payload, and remain idle
+until the host closes the connection. Windows waits for its owned reader in
+`WaitForStop`; Linux's exported `run(char*, char*)` waits in `serve`. Cleanup joins
+the reader and releases the connection before returning, including after failed startup.
+
+## Extend the template
+
+The data traffic channel is intentionally TODO. Add Java transport setup and SDK
+request/command handling in `TemplateListener.start`, Windows channel behavior in
+`Program.Initialize`/`WaitForStop`, and matching Linux behavior in `serve`. The
+cleanup hooks also mark where to stop and join any added channel workers. The idle
+default opens no application endpoint and exchanges no metadata, requests, or commands.
+The local-agent pipe/FIFO is separate from the future data traffic channel to Java.
+Before using the request helpers for traffic, add timeout/disconnect cancellation
+for pending responses. The listener protocol has no command-style terminal success
+report or stop message.
 
 The Java class implements `ExecUnitListener` and `ShellcodeListener`. It advertises
 Windows x86 and x64 payload types with `SHELLCODE_NATIVE`, and Linux x64 with
@@ -69,8 +91,10 @@ configuration buffer. The new name must have the same encoded length as the
 placeholder. Build the C# Release project first so its post-build step creates
 `java-plugin/src/main/resources/listener.shellcode`. Build the Linux library before
 a direct Java build so Gradle can include it.
-Startup, reconfiguration, and updated configuration serialization remain TODO hooks;
-stop and delete only update local status.
+Startup and valid `{}` replacement serialization use the same empty native payload.
+No fields require live application; serialization alone does not prove host delivery.
+
+## Build
 
 Skills build with Docker unless the user explicitly requests another route. If Docker
 is missing or unusable, inform the user and report the blocked build; do not fall
@@ -78,7 +102,7 @@ back to local tools. The local build examples below apply only to an explicitly
 requested non-Docker route.
 
 Open [exec-code/win/listener-execunit.sln](exec-code/win/listener-execunit.sln) in Visual Studio,
-or build the C# skeleton from this folder:
+or build the C# exec-unit from this folder:
 
 ```powershell
 msbuild exec-code/win/listener-execunit.sln /p:Configuration=Release

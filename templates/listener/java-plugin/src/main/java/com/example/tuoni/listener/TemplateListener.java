@@ -25,26 +25,21 @@ public class TemplateListener implements ExecUnitListener, ShellcodeListener {
   private static final String LINUX_RESOURCE = "/listener-linux.native64_so";
   private static final PayloadType LINUX_X64 =
       PayloadType.of(OperatingSystem.LINUX, Architecture.X64);
+  private final long listenerId;
+  private final ListenerContext listenerContext;
   private volatile ListenerStatus status = ListenerStatus.CREATED;
 
   public TemplateListener(
       long listenerId, Configuration configuration, ListenerContext listenerContext) {
-    // TODO: Retain the validated configuration and context needed by this listener.
-    // Store the stable listener identity, parsed settings, and ListenerContext
-    // used to read metadata, resolve/register agents, and report activity. Declare
-    // ownership of sessions, transport resources, and workers so partial startup
-    // can be unwound. Keep construction free of network binding and background
-    // work; those resources must be acquired and published by start().
+    this.listenerId = listenerId;
+    this.listenerContext = listenerContext;
+    // No configuration fields or transport resources are owned by the default.
   }
 
   @Override
   public String getInfo() {
-    // Replace the placeholder with a concise snapshot of this listener's actual
-    // endpoint and useful state. Read worker-updated values consistently and avoid
-    // exposing credentials. Java startup reports local resource readiness; remote
-    // health or telemetry needs received observations and their freshness rather
-    // than being inferred from STARTED alone.
-    return "TODO: Describe your listener.";
+    // Local lifecycle state only; the default has no endpoint or remote telemetry.
+    return "Listener template " + listenerId + ": " + status;
   }
 
   @Override
@@ -53,51 +48,48 @@ public class TemplateListener implements ExecUnitListener, ShellcodeListener {
   }
 
   @Override
-  public void start() throws ExecutionException {
-    // TODO: Initialize listener resources; set STARTED only after successful startup.
-    // Bind/open the configured Java application transport and install its receive
-    // and command-send handling. Keep session and worker references owned before
-    // they can fail, unwind all partial acquisition on error, and retain the cause
-    // in ExecutionException. Coordinate repeated starts and starts after delete
-    // with the lifecycle policy; publish STARTED only once resources are usable.
-    throw new ExecutionException("TODO: Implement listener startup.");
+  public synchronized void start() throws ExecutionException {
+    requireNotDeleted();
+    if (status == ListenerStatus.STARTED) {
+      return;
+    }
+    // TODO: Open the data traffic channel, receive/register agents through
+    // listenerContext, and send their queued commands. Own and unwind resources
+    // before publishing STARTED when that channel is implemented.
+    status = ListenerStatus.STARTED;
   }
 
   @Override
-  public void stop() throws ExecutionException {
-    // TODO: Release any resources acquired during startup.
-    // Stop accepting sessions, signal cancellation, and unblock pending accepts,
-    // reads, writes, and command waits. Cancel subscriptions, settle pending command
-    // send statuses, await owned workers, then release sessions and transport state
-    // before publishing STOPPED. Cleanup must also handle a failed partial start
-    // and repeated calls; avoid waiting under locks that workers need to exit.
-    status = ListenerStatus.STOPPED;
+  public synchronized void stop() throws ExecutionException {
+    // TODO: Close the data traffic channel and unblock/join its workers once added.
+    // The idle default owns no sockets, sessions, subscriptions, or workers.
+    if (status != ListenerStatus.DELETED) {
+      status = ListenerStatus.STOPPED;
+    }
   }
 
   @Override
-  public void delete() throws ExecutionException {
+  public synchronized void delete() throws ExecutionException {
     stop();
-    // TODO: Release any remaining listener-owned resources.
-    // After shutdown, release persistent per-listener state that stop() intentionally
-    // keeps for restart, including registrations or owned storage when applicable.
-    // Make deletion safe to repeat and publish DELETED only after cleanup succeeds.
-    // Define how later start/reconfigure requests reject a deleted listener without
-    // recreating resources or leaving stale session references.
+    // TODO: Release persistent data-channel state if it is introduced.
     status = ListenerStatus.DELETED;
   }
 
   @Override
-  public Listener reconfigure(Configuration newConfiguration)
+  public synchronized Listener reconfigure(Configuration newConfiguration)
       throws ExecutionException, SerializationException, ValidationException {
-    // Validate a complete candidate before changing active settings. Apply Java
-    // resource changes in coordination with start/stop, and return this instance
-    // or a replacement that preserves listenerId and ListenerContext according to
-    // the chosen lifecycle design. Publish the candidate after successful startup;
-    // preserve/restore the prior working state if replacement fails. Encoding a
-    // native update is separate from proving it was delivered and applied. If
-    // reconfiguration is unsupported, report that explicitly without changing state.
+    requireNotDeleted();
     TemplateListenerPlugin.validateConfiguration(newConfiguration);
-    throw new ExecutionException("TODO: Implement listener reconfiguration.");
+    // With no fields, a valid replacement changes nothing and preserves status.
+    // TODO: Apply data-channel settings atomically, retaining the previous working
+    // resources if an update fails, when configuration fields are introduced.
+    return this;
+  }
+
+  private void requireNotDeleted() throws ExecutionException {
+    if (status == ListenerStatus.DELETED) {
+      throw new ExecutionException("The listener has been deleted.");
+    }
   }
 
   @Override
@@ -118,6 +110,9 @@ public class TemplateListener implements ExecUnitListener, ShellcodeListener {
     // Keep this result consistent with generateExecUnit() resource and entrypoint
     // selection; unsupported combinations must return an empty set. Linux uses the
     // run export of its native library, while Windows uses patched shellcode here.
+    if (payloadType == null) {
+      return Set.of();
+    }
     if (LINUX_X64.equals(payloadType)) {
       return Set.of(ExecUnitType.NATIVE_LIB);
     }
@@ -129,8 +124,8 @@ public class TemplateListener implements ExecUnitListener, ShellcodeListener {
   public ExecUnit generateExecUnit(ExecUnitType type, String pipeName, PayloadType payloadType)
       throws SerializationException {
     // Select the artifact for this complete type/OS/architecture combination and
-    // pair it with configuration encoded from the validated active settings. Replace
-    // the empty configuration below with the same inner bytes consumed by native
+    // pair it with configuration encoded from the validated active settings. Extend
+    // the shared encoder with the same inner bytes consumed by native
     // Connect()/connect(); the SDK/agent adds the host IPC envelope. Preserve the
     // Windows pipe-name patch and Linux run entrypoint. Return each configuration
     // buffer at position zero with its limit equal to the encoded payload length,
@@ -146,7 +141,7 @@ public class TemplateListener implements ExecUnitListener, ShellcodeListener {
             : ShellcodeResource.load(getClass(), SHELLCODE_RESOURCE, pipeName))
         .type(type)
         .ipcType(PluginIpcType.NAMED_PIPE)
-        .configuration(ByteBuffer.allocate(0))
+        .configuration(serializeConfiguration())
         .entrypoint(linux ? "run" : null)
         .build();
   }
@@ -156,7 +151,7 @@ public class TemplateListener implements ExecUnitListener, ShellcodeListener {
       throws SerializationException {
     // Produce the supported Windows shellcode with its UTF-16LE pipe placeholder
     // patched, plus the same native configuration bytes used by generateExecUnit().
-    // Replace the empty buffer with a shared encoder for active validated settings,
+    // Extend the shared encoder for active validated settings,
     // preserving exact buffer position/limit and matching the native decoder. Do
     // not prepend pipe/TLV framing here; the SDK/agent owns that outer envelope.
     if (!getSupportedExecUnitTypes(payloadType).contains(ExecUnitType.SHELLCODE_NATIVE)) {
@@ -164,20 +159,25 @@ public class TemplateListener implements ExecUnitListener, ShellcodeListener {
     }
     return new ShellCodeWithConf(
         ShellcodeResource.load(getClass(), SHELLCODE_RESOURCE, pipeName),
-        ByteBuffer.allocate(0),
+        serializeConfiguration(),
         PluginIpcType.NAMED_PIPE);
   }
 
   @Override
   public ByteBuffer serializeUpdatedConfiguration(Configuration configuration)
       throws SerializationException {
-    // Encode the supplied candidate using the native configuration contract shared
-    // by startup generation and every in-scope decoder. This hook serializes bytes
-    // without mutating active Java settings or itself delivering an update. Return
-    // an exact payload buffer at position zero; wrap candidate validation failures
-    // in SerializationException because this SDK signature cannot throw them.
-    // If native updates are unsupported, replace the TODO with an explanatory
-    // SerializationException rather than returning an empty success payload.
-    throw new SerializationException("TODO: Implement listener configuration serialization.");
+    try {
+      TemplateListenerPlugin.validateConfiguration(configuration);
+    } catch (ValidationException error) {
+      throw new SerializationException("Invalid listener configuration.", error);
+    }
+    // A valid {} replacement has no native fields to change. Serialization does
+    // not establish delivery; add delivery/application when fields are introduced.
+    return serializeConfiguration();
+  }
+
+  private ByteBuffer serializeConfiguration() {
+    // Fresh readable buffer shared by startup and no-field replacement encoding.
+    return ByteBuffer.allocate(0);
   }
 }

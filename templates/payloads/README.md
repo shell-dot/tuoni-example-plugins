@@ -16,6 +16,10 @@ folders use it for their execunits.
 extension are placeholders in the Java template; choose values appropriate to
 your implementation. Payload serialization is unimplemented.
 
+This payload scaffold still requires its validation, serialization, and program
+behavior to be implemented. The command and listener defaults described in the
+[template overview](../README.md) do not implement these payload hooks.
+
 Open [exec-code/payload.sln](exec-code/payload.sln) in Visual Studio,
 or build the C# skeleton from this folder:
 

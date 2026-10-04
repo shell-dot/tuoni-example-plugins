@@ -2,12 +2,12 @@
 
 Read this file before changing the plugin. After a command, skill, or partial implementation, update the relevant facts here using the [context maintenance guide](docs/project-context.md). Preserve user-authored instructions and replace outdated facts rather than appending a session transcript. The companion CLAUDE.md points here and can hold additional client-specific instructions.
 
-This is the initial scaffold snapshot. When editing the source template itself, keep this snapshot accurate for a fresh copy; verification of the template repository is not verification of a newly generated plugin.
+This is the current source-template snapshot. When editing the source template itself, keep this snapshot accurate for a fresh copy; verification of the template repository is not verification of a newly generated plugin.
 
 ## Purpose and scope
 
 - Plugin ID: `example.listener.template`; Java package: `com.example.tuoni.listener`.
-- Purpose: named listener scaffold; user-requested listener behavior has not been implemented.
+- Purpose: idle listener starting point. Java accepts `{}` and starts without placeholder exceptions. Both exec-units connect to the local agent, receive empty configuration, and stay alive until pipe/FIFO disconnect. The data traffic channel is intentionally left as TODO in Java and native code.
 - Existing exec-units: Windows x86/x64 shellcode and Linux x64 native library. Both OS implementations remain in scope unless the user limits the task. Advertised support does not establish runtime readiness.
 
 ## Required exec-unit safety
@@ -27,17 +27,18 @@ Exec-units share the host process, and their code may be unloaded immediately af
 ## Configuration and protocol
 
 - Plugin-owned configuration, application messages, and telemetry use a straightforward format chosen for the task: UTF-8 text/JSON or explicit binary fields. Java uses standard text/binary APIs and a declared bundled JSON parser if needed. The native helper retains the host IPC protocol; see [payload boundaries](docs/execunit-ipc.md#plugin-payloads-and-host-ipc).
-- Schema currently declares an empty object with no additional properties and no file fields. Java validation still throws a TODO exception, so the factory is not operational even for `{}`.
-- No typed plugin configuration class or plugin-specific payload contract exists yet. Both generation methods supply an empty configuration buffer. The examples in [configuration.md](docs/configuration.md) are guidance, not this plugin's implemented contract.
-- Record future field defaults, validation, wire fields/encoding/versioning, and update/rollback behavior here or link the implemented codec/contract document. Live configuration delivery has not been implemented.
+- Schema declares an empty object with no additional properties or file fields. Validation accepts `{}` with JSON whitespace, including multipart JSON with no files; other values, fields, malformed JSON, and uploads are rejected. The `default` example uses `{}`.
+- Both generation methods and valid empty replacement serialization use the shared `serializeConfiguration()` encoder, returning fresh zero-length buffers at position/limit zero. Both native entrypoints require exactly zero configuration payload bytes. Windows startup failure returns `null`; Linux startup failure throws, so failed startup cannot be mistaken for valid empty input. No private parser dependency or typed configuration is needed for this no-field contract.
+- Java reconfiguration validates a full replacement and returns the same instance without changing lifecycle state. A valid `{}` has no fields to update on Java or native sides; serialization does not prove host delivery or remote application. Record future fields, defaults, encoding, update delivery, and rollback behavior when the traffic channel is added.
 - [execunit-ipc.md](docs/execunit-ipc.md) separates the local-agent pipe from the native-to-Java application transport. No application transport is implemented in this scaffold.
 - Windows preserves `QQQWWWEEE` for pipe-name patching. Linux uses agent-supplied FIFO paths and the `run` export.
 
 ## Logic, lifecycle, and output status
 
-- Inline comments describe the unfinished Java and native hooks, including configuration handoff, agent/server data flow, lifecycle, and resource ownership. They are implementation guidance; the TODOs and stub behavior remain in place.
-- Windows `Program` and IPC helpers are stubs. Linux has an exported entry point but no listener transport loop.
-- Java startup, reconfiguration, and configuration-update serialization remain TODO. Stop/delete currently change status without an implemented resource lifecycle; `getInfo()` is placeholder text.
+- Windows `Main` owns `CommunicationNamedPipesListener` across `Initialize`, `WaitForStop`, and `Cleanup`. After receiving/validating configuration, it joins the utility reader until host pipe disconnect. Cleanup closes/unblocks and joins the reader even after invalid configuration or failed startup; no console event handlers or traffic callbacks are registered.
+- Linux `run` owns `CommunicationNamedPipes` through RAII, contains exceptions across construction/startup/validation/serving, and joins its reader until host FIFO disconnect. Cleanup cancels the atomic active flag, joins the reader, then closes/reset descriptors. Nonblocking reads poll in 100ms intervals so shutdown does not rely on closing an FD from another thread to unblock it. All FIFO writes, including readiness, handle full writes and generated `SIGPIPE` on the calling thread without changing host-wide handlers.
+- Both utility readers contain ordinary exceptions, read complete bounded frames, and distinguish valid empty startup payloads from failure. The idle entrypoints do not request metadata/data, forward commands, or create an application transport. Data-channel initialization, bidirectional traffic, and added-worker cleanup retain explicit TODO markers.
+- Java retains listener ID/context and owns no sockets, sessions, or workers. Synchronized start/stop/delete/reconfigure support normal startup, repeated calls, and restart after stop. Deletion remains terminal: stop/delete preserve DELETED, and start/reconfigure after deletion reject the invalid lifecycle request. `getInfo()` displays only the listener ID and local status; STARTED does not assert remote traffic readiness.
 - No Java connection handler, custom telemetry model, or output contract exists yet. The suggested files in [listener-java.md](docs/listener-java.md) are not existing implementations.
 - Use the [native implementation map](docs/native-runtime.md) and [Java listener walkthrough](docs/listener-java.md) when implementing these areas. Record the actual sender, receiver, presentation surface, and resource ownership afterward.
 
@@ -50,12 +51,12 @@ Exec-units share the host process, and their code may be unloaded immediately af
 - Default build from the plugin root: `make build` in a Linux/WSL shell with Docker available there. Local compiler/Gradle commands in the build guide apply only when the user explicitly requests a non-Docker route. The Makefile uses `scripts/docker/run-docker.sh` to select `sudo` automatically for a local Docker socket permission denial, preserving the selected socket and BuildKit setting; explicit `DOCKER=...` overrides bypass detection.
 - Native resource names: `listener.shellcode` and `listener-linux.native64_so`. Local distributable: `java-plugin/build/libs/listener-plugin-template-0.0.1.jar`; Docker export: `build/listener-plugin-template-0.0.1.jar`.
 - Follow [building.md](docs/building.md) for platform tools, native conversion, dependency packaging, and checks against fresh artifact bytes.
-- Verification for this generated instance: not recorded yet. Record commands, outcomes, unavailable checks, and whether native resources/JARs were rebuilt. Compilation alone does not establish runtime behavior.
+- Template-source verification: SDK 0.15.0 listener/lifecycle APIs inspected with `javap`; `python -m unittest discover -s tools -p test_scaffold_plugin.py` passed (12 tests), and `git diff --check` passed. Full build blocked: Make/Docker unavailable; `wsl --exec sh -lc 'make build'` from this template root returned exit 1 because WSL is not installed. No native resources/JAR were rebuilt. Real framed IPC startup, idle disconnect, host survival, immediate unload/repeated invocation, and isolated exported-JAR initialization remain unverified. These template checks do not verify a generated instance. Documentation now describes the implemented default and extension points across the README, guides, and mirrored skills; keep those references synchronized when changing the contract. Future data-channel use must add response-wait timeout/cancellation and worker ownership checks for the currently unused request helpers. Documentation verification: all 36 repository skill files passed the skill validator; 669 local links/anchors and 18 mirrored skill pairs passed consistency checks; all 12 scaffolding tests passed after the documentation update. No code/build inputs changed in this documentation pass.
 
 ## Next work and skill routing
 
 - Start with [implementation recipes](docs/implementation-recipes.md) to select transport ownership, record the configuration/protocol contract, and implement the minimum complete metadata/request/command path. Its transport and payload choices are examples, not an implemented peer protocol.
-- [Existing plugin patterns](docs/existing-plugins.md) maps reviewed Java/native counterparts, source ownership, compatibility constraints, and focused verification. These are reference patterns; the fresh scaffold still has the implementation TODOs listed above.
+- [Existing plugin patterns](docs/existing-plugins.md) maps reviewed Java/native counterparts, source ownership, compatibility constraints, and focused verification. These are reference patterns for implementing the data traffic channel, which remains intentionally TODO.
 
 1. Record the user's intended listener transport, output, and any platform limits.
 2. Use [listener-implement](.agents/skills/listener-implement/SKILL.md) to implement the entire listener from the prompt; it coordinates `listener-conf`, `listener-logic`, and `listener-output` through builds and verification. Use those focused skills directly for configuration, behavior/lifecycle, or returned data/presentation changes. All four skills are under `.agents/skills/` and `.claude/skills/`.

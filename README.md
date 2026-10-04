@@ -130,7 +130,14 @@ and [payload](templates/payloads/README.md) plugins. Each includes a Java server
 plugin skeleton, Windows C# execunit code, build files, and customization notes.
 The command and listener templates keep Windows code in `exec-code/win/` and Linux
 C++ code in `exec-code/linux/`.
-Behavior is left as TODO hooks so you can start without the examples' business logic.
+The command template starts as a no-op: `{}` validates, both exec-units connect and
+return `DONE` and report success, and Java displays it in the `output` text result.
+The execution hooks are ready for new behavior.
+The listener template starts idle with working Java lifecycle and native pipe startup;
+its data traffic channel remains TODO. Both use implemented local-agent IPC utilities;
+`{}` is serialized as a zero-length native payload. See the [command defaults](templates/command/README.md#default-behavior)
+and [listener defaults](templates/listener/README.md#default-behavior) for the contracts
+and extension points. The payload template retains its behavior TODOs.
 
 ## Create a Plugin from a Template
 
@@ -148,8 +155,8 @@ The skills use `tools/scaffold_plugin.py` to copy the appropriate template and
 rename its Java, Windows, Linux, and build identifiers. If you describe what the
 command or listener should do, they continue with the generated plugin's
 `command-implement` or `listener-implement` skill using your complete request.
-A name-only request or an explicit scaffold-only request leaves behavior TODOs
-for later implementation.
+A name-only request or an explicit scaffold-only request keeps the command's no-op
+behavior, or the listener's idle startup and channel TODOs, for later implementation.
 
 ### Work on an existing workspace plugin
 

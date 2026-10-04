@@ -35,48 +35,48 @@ namespace ExecUnitUtils
         /// Sends a result message with the provided data.
         /// </summary>
         /// <param name="data">The data to send as the result.</param>
-        public void sendResult(byte[] data)
+        public bool sendResult(byte[] data)
         {
             TLV tlv = new TLV(MessageTypeResult, data);
-            PutData(tlv.GetFullBuffer());
+            return PutData(tlv.GetFullBuffer());
         }
 
         /// <summary>
         /// Sends an error message with the provided message bytes.
         /// </summary>
         /// <param name="msg">The error message bytes to send.</param>
-        public void sendError(byte[] msg)
+        public bool sendError(byte[] msg)
         {
             TLV tlv = new TLV(MessageTypeError, msg);
-            PutData(tlv.GetFullBuffer());
+            return PutData(tlv.GetFullBuffer());
         }
 
         /// <summary>
         /// Sends a success return message.
         /// </summary>
-        public void sendReturnSuccess()
+        public bool sendReturnSuccess()
         {
             TLV tlv = new TLV(MessageTypeSuccess, new byte[0]);
-            PutData(tlv.GetFullBuffer());
+            return PutData(tlv.GetFullBuffer());
         }
 
         /// <summary>
         /// Sends a failed return message.
         /// </summary>
-        public void sendReturnFailed()
+        public bool sendReturnFailed()
         {
             TLV tlv = new TLV(MessageTypeFailed, new byte[0]);
-            PutData(tlv.GetFullBuffer());
+            return PutData(tlv.GetFullBuffer());
         }
 
         /// <summary>
         /// Sends a configuration message indicating an ongoing result.
         /// </summary>
-        public void sendConf_ongoingResult()
+        public bool sendConf_ongoingResult()
         {
             TLV tlv = new TLV(MessageTypeConf);
             tlv.AddChild(new TLV(MessageTypeConf_ongoing, new byte[1] { 0x1 }));
-            PutData(tlv.GetFullBuffer());
+            return PutData(tlv.GetFullBuffer());
         }
 
 
@@ -84,11 +84,16 @@ namespace ExecUnitUtils
         /// Sends an configuration message indicating how long to wait before letting agent stop it by force after agent sent stop commang
         /// </summary>
         /// <param name="waitTime">Max time agent waits before stopping by force (milliseconds)</param>
-        public void sendConf_stopWait(int waitTime)
+        public bool sendConf_stopWait(int waitTime)
         {
             TLV tlv = new TLV(MessageTypeConf);
             tlv.AddChild(new TLV(MessageTypeConf_stoptime, BitConverter.GetBytes(waitTime)));
-            PutData(tlv.GetFullBuffer());
+            return PutData(tlv.GetFullBuffer());
+        }
+
+        protected override bool HasCallbacks
+        {
+            get { return _actionNewData != null || _actionStop != null; }
         }
 
         override protected bool HandleIncomingData(TLV tlv)

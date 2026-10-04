@@ -2,6 +2,9 @@
 
 Apply this gate to every command implementation and every configuration, logic or output change. Commands must report a terminal **success or failure**; reaching the end of `run` / `Main`, closing a pipe, sending text, or logging an exception is not completion. Implement this in every supported exec-unit and test the host-visible command state.
 
+
+The default already checks `sendResult` for exact UTF-8 `DONE` and then one selected terminal send. Success is selected only after the result write succeeds; failures attempt diagnostic text and failure completion on a usable connection. Java displays `DONE` independently of terminal status. Preserve this ordering when extending the operation.
+
 ## One owner and checked finalization
 
 Give each invocation one completion owner and initialize its outcome to failure until the requested operation and required result writes actually succeed. Install the finalizer before startup and route every return, exception, cancellation and stop path through it, including construction, connection and partial-initialization failures. When no reporting channel exists, apply the host-visible failure handling below. Prefer structured control flow with RAII/finally cleanup over early returns scattered through helpers. Workers and callbacks notify the owner; they do not independently send terminal frames.
@@ -27,7 +30,7 @@ Implement finalization in this order, coordinated with [failure-path cleanup](na
 4. On a usable connection, send exactly one selected terminal frame and check the **complete frame** write/drain result. A terminal write is mandatory, not optional best effort. If a diagnostic send irrecoverably broke the stream, follow the transport-failure path below instead of appending bytes to a damaged frame.
 5. Once the terminal frame has been fully written, finish transport shutdown: disable/drain remaining callbacks, unblock and join any retained transport workers, close owned resources, and only then return. A completed terminal send does not permit live work to survive unloading. Do not emit a second or opposite terminal outcome if later teardown reports a defect; record and fix that defect.
 
-Check and repair the actual helper contract. The bundled Linux command send methods return `void` and discard `putData` failure, while `putData` accepts short writes. Replace or adapt that behavior so the owner sees a reliable full-frame result, checks partial writes/interrupts and handles `SIGPIPE` safely. Windows scaffold send methods are stubs. A mock counting calls to `sendReturnSuccess` cannot establish reporting.
+The bundled result/error/terminal helpers return `bool`; check it at each required send. Windows flushes synchronous writes; Linux loops over interrupted/partial writes and protects the calling thread against generated `SIGPIPE`. Failed writes disable further reporting. Preserve these contracts when extending the helpers. A mock counting calls to `sendReturnSuccess` cannot establish host receipt or final state.
 
 ## Make transport failures observable
 

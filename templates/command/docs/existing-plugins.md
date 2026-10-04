@@ -4,6 +4,8 @@ Use this reference when adapting configuration, execution, or results from Tuoni
 
 For a fresh plugin, begin with the [minimum implementation recipe](implementation-recipes.md); use this map when a step needs a concrete reference. Copy the required responsibility into the template's existing class structure. A server template inheriting `SimpleStatelessExecUnitCommandTemplate` puts its factory/result hooks in different classes from this standalone template.
 
+The [current template](../README.md#default-behavior) already supplies empty-object validation, native IPC startup, `DONE` text presentation, and checked completion. Adapt an existing pair for the requested operation; preserve those working hooks instead of copying helper boilerplate wholesale.
+
 ## Locate a matching pair
 
 Reference checkouts are commonly siblings named `commands_default`, `listeners_default`, and `tuoni-server`. The server sources are under `plugin/` (singular). Locate the actual roots with `rg --files`; a generated plugin may live elsewhere. The guidance here remains usable without those checkouts. Treat source paths below as locators within the named repository, not dependencies that must be present in the generated plugin.

@@ -2,32 +2,96 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <cerrno>
+#include <cstring>
+#include <pthread.h>
+#include <signal.h>
+#include <stdexcept>
+
+namespace {
+    bool readAll(int fd, void* data, size_t length) {
+        uint8_t* cursor = static_cast<uint8_t*>(data);
+        while (length != 0) {
+            const ssize_t count = read(fd, cursor, length);
+            if (count < 0 && errno == EINTR)
+                continue;
+            if (count <= 0)
+                return false;
+            cursor += count;
+            length -= static_cast<size_t>(count);
+        }
+        return true;
+    }
+
+    bool writeAll(int fd, const void* data, size_t length) {
+        // A disconnected FIFO must not terminate the agent. Mask SIGPIPE only on
+        // this thread, consume a newly generated signal, and restore the host mask.
+        sigset_t blocked, previous, pending;
+        sigemptyset(&blocked);
+        sigaddset(&blocked, SIGPIPE);
+        if (pthread_sigmask(SIG_BLOCK, &blocked, &previous) != 0)
+            return false;
+        if (sigpending(&pending) != 0) {
+            pthread_sigmask(SIG_SETMASK, &previous, nullptr);
+            return false;
+        }
+        const bool alreadyPending = sigismember(&pending, SIGPIPE) == 1;
+        const uint8_t* cursor = static_cast<const uint8_t*>(data);
+        bool success = true;
+        bool brokenPipe = false;
+        while (length != 0) {
+            const ssize_t count = write(fd, cursor, length);
+            if (count < 0 && errno == EINTR)
+                continue;
+            if (count <= 0) {
+                brokenPipe = count < 0 && errno == EPIPE;
+                success = false;
+                break;
+            }
+            cursor += count;
+            length -= static_cast<size_t>(count);
+        }
+        if (brokenPipe && !alreadyPending) {
+            const timespec noWait = {0, 0};
+            while (sigtimedwait(&blocked, nullptr, &noWait) < 0 && errno == EINTR) { }
+        }
+        pthread_sigmask(SIG_SETMASK, &previous, nullptr);
+        return success;
+    }
+}
 
 std::vector<uint8_t> CommunicationNamedPipes::connect()
 {
     pipe_read = open(pipeNameRead.c_str(), O_RDONLY);
     if (pipe_read == -1)
     {
-        return {};
+        throw std::runtime_error("Unable to open the command read FIFO.");
     }
 
     pipe_write = open(pipeNameWrite.c_str(), O_WRONLY);
     if (pipe_write == -1)
     {
         close();
-        return {};
+        throw std::runtime_error("Unable to open the command write FIFO.");
     }
 
-    ssize_t bytes_written = write(pipe_write, "\x00", 1);
-    (void)bytes_written;
+    if (!writeAll(pipe_write, "\x00", 1)) {
+        close();
+        throw std::runtime_error("Unable to send the command readiness byte.");
+    }
 
     active = true;
     auto data = getData();
+    // Validate the complete leaf envelope before invoking the generic TLV decoder.
+    uint32_t payloadLength = 0;
+    if (data.size() >= 5)
+        std::memcpy(&payloadLength, data.data() + 1, sizeof(payloadLength));
     TLV tlv;
-    if (!tlv.load(data))
+    if (data.size() < 5 || (data[0] & TLV_PARENT_TYPE_FLAG) != 0
+        || payloadLength != data.size() - 5 || !tlv.load(data))
     {
-        active = false;
-        return {};
+        close();
+        throw std::runtime_error("Unable to receive a complete command configuration frame.");
     }
 
     startListenerIfNeeded();
@@ -41,24 +105,17 @@ std::vector<uint8_t> CommunicationNamedPipes::getData()
         return {};
     }
 
-    uint32_t len;
-    ssize_t bytes_read = read(pipe_read, &len, sizeof(len));
-    if (bytes_read <= 0)
+    uint32_t len = 0;
+    if (!readAll(pipe_read, &len, sizeof(len)) || len < 5 || len > 16 * 1024 * 1024)
     {
+        active = false;
         return {};
     }
 
     std::vector<uint8_t> buffer(len);
-    uint32_t offset = 0;
-    while (len > 0)
-    {
-        bytes_read = read(pipe_read, buffer.data() + offset, len);
-        if (bytes_read <= 0)
-        {
-            return {};
-        }
-        offset += bytes_read;
-        len -= bytes_read;
+    if (!readAll(pipe_read, buffer.data(), len)) {
+        active = false;
+        return {};
     }
     return buffer;
 }
@@ -71,9 +128,13 @@ bool CommunicationNamedPipes::putData(const std::vector<uint8_t> &data)
         return false;
     }
 
-    uint32_t len = data.size();
-    if (write(pipe_write, &len, sizeof(len)) == -1 || write(pipe_write, data.data(), len) == -1)
+    if (data.size() > 16 * 1024 * 1024)
+        return false;
+    uint32_t len = static_cast<uint32_t>(data.size());
+    if (!writeAll(pipe_write, &len, sizeof(len)) || !writeAll(pipe_write, data.data(), len))
     {
+        // A failed frame may be partial. No further writes may reuse this stream.
+        active = false;
         return false;
     }
 
@@ -95,44 +156,44 @@ void CommunicationNamedPipes::close()
     active = false;
 }
 
-void CommunicationNamedPipes::sendResult(const std::vector<uint8_t> &data)
+bool CommunicationNamedPipes::sendResult(const std::vector<uint8_t> &data)
 {
     if (!active)
     {
-        return;
+        return false;
     }
     TLV tlv(0x30, data);
-    putData(tlv.genBytes());
+    return putData(tlv.genBytes());
 }
 
-void CommunicationNamedPipes::sendError(const std::vector<uint8_t> &data)
+bool CommunicationNamedPipes::sendError(const std::vector<uint8_t> &data)
 {
     if (!active)
     {
-        return;
+        return false;
     }
     TLV tlv(0x32, data);
-    putData(tlv.genBytes());
+    return putData(tlv.genBytes());
 }
 
-void CommunicationNamedPipes::sendReturnSuccess()
+bool CommunicationNamedPipes::sendReturnSuccess()
 {
     if (!active)
     {
-        return;
+        return false;
     }
     TLV tlv(0x33);
-    putData(tlv.genBytes());
+    return putData(tlv.genBytes());
 }
 
-void CommunicationNamedPipes::sendReturnFailed()
+bool CommunicationNamedPipes::sendReturnFailed()
 {
     if (!active)
     {
-        return;
+        return false;
     }
     TLV tlv(0x34);
-    putData(tlv.genBytes());
+    return putData(tlv.genBytes());
 }
 
 void CommunicationNamedPipes::sendConf_ongoingResult()

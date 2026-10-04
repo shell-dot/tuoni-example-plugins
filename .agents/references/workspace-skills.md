@@ -49,6 +49,22 @@ For example: "I found commands `daily-check` and `inventory`, but this request d
 
 Wait for the missing target information before dependent work. A name inferred from an unrelated example or silence after a question is not a selection.
 
+## Current template defaults
+
+New command copies accept `{}`, serialize zero native payload bytes, connect through
+the utilities, emit exact UTF-8 `DONE`, and report success. Java appends the text to
+`output`. New listener copies accept `{}`, implement local Java lifecycle and empty
+replacement encoding, connect native pipe/FIFO utilities, and idle until host
+disconnect. Their data traffic channel remains intentionally TODO. See the
+[command default](../../templates/command/README.md#default-behavior) and
+[listener default](../../templates/listener/README.md#default-behavior).
+
+Verify the selected plugin's source before applying these facts: older or customized
+copies can differ. Extend working helpers and lifecycle ownership; implement only
+the requested behavior. A listener formatting or idle-startup task does not require
+adding a traffic channel. Do not add command terminal reports to a listener or treat
+Java STARTED as observed remote readiness.
+
 ## Build and byte-verification defaults
 
 Carry these defaults into the selected plugin task unless the user explicitly overrides them, including when its copied local skill predates these requirements:

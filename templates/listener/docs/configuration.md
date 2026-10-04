@@ -6,6 +6,8 @@ Parse user configuration in Java and pass a validated typed value into the liste
 
 Sections: [Java handoff](#follow-one-typed-value-through-the-plugin), [JSON validation](#strict-json-validation-with-the-sdk), [uploads](#file-uploads-when-requested), [payload and native decoders](#worked-binary-payload-and-native-decoders), [verification](#verify-the-complete-handoff).
 
+The [idle default](../README.md#default-behavior) already validates `{}` with JSON whitespace or multipart JSON without files and rejects fields, other values, malformed JSON, and uploads. The shared `serializeConfiguration()` returns fresh zero-length buffers for both startup methods and valid replacement serialization; both native entrypoints require zero payload bytes. Java empty replacement preserves the same instance/status. Encoding a no-field replacement is valid and does not claim native update delivery.
+
 ## Choose the payload format
 
 Use the format that makes this task easy to implement correctly across its consumers. A single value may need only UTF-8 text. JSON is useful for named optional fields when each native implementation has a suitable parser; do not assume the SDK or native template provides one. Explicit binary fields are useful for a small fixed set of numeric values or opaque bytes. Preserve an established peer contract when extending an existing listener.
@@ -19,10 +21,10 @@ For files under `java-plugin/src/main/java/com/example/tuoni/listener/`:
 1. `TemplateListenerConfiguration.fromConfiguration(Configuration)` parses and validates; it returns the typed value. `TemplateListenerPlugin.validateConfiguration` calls it and discards the result.
 2. `TemplateListenerPlugin.create` calls the same parser, then passes its result to `new TemplateListener(listenerId, parsed, listenerContext)`.
 3. Change the `TemplateListener` constructor's configuration parameter from SDK `Configuration` to `TemplateListenerConfiguration`; store it in a typed field.
-4. Add one instance helper such as `private ByteBuffer serializeConfiguration() throws SerializationException { return configuration.toBytes(); }`.
-5. In `generateExecUnit`, replace `.configuration(ByteBuffer.allocate(0))` with `.configuration(serializeConfiguration())`.
-6. In `generateShellCode`, replace the second `new ShellCodeWithConf(...)` argument, currently `ByteBuffer.allocate(0)`, with `serializeConfiguration()`.
-7. When Java reconfiguration is supported or requested, `reconfigure` validates a candidate and applies resources before publishing the typed value. For supported native updates, `serializeUpdatedConfiguration` parses the supplied candidate and encodes it using the same rules without changing active state; follow the IPC reference for delivery and failure handling. If either capability is unsupported, replace its scaffold TODO with an explanatory `ExecutionException` (`reconfigure`) or `SerializationException` (`serializeUpdatedConfiguration`) and leave active state unchanged. Do not remove existing support or implement live delivery solely because the interface has an encoding hook.
+4. Extend the existing shared `serializeConfiguration()` helper to encode the typed value, for example by returning `configuration.toBytes()`.
+5. In `generateExecUnit`, keep `.configuration(serializeConfiguration())` and extend the existing shared encoder.
+6. In `generateShellCode`, keep the second `new ShellCodeWithConf(...)` argument using that shared `serializeConfiguration()` encoder.
+7. When Java reconfiguration is supported or requested, `reconfigure` validates a candidate and applies resources before publishing the typed value. For supported native updates, `serializeUpdatedConfiguration` parses the supplied candidate and encodes it using the same rules without changing active state; follow the IPC reference for delivery and failure handling. The default already supports no-field replacement and encoding. For added fields whose reconfiguration/update capability is unsupported, throw an explanatory `ExecutionException` (`reconfigure`) or `SerializationException` (`serializeUpdatedConfiguration`) and leave active state unchanged. Do not remove existing support or implement live delivery solely because the interface has an encoding hook.
 
 Keep validation free of resource creation. A standalone validation call may parse once, but the factory should parse once for its own creation operation and pass that typed result onward; it should not validate one object and retain a different raw object. Immutable fields or defensive copies keep later serialization consistent. With updates, serialize one complete configuration snapshot per call.
 
@@ -195,7 +197,7 @@ bool enabled = bytes[4] == 1;
 // Store attempts and enabled in the returned typed configuration.
 ```
 
-Complete the pipe helper's host-protocol stubs independently; it must return the inner configuration bytes unchanged. The configuration class does not parse the outer pipe envelope.
+Preserve the implemented pipe helper's host-protocol boundary; it must return the inner configuration bytes unchanged. The configuration class does not parse the outer pipe envelope.
 
 ### Linux (C++11)
 
