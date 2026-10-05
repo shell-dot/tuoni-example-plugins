@@ -11,6 +11,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)CommunicationNamedPipes.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)CommunicationNamedPipesCommand.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)CommandRuntime.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TLV.cs" />
   </ItemGroup>
 </Project>

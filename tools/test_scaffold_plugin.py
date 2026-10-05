@@ -6,6 +6,7 @@ import os
 import re
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest.mock import patch
 
@@ -314,6 +315,66 @@ class ScaffoldPluginTests(unittest.TestCase):
                     self.assertEqual(source.read_bytes(), copies[relative].read_bytes(), relative)
                     if source.suffix == ".md":
                         self.assert_local_links_resolve(source, REPO_ROOT)
+
+    def test_managed_formats_and_checks_survive_scaffolding(self) -> None:
+        for kind in ("command", "listener"):
+            with self.subTest(kind=kind):
+                destination, slug = scaffold(kind, "Format Copy", str(self.output_root / kind))
+                executable = f"{kind}-{slug}-execunit"
+                win = destination / "exec-code/win"
+                project = ET.parse(win / f"{executable}.csproj")
+                ns = {"m": "http://schemas.microsoft.com/developer/msbuild/2003"}
+                namespace = project.find(".//m:RootNamespace", ns).text
+                self.assertIn(f"namespace {namespace}", (win / "Program.cs").read_text())
+                self.assertIn("public static void start(string[] args)", (win / "Program.cs").read_text())
+                imports = [node.attrib["Project"] for node in project.findall("m:Import", ns)]
+                self.assertIn("exec-unit-utils\\ExecUnitFormats.targets", imports)
+                targets = win / "exec-unit-utils/ExecUnitFormats.targets"
+                metadata = ET.parse(targets).find(".//m:WriteLinesToFile", ns)
+                self.assertEqual(metadata.attrib["Lines"], "$(RootNamespace).Program::start")
+                self.assertEqual(targets.read_bytes(), (REPO_ROOT / "templates" / kind / "exec-code/win/exec-unit-utils/ExecUnitFormats.targets").read_bytes())
+
+                package = f"com.example.tuoni.{kind}.format_copy"
+                check = destination / "java-plugin/src/test/java" / package.replace(".", "/") / "ExecUnitFormatsCheck.java"
+                self.assertTrue(check.is_file())
+                self.assertIn(f"package {package};", check.read_text())
+                gradle = (destination / "java-plugin/build.gradle.kts").read_text()
+                docker = (destination / "scripts/docker/Dockerfile").read_text()
+                self.assertIn(f'{package}.ExecUnitFormatsCheck', gradle)
+                for suffix in ("dotnet_exe", "dotnet_dll", "dotnet_dll_method"):
+                    self.assertIn(f"{executable}.{suffix}", docker)
+                    self.assertIn(f"{executable}.{suffix}", gradle)
+                    self.assertIn(f"{kind}-{slug}.{suffix}", gradle)
+                for suffix in ("dotnet_exe", "dotnet_dll"):
+                    self.assertIn(f'/{kind}-{slug}.{suffix}', check.read_text())
+                self.assertIn('for format in shellcode dotnet-exe dotnet-dll', docker)
+
+    def test_windows_native_support_survives_scaffolding(self) -> None:
+        for kind in ("command", "listener"):
+            with self.subTest(kind=kind):
+                destination, slug = scaffold(kind, "Native Copy", str(self.output_root / kind))
+                artifact = f"{kind}-{slug}"
+                native = destination / "exec-code/win-native"
+                self.assertTrue((native / artifact / "Main.cpp").is_file())
+                self.assertIn(f"units=({artifact})", (native / "build_windows.sh").read_text())
+                self.assertEqual((native / "exports.def").read_text().split(), ["EXPORTS", "start"])
+                reference_utils = REPO_ROOT / "templates" / kind / "exec-code/win-native/exec-unit-utils"
+                for source in reference_utils.iterdir():
+                    if source.suffix in {".cpp", ".h", ".tpp", ".json"}:
+                        self.assertEqual(source.read_bytes(), (native / "exec-unit-utils" / source.name).read_bytes())
+                self.assertFalse((native / "common/WinPipe.h").exists())
+                if kind == "command":
+                    self.assertTrue((native / "common/CommandRuntime.h").is_file())
+                    compatibility = REPO_ROOT / "templates/command/exec-code/win-native/compat/mingw"
+                    for header in compatibility.glob("*.h"):
+                        self.assertEqual(header.read_bytes(), (native / "compat/mingw" / header.name).read_bytes())
+                self.assertTrue((destination / "scripts/verify_windows_native.py").is_file())
+                self.assertIn("windows-native-artifacts", (destination / "scripts/docker/Dockerfile").read_text())
+                for suffix in ("native32_dll", "native64_dll"):
+                    self.assertIn(f"{artifact}.{suffix}", (destination / "java-plugin/build.gradle.kts").read_text())
+                    self.assertIn(f"{artifact}.{suffix}", (destination / "Makefile").read_text())
+                    main = next((destination / "java-plugin/src/main/java").rglob(f"NativeCopy{kind.capitalize()}.java"))
+                    self.assertIn(f"/{artifact}.{suffix}", main.read_text())
 
 
 if __name__ == "__main__":

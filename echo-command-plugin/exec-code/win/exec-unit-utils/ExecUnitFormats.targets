@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Import after project properties and before Microsoft.CSharp.targets. -->
+  <PropertyGroup>
+    <ExecUnitFormat Condition="'$(ExecUnitFormat)' == ''">shellcode</ExecUnitFormat>
+    <Prefer32Bit>false</Prefer32Bit>
+    <DefineConstants Condition="'$(ExecUnitFormat)' == 'shellcode'">$(DefineConstants);TUONI_SHELLCODE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ExecUnitFormat)' == 'dotnet-exe' Or '$(ExecUnitFormat)' == 'dotnet-dll'">
+    <!-- Keep incremental compiler outputs for the three formats independent. -->
+    <OutputPath>bin\$(Configuration)\$(ExecUnitFormat)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Configuration)\$(ExecUnitFormat)\</IntermediateOutputPath>
+    <OutputType Condition="'$(ExecUnitFormat)' == 'dotnet-exe'">Exe</OutputType>
+    <OutputType Condition="'$(ExecUnitFormat)' == 'dotnet-dll'">Library</OutputType>
+    <ExecUnitSuffix Condition="'$(ExecUnitFormat)' == 'dotnet-exe'">dotnet_exe</ExecUnitSuffix>
+    <ExecUnitSuffix Condition="'$(ExecUnitFormat)' == 'dotnet-dll'">dotnet_dll</ExecUnitSuffix>
+  </PropertyGroup>
+  <Target Name="ValidateExecUnitFormat" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(ExecUnitFormat)' != 'shellcode' And '$(ExecUnitFormat)' != 'dotnet-exe' And '$(ExecUnitFormat)' != 'dotnet-dll'"
+           Text="ExecUnitFormat must be shellcode, dotnet-exe or dotnet-dll." />
+  </Target>
+  <Target Name="PublishManagedExecUnit" AfterTargets="Build"
+          Condition="'$(ExecUnitFormat)' == 'dotnet-exe' Or '$(ExecUnitFormat)' == 'dotnet-dll'">
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(TargetDir)$(AssemblyName).$(ExecUnitSuffix)" />
+    <!-- These examples do not obfuscate assemblies. Emit the actual public method. -->
+    <WriteLinesToFile Condition="'$(ExecUnitFormat)' == 'dotnet-dll'"
+                      File="$(TargetDir)$(AssemblyName).dotnet_dll_method"
+                      Lines="$(RootNamespace).Program::start" Overwrite="true" Encoding="ASCII" />
+  </Target>
+</Project>

@@ -57,22 +57,34 @@ public class TemplateCommand implements ExecUnitCommand, ShellcodeCommand {
       throw new SerializationException(
           "Unsupported execution unit type " + type + " for agent " + metadata);
     }
-    boolean linux = metadata.os() == OperatingSystem.LINUX;
+    String resource = switch (type) {
+      case SHELLCODE_NATIVE -> SHELLCODE_RESOURCE;
+      case DOTNET_DLL -> "/command.dotnet_dll";
+      case DOTNET_EXE -> "/command.dotnet_exe";
+      case NATIVE_LIB -> metadata.os() == OperatingSystem.WINDOWS
+          ? (metadata.processArch() == Architecture.X86
+              ? "/command.native32_dll" : "/command.native64_dll")
+          : LINUX_RESOURCE;
+    };
     // The code resource is the executable artifact; configuration is a separate
     // inner payload decoded by the Windows Initialize/Linux run implementation.
     // Extend the shared configuration encoder when fields are added; use the same
     // bytes as generateShellCode and return a
     // fresh buffer at position zero with an exact limit. The SDK adds host framing.
-    // Keep Linux's run export and Windows's patched pipe name aligned with the
+    // Keep Linux's run export and Windows's start export/managed arguments/shellcode patch aligned with the
     // packaged artifact; reject unavailable OS/process-architecture/type combinations.
     return ExecUnit.builder()
-        .code(linux
-            ? ShellcodeResource.read(getClass(), LINUX_RESOURCE)
-            : ShellcodeResource.load(getClass(), SHELLCODE_RESOURCE, pipeName))
+        .code(type == ExecUnitType.SHELLCODE_NATIVE
+            ? ShellcodeResource.load(getClass(), resource, pipeName)
+            : ShellcodeResource.read(getClass(), resource))
         .type(type)
         .ipcType(PluginIpcType.NAMED_PIPE)
         .configuration(serializeConfiguration())
-        .entrypoint(linux ? "run" : null)
+        .entrypoint(switch (type) {
+          case DOTNET_DLL -> ShellcodeResource.dllEntrypoint(getClass(), resource);
+          case NATIVE_LIB -> metadata.os() == OperatingSystem.WINDOWS ? "start" : "run";
+          default -> null;
+        })
         .build();
   }
 
@@ -103,14 +115,17 @@ public class TemplateCommand implements ExecUnitCommand, ShellcodeCommand {
     // Match the agent process architecture to artifacts actually built and packaged;
     // the OS architecture alone cannot prove that an artifact can run in the process.
     // Linux has only an x64 library; the bundled Windows converter defaults to
-    // dual x86/x64 shellcode. ARM and unknown architectures have no artifact.
+    // dual x86/x64 shellcode and the managed builds target AnyCPU.
+    // ARM and unknown architectures have no artifact.
     if (metadata == null || metadata.os() == null) {
       return Set.of();
     }
     return switch (metadata.os()) {
       case WINDOWS -> metadata.processArch() == Architecture.X86
               || metadata.processArch() == Architecture.X64
-          ? Set.of(ExecUnitType.SHELLCODE_NATIVE) : Set.of();
+          ? Set.of(ExecUnitType.SHELLCODE_NATIVE, ExecUnitType.DOTNET_DLL,
+            ExecUnitType.DOTNET_EXE, ExecUnitType.NATIVE_LIB)
+          : Set.of();
       case LINUX -> metadata.processArch() == Architecture.X64
           ? Set.of(ExecUnitType.NATIVE_LIB) : Set.of();
       default -> Set.of();
@@ -124,7 +139,7 @@ public class TemplateCommand implements ExecUnitCommand, ShellcodeCommand {
       CommandResultCollection previousResult,
       CommandResultEditor editor)
       throws SerializationException {
-    // Both default exec-units send UTF-8 "DONE", displayed in the output text result.
+    // All default exec-units send UTF-8 "DONE", displayed in the output text result.
     // An empty final notification preserves that result; native terminal messages
     // determine command success/failure independently of the displayed text.
     if (!buffer.hasRemaining()) {

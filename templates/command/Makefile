@@ -10,7 +10,7 @@ EXEC_NAME := command-execunit-template
 
 .PHONY: help build build-dotnet build-linux clean
 help:
-	@printf '%s\n' 'make build         Build both command execunits and the plugin JAR with Docker' 'make build-dotnet  Build only the .NET command executable with Docker' 'make build-linux   Build only the Linux x64 native execunit with Docker' 'make clean         Remove the extracted build artifacts'
+	@printf '%s\n' 'make build         Build all command execunit formats and the plugin JAR with Docker' 'make build-dotnet  Build the .NET EXE, DLL and entrypoint metadata with Docker' 'make build-linux   Build only the Linux x64 native execunit with Docker' 'make build-windows-native  Build Windows x86/x64 native DLLs' 'make clean         Remove the extracted build artifacts'
 
 build:
 	@mkdir -p -- "$(BUILD_DIR)"
@@ -19,7 +19,7 @@ build:
 		--target artifacts \
 		--output "type=local,dest=$(BUILD_DIR)/" \
 		.
-	@printf '%s\n' "Built $(BUILD_DIR)/$(JAR_NAME)" "Built $(BUILD_DIR)/$(EXEC_NAME).exe" "Built $(BUILD_DIR)/$(EXEC_NAME).shellcode" "Built $(BUILD_DIR)/command-linux.native64_so"
+	@printf '%s\n' "Built $(BUILD_DIR)/$(JAR_NAME)" "Built $(BUILD_DIR)/$(EXEC_NAME).exe" "Built $(BUILD_DIR)/$(EXEC_NAME).dotnet_exe" "Built $(BUILD_DIR)/$(EXEC_NAME).dotnet_dll" "Built $(BUILD_DIR)/$(EXEC_NAME).dotnet_dll_method" "Built $(BUILD_DIR)/$(EXEC_NAME).shellcode" "Built $(BUILD_DIR)/command-linux.native64_so" "Built $(BUILD_DIR)/command.native32_dll" "Built $(BUILD_DIR)/command.native64_dll"
 
 build-dotnet:
 	@mkdir -p -- "$(BUILD_DIR)"
@@ -28,7 +28,7 @@ build-dotnet:
 		--target dotnet-artifacts \
 		--output "type=local,dest=$(BUILD_DIR)/" \
 		.
-	@printf '%s\n' "Built $(BUILD_DIR)/$(EXEC_NAME).exe"
+	@printf '%s\n' "Built $(BUILD_DIR)/$(EXEC_NAME).exe" "Built $(BUILD_DIR)/$(EXEC_NAME).dotnet_exe" "Built $(BUILD_DIR)/$(EXEC_NAME).dotnet_dll" "Built $(BUILD_DIR)/$(EXEC_NAME).dotnet_dll_method"
 
 build-linux:
 	@mkdir -p -- "$(BUILD_DIR)" exec-code/linux/build
@@ -49,3 +49,14 @@ clean:
 		*) printf '%s\n' "Refusing to clean outside a project subdirectory: $$artifact_dir" >&2; exit 1 ;; \
 	esac; \
 	rm -rf -- "$$artifact_dir"
+
+## build-windows-native: Build Windows x86/x64 native DLLs inside Docker
+.PHONY: build-windows-native
+build-windows-native:
+	@mkdir -p -- "$(BUILD_DIR)" exec-code/win-native/build
+	DOCKER_BUILDKIT=1 $(DOCKER) build \
+		-f scripts/docker/Dockerfile \
+		--target windows-native-artifacts \
+		--output "type=local,dest=exec-code/win-native/build/" \
+		.
+	cp exec-code/win-native/build/*.native32_dll exec-code/win-native/build/*.native64_dll "$(BUILD_DIR)/"

@@ -12,16 +12,17 @@ same Java server plugin / `exec-code` layout as the repository examples.
 The command template is a no-op starting point: Java accepts `{}`, the Windows and
 Linux exec-units connect, return `DONE`, and report success without performing an
 operation. Java displays that text in the `output` result; the execution hooks
-are ready for new code. It supports Windows x86/x64 shellcode
-agents and Linux x64 native-library agents. Windows uses `SHELLCODE_NATIVE`;
+are ready for new code. It supports Windows x86/x64 agents in all four exec-unit formats and Linux x64 native-library agents. Windows uses `SHELLCODE_NATIVE`,
+`DOTNET_DLL`, `DOTNET_EXE`, or `NATIVE_LIB` (x86/x64 native DLLs with `start`);
 Linux uses a `NATIVE_LIB` with a `run` entry point. Its pipe/FIFO and TLV utilities
 are implemented, with checked result and completion sends.
 
 The listener template accepts `{}` and implements Java lifecycle and native
 local-agent IPC startup for Windows x86/x64 and Linux x64. Its exec-units remain
 idle until host disconnect; the data traffic channel is intentionally TODO in Java
-and both native entrypoints. The payload template retains unimplemented behavior.
-Native utilities live under `exec-code/win/exec-unit-utils/` and `exec-code/linux/common/`.
+and all exec-unit entrypoints. The payload template retains unimplemented behavior.
+Native utilities live under `exec-code/win/exec-unit-utils/`, `exec-code/win-native/exec-unit-utils/`,
+and `exec-code/linux/common/`. Windows native entrypoints are built separately from C#.
 
 These native helpers implement the local agent's pipe/FIFO protocol. Java
 configuration and result APIs exchange the inner payload bytes, whose format is
@@ -45,17 +46,22 @@ it does not need the native helper's envelope codec or server-internal classes.
    consistent between the two files.
 5. Update `scripts/docker/Dockerfile` for the renamed `.csproj`, Linux library,
    and all renamed output files in its build and copy instructions. Update the
-   full build, `dotnet-artifacts`, and `linux-artifacts` export stages. In
+   full build, `dotnet-artifacts`, `windows-native-artifacts`, and `linux-artifacts` export stages. In
    `Makefile`, set `JAR_NAME` to the complete Gradle output filename (including
    its version and `.jar` extension)
    and `EXEC_NAME` to the C# `AssemblyName` without `.exe`. Update the Linux output
-   name in the Makefile and Gradle resource task. These Makefile variables
+   name in the Makefile and Gradle resource task. Rename the Windows native source
+   directory and `units` entry in `exec-code/win-native/build_windows.sh`, and update
+   its x86/x64 DLL names in Docker, Make, Gradle, and Java together; retain `start`
+   in `exports.def`. These Makefile variables
    do not change the Dockerfile paths; both files must agree with your project
    settings. Update the project README's build commands and output names too.
-6. For commands, extend the existing `Execute`/`execute` hooks and `parseResult`.
+6. For commands, extend managed Windows `Execute`, the native Windows `runCommand`
+   callback in `exec-code/win-native/command/Main.cpp`, Linux `execute`, and Java
+   `parseResult`.
    For listeners, implement the requested channel at the Java/native TODO markers.
    Add configuration fields only when needed: extend `TemplateConfigurationSchema`,
-   validation, the shared `serializeConfiguration()` encoder, and both native decoders.
+   validation, the shared `serializeConfiguration()` encoder, and all exec-unit decoders.
    Preserve the implemented IPC helpers and cleanup/completion ownership.
 
 The Java builds use SDK **0.15.0**, matching the examples, as a `compileOnly`
@@ -71,12 +77,14 @@ in WSL with Docker accessible there; PowerShell and CMD cannot run these recipes
 The repository's example help targets additionally require GNU `sed` and `column`.
 
 Run `make build` in an individual template folder or `templates/`.
-A command or listener build compiles C#, Linux C++, and Java inside Docker and
+A command or listener build compiles C#, Windows/Linux C++, and Java inside Docker and
 extracts the plugin JAR and both platforms' execunits to that template's `build/`
-directory. Run `make build-linux` in the command, listener, or `templates/` folder
+directory. Run `make build-windows-native` in the command, listener, or `templates/` folder
+to build the x86/x64 Windows DLLs. Run `make build-linux` in the same folder
 to build and extract Linux libraries for a direct Gradle build. Run
 `make build-dotnet` in the same locations to compile and extract only the C#
-executable, without building Java or generating shellcode. Run `make clean` in
+EXE/DLL formats and DLL entrypoint metadata, without building Java or generating
+shellcode. The legacy shellcode-input EXE is also exported. Run `make clean` in
 the same location to remove the extracted artifacts. The templates are
 skeletons, so the aggregate
 `make install` target does not install them.
@@ -89,7 +97,7 @@ The runner preserves the selected socket and BuildKit setting.
 
 An explicit `DOCKER=...` override bypasses detection; for example,
 `make build DOCKER="sudo env DOCKER_BUILDKIT=1 docker"` forces sudo. Overrides also
-work for `build-dotnet` and `build-linux` and propagate from `templates/`.
+work for `build-dotnet`, `build-windows-native`, and `build-linux` and propagate from `templates/`.
 Help, clean and dry runs do not probe Docker.
 
 Use `BUILD_DIR="build/custom output"` for another output subdirectory, including
@@ -122,20 +130,49 @@ cd java-plugin
 
 The JAR is written to `java-plugin/build/libs/` and includes plugin manifest
 metadata and service registration.
-For the command and listener templates, build the C# project in Release first. Its
-post-build step places `command.shellcode` or `listener.shellcode` in that plugin's
-`java-plugin/src/main/resources/` folder. Build the Linux x64 library into
-`exec-code/linux/build/` with `make build-linux` or
-`bash exec-code/linux/build_linux.sh` before running Gradle. Gradle includes both
-resources in the JAR. Windows `generateShellCode` retains the legacy shellcode
-path; `generateExecUnit` selects the resource by platform.
+For the command and listener templates, direct Gradle builds require every resource
+below. Replace `<kind>` with `command` or `listener`; these are paths inside that
+template folder.
+
+| Format | Required input before Gradle |
+| --- | --- |
+| Windows shellcode | `java-plugin/src/main/resources/<kind>.shellcode` |
+| .NET EXE | `exec-code/win/bin/Release/dotnet-exe/<kind>-execunit-template.dotnet_exe` |
+| .NET DLL and entrypoint | `exec-code/win/bin/Release/dotnet-dll/<kind>-execunit-template.dotnet_dll` and `.dotnet_dll_method` |
+| Windows native x86/x64 | `exec-code/win-native/build/<kind>.native32_dll` and `<kind>.native64_dll` |
+| Linux native x64 | `exec-code/linux/build/<kind>-linux.native64_so` |
+
+The default `make build` prepares these resources inside Docker and exports the
+packaged JAR. It does not populate the local Gradle input paths. The partial
+`make build-windows-native` and `make build-linux` targets populate their local
+native input paths; `make build-dotnet` exports managed files under `build/`,
+which is a different location from Gradle's managed input paths.
+
+With an explicit local-build override, build the C# solution in Release with its
+post-build event to create the shellcode resource. Build the C# project again with
+`/p:ExecUnitFormat=dotnet-exe` and `/p:ExecUnitFormat=dotnet-dll`; the imported
+`ExecUnitFormats.targets` writes the managed artifacts and DLL method sidecar to
+the paths above. See the individual [command](command/README.md) or
+[listener](listener/README.md) README for exact MSBuild commands.
+
+Build both Windows native DLLs using `bash exec-code/win-native/build_windows.sh`
+with the POSIX-thread MinGW compilers `i686-w64-mingw32-g++-posix` and
+`x86_64-w64-mingw32-g++-posix` plus Python 3. Build Linux with
+`bash exec-code/linux/build_linux.sh` using a Linux C++11 compiler. The Docker
+partial targets above are also available. Refresh every changed artifact before
+running Gradle; missing or empty inputs fail `processResources`. The JAR contains
+all formats, and `generateExecUnit` chooses by OS, process architecture, and type.
+Each template's [build guide](command/docs/building.md) lists its exact names and
+freshness/packaging checks; the [listener guide](listener/docs/building.md) covers
+the listener outputs.
 
 C# requires **MSBuild** and the **.NET Framework 4.6.2 targeting pack**, matching
 the examples. The command and listener templates include a Visual Studio `.sln`
 in `exec-code/win/` with
 Debug and Release configurations for Any CPU. Open it in Visual Studio, or build
 it from a Visual Studio Developer PowerShell using the command in the template's
-README. Their executable is written to `exec-code/win/bin/Release/`.
+README. The shellcode-input executable is written to `exec-code/win/bin/Release/`;
+managed EXE/DLL variants use the separate format subdirectories listed above.
 
 The command and listener templates contain the working defaults described above,
 but no application operation or listener traffic channel. They contain no prebuilt

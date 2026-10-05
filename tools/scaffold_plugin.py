@@ -20,8 +20,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORKSPACE_ROOT = REPO_ROOT / "workspace"
 IGNORED_DIRECTORIES = {".git", ".gradle", ".vs", "bin", "build", "obj", "__pycache__"}
-IGNORED_SUFFIXES = {".class", ".log", ".native64_so", ".pdb", ".pyc", ".shellcode"}
-TEXT_SUFFIXES = {".config", ".cpp", ".cs", ".csproj", ".h", ".java", ".kt", ".kts", ".md", ".sh", ".sln"}
+IGNORED_SUFFIXES = {".class", ".log", ".native32_dll", ".native64_dll", ".native64_so", ".pdb", ".pyc", ".shellcode"}
+TEXT_SUFFIXES = {".config", ".cpp", ".cs", ".csproj", ".h", ".java", ".kt", ".kts", ".md", ".sh", ".sln", ".targets"}
 TEXT_NAMES = {".dockerignore", ".gitattributes", ".gitignore", "Dockerfile", "Makefile"}
 # Keywords and literals cannot be Java package components. Restricted identifiers
 # such as `record` remain legal here; generated class names also include a suffix.
@@ -89,6 +89,12 @@ def replacements(kind: str, slug: str, words: list[str]) -> dict[str, str]:
         f"{kind}-plugin-template": project,
         f"{kind}-linux.native64_so": f"{artifact}-linux.native64_so",
         f"{kind}.shellcode": f"{artifact}.shellcode",
+        f"{kind}.dotnet_exe": f"{artifact}.dotnet_exe",
+        f"{kind}.dotnet_dll": f"{artifact}.dotnet_dll",
+        f"{kind}.native32_dll": f"{artifact}.native32_dll",
+        f"{kind}.native64_dll": f"{artifact}.native64_dll",
+        f"units=({kind})": f"units=({artifact})",
+        f"exec-code/win-native/{kind}/Main.cpp": f"exec-code/win-native/{artifact}/Main.cpp",
         f"exec-code/linux/{kind}/Main.cpp": f"exec-code/linux/{artifact}/Main.cpp",
         f"${{script_dir}}/{kind}/Main.cpp": f"${{script_dir}}/{artifact}/Main.cpp",
         f"template-{kind}": slug,
@@ -117,22 +123,26 @@ def rewrite_text_files(root: Path, changes: dict[str, str]) -> None:
 def rename_sources(root: Path, kind: str, changes: dict[str, str], slug: str) -> None:
     title = kind.capitalize()
     package_part = java_package_part(slug)
-    source_dir = root / "java-plugin" / "src" / "main" / "java" / "com" / "example" / "tuoni" / kind
-    package_dir = source_dir / package_part
-    package_dir.mkdir()
-    for source in list(source_dir.iterdir()):
-        if source != package_dir:
-            source.rename(package_dir / source.name)
-    for old_class in (f"Template{title}Template", f"Template{title}Plugin", "TemplateConfigurationSchema", f"Template{title}"):
-        old_file = package_dir / f"{old_class}.java"
-        if old_file.exists():
-            old_file.rename(package_dir / f"{changes[old_class]}.java")
+    for source_set in ("main", "test"):
+        source_dir = root / "java-plugin" / "src" / source_set / "java" / "com" / "example" / "tuoni" / kind
+        if not source_dir.is_dir():
+            continue
+        package_dir = source_dir / package_part
+        package_dir.mkdir()
+        for source in list(source_dir.iterdir()):
+            if source != package_dir:
+                source.rename(package_dir / source.name)
+        for old_class in (f"Template{title}Template", f"Template{title}Plugin", "TemplateConfigurationSchema", f"Template{title}"):
+            old_file = package_dir / f"{old_class}.java"
+            if old_file.exists():
+                old_file.rename(package_dir / f"{changes[old_class]}.java")
 
     win_dir = root / "exec-code" / "win"
     (win_dir / f"{kind}-execunit.sln").rename(win_dir / f"{changes[f'{kind}-execunit']}.sln")
     (win_dir / f"{kind}-execunit.csproj").rename(win_dir / f"{changes[f'{kind}-execunit']}.csproj")
     linux_dir = root / "exec-code" / "linux"
     (linux_dir / kind).rename(linux_dir / f"{kind}-{slug}")
+    (root / "exec-code" / "win-native" / kind).rename(root / "exec-code" / "win-native" / f"{kind}-{slug}")
 
 
 def scaffold(kind: str, name: str | None, folder: str | None) -> tuple[Path, str]:

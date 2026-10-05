@@ -10,6 +10,7 @@ repositories {
 }
 
 dependencies {
+  testImplementation("com.shelldot:tuoni-plugin-sdk:0.15.0")
   // Match the SDK used by the examples. Tuoni supplies it at runtime.
   // Add any implementation-only parser/library dependencies explicitly and package
   // their runtime classes in the distributed plugin; compileOnly is appropriate for
@@ -40,14 +41,51 @@ tasks.jar {
   }
 }
 
+val managedArtifacts = mapOf(
+    "../exec-code/win/bin/Release/dotnet-exe/command-execunit-template.dotnet_exe" to "command.dotnet_exe",
+    "../exec-code/win/bin/Release/dotnet-dll/command-execunit-template.dotnet_dll" to "command.dotnet_dll",
+    "../exec-code/win/bin/Release/dotnet-dll/command-execunit-template.dotnet_dll_method" to "command.dotnet_dll_method"
+)
+
+val execUnitFormatsCheck by tasks.registering(JavaExec::class) {
+  dependsOn(tasks.testClasses)
+  classpath = sourceSets.test.get().runtimeClasspath
+  mainClass.set("com.example.tuoni.command.ExecUnitFormatsCheck")
+}
+
+tasks.check { dependsOn(execUnitFormatsCheck) }
+
+// This standalone check has a main method; it is not a JUnit test class.
+tasks.test { exclude("**/ExecUnitFormatsCheck*.class") }
+
+val windowsNativeArtifacts = listOf("command.native32_dll", "command.native64_dll")
+
 tasks.processResources {
+  from("../exec-code/win-native/build") {
+    include(windowsNativeArtifacts)
+  }
+  managedArtifacts.forEach { (source, resource) ->
+    from(source) { rename { resource } }
+  }
   // Bundle rebuilt exec-unit artifacts at the exact classpath paths consumed by
   // TemplateCommand. Java compilation cannot establish that these bytes implement
-  // the requested native behavior; keep both native builds in the build workflow.
+  // the requested native behavior; keep every exec-unit build in the build workflow.
   from("../exec-code/linux/build") {
     include("command-linux.native64_so")
   }
   doFirst {
+    windowsNativeArtifacts.forEach { name ->
+      val artifact = file("../exec-code/win-native/build/$name")
+      if (!artifact.isFile || artifact.length() == 0L) {
+        throw GradleException("Missing or empty ${artifact.path}; run make build-windows-native first.")
+      }
+    }
+    managedArtifacts.keys.forEach { source ->
+      val artifact = file(source)
+      if (!artifact.isFile || artifact.length() == 0L) {
+        throw GradleException("Missing or empty ${artifact.path}; build both managed ExecUnitFormat variants first.")
+      }
+    }
     val shellcode = file("src/main/resources/command.shellcode")
     if (!shellcode.isFile || shellcode.length() == 0L) {
       throw GradleException("Missing or empty ${shellcode.path}; rebuild the Windows Release solution with its post-build event.")

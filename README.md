@@ -5,7 +5,7 @@ Welcome to the Tuoni Plugin Examples repository!
 This repository contains example plugins for the [Tuoni](https://github.com/shell-dot/tuoni) Command and Control (C2) framework. \
 Each plugin consists of two parts:
 
-1. **Execution codes and agent executables**: Windows C# and, where supported, Linux C++ (`exec-code/`).
+1. **Execution codes and agent executables**: Windows C# and, where supported, Windows/Linux C++ (`exec-code/`).
 2. **Server Plugin** (`java-plugin/`): Written in Java against the Tuoni plugin SDK, requiring Java 21+ and Gradle for building.
 
 ## Table of Contents
@@ -34,8 +34,9 @@ individual project's directory for just that project:
 
 ```sh
 make build    # Extract plugin JARs and Windows/Linux execunits to each project's output directory
-make build-dotnet  # Extract only .NET executables to each project's output directory
+make build-dotnet  # Extract .NET EXEs, DLLs, and DLL entrypoint metadata to each project's output directory
 make build-linux   # Extract Linux execunits for plugins that provide them
+make build-windows-native  # Extract Windows x86/x64 native DLLs
 make install  # Install the example plugins; templates are skipped
 make clean    # Remove build artifacts
 make help     # List available targets
@@ -54,7 +55,27 @@ The echo and TCP listener examples use Ubuntu 18.04 amd64 for their native Linux
 and Windows conversion stages. All examples and templates export artifacts to
 their `build/` output directory by default.
 `make build-dotnet` compiles the C# projects in Docker without building Java
-plugins or generating command and listener shellcode.
+plugins or generating command and listener shellcode. Commands and listeners
+export `.dotnet_exe`, `.dotnet_dll`, and `.dotnet_dll_method` alongside the legacy
+shellcode-input `.exe`; payload projects retain their existing executable output.
+
+The command/listener examples and templates support these execution formats:
+
+| Target | Formats | Loader entry point |
+| --- | --- | --- |
+| Windows x86/x64 | `SHELLCODE_NATIVE`, `DOTNET_EXE`, `DOTNET_DLL`, `NATIVE_LIB` | Patched shellcode; EXE `Main(args)`; managed DLL method metadata; native DLL `start(pipeName)` |
+| Linux x64 | `NATIVE_LIB` | `run(readPipe, writePipe)` |
+
+Managed EXE/DLL variants receive their pipe name in `args[0]`; only shellcode is
+patched. All variants preserve the same plugin configuration and behavior.
+`make build` embeds and exports every supported format, including Windows
+`.native32_dll` and `.native64_dll` artifacts. `make build-windows-native` builds
+just those DLLs using MinGW inside Docker, verifies their architecture, sole
+`start` export and Windows system DLL dependencies, and exports them to `build/`.
+Native sources live in each project's `exec-code/win-native/` directory.
+The `exec-unit-utils/` subdirectory carries utilities copied from the reference
+command/listener codebases, with provenance and documented local compatibility fixes.
+Other OS/architecture combinations are not advertised.
 Use `make install PLUGIN_DIR=/path/to/plugins` to choose the server's plugin directory;
 command-line overrides are passed to every example.
 The `install` target requires the `tuoni` command to be available.
@@ -130,7 +151,7 @@ and [payload](templates/payloads/README.md) plugins. Each includes a Java server
 plugin skeleton, Windows C# execunit code, build files, and customization notes.
 The command and listener templates keep Windows code in `exec-code/win/` and Linux
 C++ code in `exec-code/linux/`.
-The command template starts as a no-op: `{}` validates, both exec-units connect and
+The command template starts as a no-op: `{}` validates, all exec-units connect and
 return `DONE` and report success, and Java displays it in the `output` text result.
 The execution hooks are ready for new behavior.
 The listener template starts idle with working Java lifecycle and native pipe startup;
@@ -140,6 +161,28 @@ and [listener defaults](templates/listener/README.md#default-behavior) for the c
 and extension points. The payload template retains its behavior TODOs.
 
 ## Create a Plugin from a Template
+
+From the repository root, use GNU Make and Python 3.9+ to create a command or
+listener plugin:
+
+```sh
+make new-command NAME="Daily Check"
+make new-listener NAME="Event Relay"
+make new-command NAME="Daily Check" FOLDER="./custom plugins/daily-check"
+make new-listener NAME="Event Relay" FOLDER="/path/to/event-relay"
+```
+
+`NAME` is required. Without `FOLDER`, the targets create
+`workspace/commands/<normalized-name>` or `workspace/listeners/<normalized-name>`
+under this repository; `Daily Check` becomes `daily-check`. `FOLDER` is the exact
+plugin destination, with relative paths resolved from Make's working directory
+(after any `make -C` option). Missing parent directories are created; an existing
+destination is rejected without overwriting it. These targets copy and rename
+the templates. Build the generated plugin separately from its directory with
+`make build`. Scaffolding requires no Docker access.
+
+The targets use `python3` by default. Set `PYTHON=python` if that is your Python 3
+command, for example `make new-command NAME="Daily Check" PYTHON=python`.
 
 The repository provides `new-command` and `new-listener` skills for Codex CLI and
 Claude Code. In Codex, invoke `$new-command` or `$new-listener`; in Claude Code,

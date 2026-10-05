@@ -51,7 +51,14 @@ namespace ExecUnitUtils
         /// <returns>True if loaded successfully.</returns>
         public bool Load(byte[] buffer, int offset = 0)
         {
-            if (buffer.Length - offset < 5)
+            int nodesLeft = 65536;
+            return LoadBounded(buffer, offset, buffer == null ? 0 : buffer.Length, 0, ref nodesLeft);
+        }
+
+        private bool LoadBounded(byte[] buffer, int offset, int end, int depth, ref int nodesLeft)
+        {
+            if (buffer == null || offset < 0 || end > buffer.Length || end - offset < 5 ||
+                depth > 32 || --nodesLeft < 0)
                 return false;
 
             Type = (byte)(buffer[offset] & 0x7F);
@@ -61,24 +68,27 @@ namespace ExecUnitUtils
             uint len = BitConverter.ToUInt32(buffer, offset);
             offset += 4;
 
-            if (buffer.Length - offset < len)
+            if (len > (uint)(end - offset))
                 return false;
 
             FullSize = len + 5;
 
             if (!IsParent)
             {
+                _children = null;
                 Data = new byte[len];
                 Array.Copy(buffer, offset, Data, 0, (int)len);
                 return true;
             }
 
             _children = new Dictionary<byte, List<TLV>>();
+            Data = null;
             uint remaining = len;
+            int childrenEnd = offset + (int)len;
             while (remaining != 0)
             {
                 TLV child = new TLV();
-                if (!child.Load(buffer, offset))
+                if (!child.LoadBounded(buffer, offset, childrenEnd, depth + 1, ref nodesLeft))
                     return false;
 
                 AddChildInternal(child);

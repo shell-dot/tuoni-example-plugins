@@ -5,8 +5,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 
 public class ShellcodeUtil {
+
+  public static String dllEntrypoint(Class<?> owner, String resourcePath)
+      throws SerializationException {
+    String entrypoint = StandardCharsets.UTF_8.decode(
+        readClasspathResourceToBuffer(owner, resourcePath + "_method")).toString().trim();
+    if (!entrypoint.matches("[A-Za-z_][A-Za-z0-9_.]*::[A-Za-z_][A-Za-z0-9_]*")) {
+      throw new SerializationException("Invalid DLL entrypoint for " + resourcePath);
+    }
+    return entrypoint;
+  }
 
   public static ByteBuffer readClasspathResourceToBuffer(Class<?> clazz, String path)
       throws SerializationException {

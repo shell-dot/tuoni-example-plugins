@@ -4,17 +4,30 @@ using ExecUnitUtils;
 
 namespace ListenerExecUnitTemplate
 {
-    internal static class Program
+    public static class Program
     {
         // Patched by the Java plugin when generating Windows shellcode.
         private const string PipeNamePlaceholder = "QQQWWWEEE";
 
+        // Reflection entry point for DOTNET_DLL; wait for all work before returning.
+        public static void start(string[] args)
+        {
+            Main(args);
+        }
+
         private static int Main(string[] args)
         {
+#if TUONI_SHELLCODE
+            string pipeName = PipeNamePlaceholder;
+#else
+            if (args == null || args.Length != 1 || string.IsNullOrWhiteSpace(args[0]))
+                return 1;
+            string pipeName = args[0];
+#endif
             CommunicationNamedPipesListener pipe = null;
             try
             {
-                pipe = new CommunicationNamedPipesListener(PipeNamePlaceholder, null);
+                pipe = new CommunicationNamedPipesListener(pipeName, null);
                 byte[] configuration = Initialize(pipe);
                 WaitForStop(pipe, configuration);
                 return 0;

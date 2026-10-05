@@ -10,6 +10,7 @@ repositories {
 }
 
 dependencies {
+  testImplementation("com.shelldot:tuoni-plugin-sdk:0.15.0")
   // Match the SDK used by the examples. Tuoni supplies it at runtime.
   compileOnly("com.shelldot:tuoni-plugin-sdk:0.15.0")
 }
@@ -37,11 +38,48 @@ tasks.jar {
   }
 }
 
+val managedArtifacts = mapOf(
+    "../exec-code/win/bin/Release/dotnet-exe/listener-execunit-template.dotnet_exe" to "listener.dotnet_exe",
+    "../exec-code/win/bin/Release/dotnet-dll/listener-execunit-template.dotnet_dll" to "listener.dotnet_dll",
+    "../exec-code/win/bin/Release/dotnet-dll/listener-execunit-template.dotnet_dll_method" to "listener.dotnet_dll_method"
+)
+
+val execUnitFormatsCheck by tasks.registering(JavaExec::class) {
+  dependsOn(tasks.testClasses)
+  classpath = sourceSets.test.get().runtimeClasspath
+  mainClass.set("com.example.tuoni.listener.ExecUnitFormatsCheck")
+}
+
+tasks.check { dependsOn(execUnitFormatsCheck) }
+
+// This standalone check has a main method; it is not a JUnit test class.
+tasks.test { exclude("**/ExecUnitFormatsCheck*.class") }
+
+val windowsNativeArtifacts = listOf("listener.native32_dll", "listener.native64_dll")
+
 tasks.processResources {
+  from("../exec-code/win-native/build") {
+    include(windowsNativeArtifacts)
+  }
+  managedArtifacts.forEach { (source, resource) ->
+    from(source) { rename { resource } }
+  }
   from("../exec-code/linux/build") {
     include("listener-linux.native64_so")
   }
   doFirst {
+    windowsNativeArtifacts.forEach { name ->
+      val artifact = file("../exec-code/win-native/build/$name")
+      if (!artifact.isFile || artifact.length() == 0L) {
+        throw GradleException("Missing or empty ${artifact.path}; run make build-windows-native first.")
+      }
+    }
+    managedArtifacts.keys.forEach { source ->
+      val artifact = file(source)
+      if (!artifact.isFile || artifact.length() == 0L) {
+        throw GradleException("Missing or empty ${artifact.path}; build both managed ExecUnitFormat variants first.")
+      }
+    }
     val shellcode = file("src/main/resources/listener.shellcode")
     if (!shellcode.isFile || shellcode.length() == 0L) {
       throw GradleException("Missing or empty ${shellcode.path}; rebuild the Windows Release solution with its post-build event.")

@@ -41,10 +41,13 @@ alone.
                                                └──────────────────────────┘
 ```
 
-The Java plugin embeds a **Donut-converted shellcode** for Windows and a native shared object
-for Linux x64. For Windows payloads it patches the shellcode with a per-payload pipe name.
+The Java plugin embeds shellcode, managed EXE/DLL, and native DLL formats for Windows x86/x64,
+and a native shared object for Linux x64. Only shellcode is patched with a pipe name.
+Managed assemblies receive the pipe name in `args[0]`; DLL generation reads the
+public method name from `tcp-listener.dotnet_dll_method`.
 The Linux agent loader supplies FIFO paths to the native `run` entrypoint.
-The plugin advertises Windows as `SHELLCODE_NATIVE` and Linux x64 as `NATIVE_LIB` through
+The plugin advertises Windows as `SHELLCODE_NATIVE`, `DOTNET_EXE`, `DOTNET_DLL`, and `NATIVE_LIB`,
+and Linux x64 as `NATIVE_LIB` through
 the listener exec-unit API.
 
 ### Frame protocol
@@ -79,9 +82,16 @@ or
 
 Run the commands below from `tcp-listener-plugin/`.
 
-The Gradle build embeds both the Windows `.shellcode` and Linux x64 `.native64_so`
-execunits. Build both before building the Java plugin. `make build` performs all
-steps in Docker.
+`make build` compiles and embeds Windows `.shellcode`, `.dotnet_exe`, `.dotnet_dll`,
+DLL entrypoint metadata, Windows `.native32_dll`/`.native64_dll`, and Linux x64
+`.native64_so` in Docker. All formats are
+exported to `build/` alongside the plugin JAR and legacy shellcode-input `.exe`.
+`make build-dotnet` exports the managed artifacts without shellcode conversion
+or Java compilation. The Java build runs `execUnitFormatsCheck` against rebuilt
+resources to verify platform selection, PE DLL/EXE roles, entrypoints, and bytes;
+it does not execute native code or establish host/unload safety.
+
+The following direct-build steps must produce all formats before Java packaging.
 
 ### 1. Build the .NET exec unit
 
@@ -93,9 +103,14 @@ You need:
 
 ```sh
 msbuild exec-code/win/tcp-listener.slnx /p:Configuration=Release
+msbuild exec-code/win/tcp-listener.slnx /p:Configuration=Release /p:ExecUnitFormat=dotnet-exe
+msbuild exec-code/win/tcp-listener.slnx /p:Configuration=Release /p:ExecUnitFormat=dotnet-dll
 ```
 
-Output: `exec-code/win/tcp-listener/bin/Release/tcp-listener.shellcode`.
+Outputs: `exec-code/win/tcp-listener/bin/Release/tcp-listener.shellcode`,
+`dotnet-exe/tcp-listener.dotnet_exe`, and `dotnet-dll/tcp-listener.dotnet_dll`
+plus `tcp-listener.dotnet_dll_method` under the same Release directory.
+The metadata names `TcpListenerExecUnit.Program::start`.
 
 ### 1b. Build the Linux execunit
 
@@ -120,7 +135,8 @@ sh gradlew shadowJar
 
 Output: `java-plugin/build/libs/tuoni-example-plugin-tcp-listener-0.0.1.jar` — a single fat
 jar containing the plugin code, its runtime dependencies, the Windows shellcode at
-`shellcodes/tcp-listener.shellcode`, and the Linux execunit at
+`shellcodes/tcp-listener.shellcode`, managed `.dotnet_exe`/`.dotnet_dll` and
+DLL method metadata in the same resource directory, and the Linux execunit at
 `shellcodes/tcp-listener-linux.native64_so`.
 
 ### 3. Deploy
@@ -213,3 +229,40 @@ tcp-listener-plugin/
         ├── tcp-listener/Main.cpp     Linux FIFO ↔ TCP bridge
         └── build_linux.sh
 ```
+
+The [managed utility notes](exec-code/win/exec-unit-utils/README.md) document local
+parser and resource safety fixes. The managed TCP entrypoint now closes its active
+socket and joins its sender thread when the host pipe disconnects, including during
+a pending connection attempt or response wait. Managed DLL unload safety still
+requires a compiled runtime check.
+
+## Windows native libraries
+
+Run `make build-windows-native` to cross-compile Windows x86/x64 DLLs in Docker
+using MinGW. Native source lives under `exec-code/win-native/`. Each DLL exports
+exactly `start(const char* pipeName)`; Java selects `.native32_dll` or
+`.native64_dll` using the agent process architecture and passes the bytes unchanged.
+The pipe/configuration and result/TCP protocols match the other formats.
+`make build` embeds and exports these DLLs with the Java plugin; the standalone
+target also writes them to `exec-code/win-native/build/` for direct Gradle builds.
+
+The native listener uses `CommunicationNamedPipes`, `TLV`, `Conversions`, and
+`RaiiHelpers`, copied from the Windows TCP listener in `listeners_default` into
+[`exec-unit-utils/`](exec-code/win-native/exec-unit-utils/README.md). Documented
+local changes support MinGW headers, bounded I/O, cancellation-aware response
+waits, and cleanup that cancels/drains I/O and joins the reader. A separate
+sender worker keeps pipe polling from blocking TCP reads. The invocation owns the TCP socket;
+registration still sends both metadata/data lengths.
+The build's [PE verifier](scripts/verify_windows_native.py) checks architecture,
+the sole `start` export, absence of a CLR header and OS-only DLL dependencies.
+
+After building, use Windows Python matching the DLL architecture to run local IPC,
+failure/disconnect, repeated invocation and immediate unload checks:
+
+```powershell
+python scripts/check_windows_native_runtime.py build/tcp-listener.native64_dll --mode tcp-listener
+```
+
+Use a 32-bit Python for `.native32_dll`. The TCP check uses a loopback peer and exercises both traffic directions, including a deferred pipe response. The
+[check harness](scripts/check_windows_native_runtime.py) runs each case in a child
+process with a watchdog; it does not replace real Tuoni agent integration tests.

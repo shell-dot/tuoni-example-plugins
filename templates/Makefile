@@ -3,14 +3,14 @@
 
 TEMPLATES := $(patsubst %/Makefile,%,$(wildcard */Makefile))
 
-.PHONY: help build build-dotnet build-linux clean install
+.PHONY: help build build-dotnet build-linux build-windows-native clean install
 help build build-dotnet clean:
 	@set -e; \
 	for template in $(TEMPLATES); do \
 		$(MAKE) -C "$$template" $@; \
 	done
 
-build-linux:
+build-linux build-windows-native:
 	@set -e; \
 	for template in command listener; do \
 		$(MAKE) -C "$$template" $@; \

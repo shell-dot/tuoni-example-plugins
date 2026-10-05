@@ -109,7 +109,7 @@ public class TemplateListener implements ExecUnitListener, ShellcodeListener {
     // Map each supported payload target to artifact formats its loader can execute.
     // Keep this result consistent with generateExecUnit() resource and entrypoint
     // selection; unsupported combinations must return an empty set. Linux uses the
-    // run export of its native library, while Windows uses patched shellcode here.
+    // run export of its native library; Windows offers native DLLs, shellcode and managed code.
     if (payloadType == null) {
       return Set.of();
     }
@@ -117,7 +117,9 @@ public class TemplateListener implements ExecUnitListener, ShellcodeListener {
       return Set.of(ExecUnitType.NATIVE_LIB);
     }
     return getSupportedPayloadTypes().contains(payloadType)
-        ? Set.of(ExecUnitType.SHELLCODE_NATIVE) : Set.of();
+        ? Set.of(ExecUnitType.SHELLCODE_NATIVE, ExecUnitType.DOTNET_DLL,
+            ExecUnitType.DOTNET_EXE, ExecUnitType.NATIVE_LIB)
+        : Set.of();
   }
 
   @Override
@@ -127,22 +129,34 @@ public class TemplateListener implements ExecUnitListener, ShellcodeListener {
     // pair it with configuration encoded from the validated active settings. Extend
     // the shared encoder with the same inner bytes consumed by native
     // Connect()/connect(); the SDK/agent adds the host IPC envelope. Preserve the
-    // Windows pipe-name patch and Linux run entrypoint. Return each configuration
+    // Windows native start export, shellcode pipe-name patch and Linux run entrypoint. Return each configuration
     // buffer at position zero with its limit equal to the encoded payload length,
     // and report missing resources or encoding failures as SerializationException.
     if (!getSupportedExecUnitTypes(payloadType).contains(type)) {
       throw new SerializationException(
           "Unsupported execution unit type " + type + " for payload type " + payloadType);
     }
-    boolean linux = LINUX_X64.equals(payloadType);
+    String resource = switch (type) {
+      case SHELLCODE_NATIVE -> SHELLCODE_RESOURCE;
+      case DOTNET_DLL -> "/listener.dotnet_dll";
+      case DOTNET_EXE -> "/listener.dotnet_exe";
+      case NATIVE_LIB -> payloadType.operatingSystem() == OperatingSystem.WINDOWS
+          ? (payloadType.architecture() == Architecture.X86
+              ? "/listener.native32_dll" : "/listener.native64_dll")
+          : LINUX_RESOURCE;
+    };
     return ExecUnit.builder()
-        .code(linux
-            ? ShellcodeResource.read(getClass(), LINUX_RESOURCE)
-            : ShellcodeResource.load(getClass(), SHELLCODE_RESOURCE, pipeName))
+        .code(type == ExecUnitType.SHELLCODE_NATIVE
+            ? ShellcodeResource.load(getClass(), resource, pipeName)
+            : ShellcodeResource.read(getClass(), resource))
         .type(type)
         .ipcType(PluginIpcType.NAMED_PIPE)
         .configuration(serializeConfiguration())
-        .entrypoint(linux ? "run" : null)
+        .entrypoint(switch (type) {
+          case DOTNET_DLL -> ShellcodeResource.dllEntrypoint(getClass(), resource);
+          case NATIVE_LIB -> payloadType.operatingSystem() == OperatingSystem.WINDOWS ? "start" : "run";
+          default -> null;
+        })
         .build();
   }
 

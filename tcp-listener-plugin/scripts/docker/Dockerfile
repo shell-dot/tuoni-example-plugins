@@ -2,7 +2,10 @@
 FROM --platform=linux/amd64 mono:6 AS csharp-build
 WORKDIR /build/exec-code/win
 COPY exec-code/win/ .
-RUN msbuild tcp-listener/tcp-listener.csproj /p:Configuration=Release /p:PostBuildEvent=
+RUN set -eu; \
+    for format in shellcode dotnet-exe dotnet-dll; do \
+        msbuild tcp-listener/tcp-listener.csproj /p:Configuration=Release /p:PostBuildEvent= /p:ExecUnitFormat="$format"; \
+    done
 
 # Stage 2: Convert the listener with the bundled Windows Donut executable
 FROM --platform=linux/amd64 ubuntu:18.04 AS shellcode-build
@@ -47,25 +50,42 @@ FROM scratch AS linux-artifacts
 COPY --from=linux-build /build/exec-code/linux/build/tcp-listener-linux.native64_so \
      /tcp-listener-linux.native64_so
 
-# Stage 4: Build the Gradle plugin JAR (embeds both platforms)
+# Cross-compile Windows x86/x64 native DLLs and verify their loader contract.
+FROM debian:bookworm-slim AS windows-native-build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        g++-mingw-w64-i686-posix g++-mingw-w64-x86-64-posix python3 \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+COPY exec-code/win-native/ exec-code/win-native/
+COPY scripts/verify_windows_native.py scripts/verify_windows_native.py
+RUN bash exec-code/win-native/build_windows.sh
+
+FROM scratch AS windows-native-artifacts
+COPY --from=windows-native-build /build/exec-code/win-native/build/ /
+
+# Package all rebuilt execunit formats into the Java plugin.
 FROM eclipse-temurin:21-jdk AS java-build
 WORKDIR /build
-COPY --from=shellcode-build /build/exec-code/win/tcp-listener/bin/Release/tcp-listener.shellcode \
-     exec-code/win/tcp-listener/bin/Release/tcp-listener.shellcode
+COPY --from=shellcode-build /build/exec-code/win/ exec-code/win/
 COPY --from=linux-build /build/exec-code/linux/build/tcp-listener-linux.native64_so \
      exec-code/linux/build/tcp-listener-linux.native64_so
+COPY --from=windows-native-build /build/exec-code/win-native/build/ exec-code/win-native/build/
 COPY java-plugin/ java-plugin/
 WORKDIR /build/java-plugin
 RUN chmod +x gradlew && ./gradlew build --no-daemon
 
-# Export only the .NET executable when the build-dotnet Make target is used.
+# Export managed formats and the legacy shellcode-input EXE without conversion.
 FROM scratch AS dotnet-artifacts
 COPY --from=csharp-build /build/exec-code/win/tcp-listener/bin/Release/tcp-listener.exe /tcp-listener.exe
+COPY --from=csharp-build /build/exec-code/win/tcp-listener/bin/Release/dotnet-exe/tcp-listener.dotnet_exe /tcp-listener.dotnet_exe
+COPY --from=csharp-build /build/exec-code/win/tcp-listener/bin/Release/dotnet-dll/tcp-listener.dotnet_dll /tcp-listener.dotnet_dll
+COPY --from=csharp-build /build/exec-code/win/tcp-listener/bin/Release/dotnet-dll/tcp-listener.dotnet_dll_method /tcp-listener.dotnet_dll_method
 
 # Export the full set of artifacts by default.
 FROM scratch AS artifacts
-COPY --from=shellcode-build /build/exec-code/win/tcp-listener/bin/Release/tcp-listener.exe \
-     /tcp-listener.exe
+COPY --from=windows-native-artifacts / /
+COPY --from=dotnet-artifacts / /
 COPY --from=shellcode-build /build/exec-code/win/tcp-listener/bin/Release/tcp-listener.shellcode \
      /tcp-listener.shellcode
 COPY --from=linux-build /build/exec-code/linux/build/tcp-listener-linux.native64_so \

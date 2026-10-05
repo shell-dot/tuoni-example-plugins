@@ -5,20 +5,33 @@ using ExecUnitUtils;
 
 namespace CommandExecUnitTemplate
 {
-    internal static class Program
+    public static class Program
     {
         // The Java plugin patches this UTF-16LE placeholder in the shellcode.
         private const string PipeNamePlaceholder = "QQQWWWEEE";
 
+        // Reflection entry point for DOTNET_DLL; wait for all work before returning.
+        public static void start(string[] args)
+        {
+            Main(args);
+        }
+
         private static int Main(string[] args)
         {
+#if TUONI_SHELLCODE
+            string pipeName = PipeNamePlaceholder;
+#else
+            if (args == null || args.Length != 1 || string.IsNullOrWhiteSpace(args[0]))
+                return 1;
+            string pipeName = args[0];
+#endif
             CommunicationNamedPipesCommand pipe = null;
             bool succeeded = false;
             int exitCode = 1;
             try
             {
                 // Keep ownership local to this invocation, including failed startup.
-                pipe = new CommunicationNamedPipesCommand(PipeNamePlaceholder, null, null);
+                pipe = new CommunicationNamedPipesCommand(pipeName, null, null);
                 byte[] configuration = Initialize(pipe);
                 Execute(pipe, configuration);
                 succeeded = true;

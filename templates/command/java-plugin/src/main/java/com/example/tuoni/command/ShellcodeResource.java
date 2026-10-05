@@ -40,16 +40,29 @@ final class ShellcodeResource {
     return payload;
   }
 
-  /** Linux loaders pass FIFO paths to the native run export; no byte patch is needed. */
+  /** Managed assemblies and native libraries are passed to their loaders unchanged. */
   static ByteBuffer read(Class<?> owner, String resourcePath) throws SerializationException {
     try (InputStream resource = owner.getResourceAsStream(resourcePath)) {
       if (resource == null) {
         throw new SerializationException("Missing execunit resource: " + resourcePath);
       }
-      return ByteBuffer.wrap(resource.readAllBytes()).order(ByteOrder.LITTLE_ENDIAN);
+      byte[] bytes = resource.readAllBytes();
+      if (bytes.length == 0) {
+        throw new SerializationException("Empty execunit resource: " + resourcePath);
+      }
+      return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
     } catch (IOException e) {
       throw new SerializationException("Failed to read execunit resource: " + resourcePath, e);
     }
+  }
+
+  static String dllEntrypoint(Class<?> owner, String resourcePath) throws SerializationException {
+    String entrypoint = StandardCharsets.UTF_8.decode(read(owner, resourcePath + "_method"))
+        .toString().trim();
+    if (!entrypoint.matches("[A-Za-z_][A-Za-z0-9_.]*::[A-Za-z_][A-Za-z0-9_]*")) {
+      throw new SerializationException("Invalid DLL entrypoint for " + resourcePath);
+    }
+    return entrypoint;
   }
 
   private static int indexOf(byte[] bytes, byte[] sought, int start) {

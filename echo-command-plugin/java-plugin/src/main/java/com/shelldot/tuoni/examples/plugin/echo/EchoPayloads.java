@@ -19,11 +19,15 @@ final class EchoPayloads {
   private EchoPayloads() {}
 
   static Set<ExecUnitType> supportedTypes(AgentMetadata metadata) {
-    if (metadata == null) {
+    if (metadata == null || metadata.os() == null) {
       return Set.of();
     }
     return switch (metadata.os()) {
-      case WINDOWS -> Set.of(ExecUnitType.SHELLCODE_NATIVE);
+      case WINDOWS -> metadata.processArch() == Architecture.X86
+              || metadata.processArch() == Architecture.X64
+          ? Set.of(ExecUnitType.SHELLCODE_NATIVE, ExecUnitType.DOTNET_DLL,
+              ExecUnitType.DOTNET_EXE, ExecUnitType.NATIVE_LIB)
+          : Set.of();
       case LINUX -> metadata.processArch() == Architecture.X64
           ? Set.of(ExecUnitType.NATIVE_LIB) : Set.of();
       default -> Set.of();
@@ -45,12 +49,20 @@ final class EchoPayloads {
     OperatingSystem os = metadata.os();
     String path =
         switch (os) {
-          case WINDOWS -> "/shellcode/" + commandName + ".shellcode";
+          case WINDOWS -> "/shellcode/" + commandName + switch (type) {
+            case SHELLCODE_NATIVE -> ".shellcode";
+            case DOTNET_DLL -> ".dotnet_dll";
+            case DOTNET_EXE -> ".dotnet_exe";
+            case NATIVE_LIB -> metadata.processArch() == Architecture.X86 ? ".native32_dll" : ".native64_dll";
+          };
           case LINUX -> "/shellcode/" + commandName + "-linux.native64_so";
           default -> throw new SerializationException("Unsupported agent OS: " + os);
         };
     ByteBuffer payload = ShellcodeUtil.readClasspathResourceToBuffer(resourceOwner, path);
-    if (os == OperatingSystem.WINDOWS) {
+    if (type == ExecUnitType.SHELLCODE_NATIVE) {
+      if (pipeName == null) {
+        throw new SerializationException("Pipe name is missing");
+      }
       ShellcodeUtil.replaceBytesInBuffer(
           payload,
           DEFAULT_PIPE_NAME.getBytes(StandardCharsets.UTF_16LE),
@@ -61,7 +73,11 @@ final class EchoPayloads {
         .type(type)
         .ipcType(PluginIpcType.NAMED_PIPE)
         .configuration(configuration)
-        .entrypoint(os == OperatingSystem.LINUX ? "run" : null)
+        .entrypoint(switch (type) {
+          case DOTNET_DLL -> ShellcodeUtil.dllEntrypoint(resourceOwner, path);
+          case NATIVE_LIB -> os == OperatingSystem.WINDOWS ? "start" : "run";
+          default -> null;
+        })
         .build();
   }
 

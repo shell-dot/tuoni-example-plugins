@@ -45,9 +45,10 @@ The following are navigation hints for the unrenamed template. After scaffolding
 | --- | --- |
 | Java registration and factory | `java-plugin/src/main/java/com/example/tuoni/listener/TemplateListenerPlugin.java`: schema, validation, `create`. |
 | Java lifecycle/configuration/output | Same package: `TemplateListener.java`: constructor, `start`, `stop`, `delete`, `reconfigure`, `generateExecUnit`, `generateShellCode`, `serializeUpdatedConfiguration`, `getInfo`, support declarations; `TemplateConfigurationSchema.java`; `ShellcodeResource.java`. |
-| Windows | `exec-code/win/Program.cs`: `Initialize`, `WaitForStop`, `Cleanup`; `exec-code/win/exec-unit-utils/`; `exec-code/win/listener-execunit.csproj` and `listener-execunit.sln`. |
+| Managed Windows | `exec-code/win/Program.cs`: `Initialize`, `WaitForStop`, `Cleanup`; `exec-code/win/exec-unit-utils/`; `exec-code/win/listener-execunit.csproj` and `listener-execunit.sln`. |
+| Windows native | `exec-code/win-native/listener/Main.cpp`: exported `start`; `exec-code/win-native/exec-unit-utils/`; `exec-code/win-native/build_windows.sh` explicit source list and `exports.def`. |
 | Linux | `exec-code/linux/listener/Main.cpp`: exported `run`; `exec-code/linux/common/`; `exec-code/linux/build_linux.sh` explicit source list. |
-| Packaging | `java-plugin/build.gradle.kts`, `Makefile`, `scripts/docker/Dockerfile`; `java-plugin/src/main/resources/listener.shellcode`; `exec-code/linux/build/listener-linux.native64_so`. |
+| Packaging | `java-plugin/build.gradle.kts`, `Makefile`, `scripts/docker/Dockerfile`; `java-plugin/src/main/resources/listener.shellcode`; `exec-code/win/bin/Release/dotnet-exe/` and `dotnet-dll/` managed artifacts/method sidecar; `exec-code/win-native/build/listener.native32_dll` and `listener.native64_dll`; `exec-code/linux/build/listener-linux.native64_so`. |
 
 When listener transport code is implemented, add its actual native sender and Java receiver files to the source map. The template does not already contain a complete transport or a command-style `parseResult` method.
 

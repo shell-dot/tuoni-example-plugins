@@ -14,7 +14,7 @@ For files under `java-plugin/src/main/java/com/example/tuoni/command/`:
 4. Extend the existing shared `serializeConfiguration()` encoder to return the typed payload in a fresh readable `ByteBuffer`.
 5. In `generateExecUnit`, keep `.configuration(serializeConfiguration())` and extend the existing shared encoder.
 6. In `generateShellCode`, keep the second `ShellCodeWithConf` argument using that same encoder. Preserve resource selection and pipe-name patching.
-7. Decode the bytes returned by Windows `Connect()` and Linux `connect()` before running the operation. Native connection failure must be distinguishable from a valid empty payload.
+7. Decode the bytes returned by managed Windows `Connect()`, supplied to the Windows native `runCommand` callback after `TryConnect`, and returned by Linux `connect()` before running the operation. Native connection failure must be distinguishable from a valid empty payload.
 8. Implement `serializeCommandUpdate` only when requested. Validate a candidate before encoding it; apply it atomically in native code and retain old state on rejection. Document whether it is a patch or complete replacement.
 
 Validation creates no runtime resources. Both generation methods send the same inner representation and independently readable buffers; Java does not add pipe headers. A command without user fields must accept a valid empty object and can send an empty payload. Do not copy the sample fields below into that command.
@@ -159,7 +159,7 @@ Validate other multipart names and file-count rules as required; explicitly deci
 
 For JSON `{"attempts":3,"enabled":true}`, the inner payload is exactly `03 00 00 00 01`. Defaulted `enabled=false` changes only the last byte to `00`. Neither Java nor the typed native decoder processes the host envelope.
 
-Windows (.NET Framework 4.6.2): place the decoder in `Configuration.cs` and add that file to the explicit `.csproj` source list. For the five-byte sample:
+Managed Windows (.NET Framework 4.6.2): place the decoder in `Configuration.cs` and add that file to the explicit `.csproj` source list. For the five-byte sample:
 
 ```csharp
 if (bytes == null || bytes.Length != 5)
@@ -173,7 +173,7 @@ bool enabled = bytes[4] == 1;
 
 Use `using System;`, store the decoded values in a typed configuration, and let the owning execution path report failure and clean up on exceptions.
 
-Linux (C++11): decode the vector returned by `pipe.connect()` beside `Main.cpp`. Add new translation units to `build_linux.sh`. Include `<cstdint>` and `<stdexcept>`:
+Native Windows and Linux (C++11): use the same typed decoder for each C++ implementation. On Windows, decode the configuration vector supplied to the `runCommand` callback in `exec-code/win-native/command/Main.cpp`; add translation units to `exec-code/win-native/build_windows.sh` for x86/x64. On Linux, decode the vector returned by `pipe.connect()` beside `Main.cpp` and add translation units to `build_linux.sh`. Include `<cstdint>` and `<stdexcept>`:
 
 ```cpp
 if (bytes.size() != 5)
@@ -187,7 +187,7 @@ if (attempts < 1 || attempts > 1000 || bytes[4] > 1)
 const bool enabled = bytes[4] == 1;
 ```
 
-Catch exceptions before they leave `run` or a worker callback. Variable-length binary formats additionally need checked lengths/offsets and bounds before allocating. Define endianness, width, signedness, units and maximum lengths beside the actual encoder.
+Catch exceptions before they leave `start`, `run`, or a worker callback. Variable-length binary formats additionally need checked lengths/offsets and bounds before allocating. Define endianness, width, signedness, units and maximum lengths beside the actual encoder.
 
 ## UTF-8 payloads
 

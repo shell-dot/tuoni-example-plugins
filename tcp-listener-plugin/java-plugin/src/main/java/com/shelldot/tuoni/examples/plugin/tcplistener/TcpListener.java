@@ -164,11 +164,15 @@ public class TcpListener implements ExecUnitListener {
 
   @Override
   public Set<ExecUnitType> getSupportedExecUnitTypes(PayloadType payloadType) {
+    if (payloadType == null) {
+      return Set.of();
+    }
     if (LINUX_X64.equals(payloadType)) {
       return Set.of(ExecUnitType.NATIVE_LIB);
     }
     if (getSupportedPayloadTypes().contains(payloadType)) {
-      return Set.of(ExecUnitType.SHELLCODE_NATIVE);
+      return Set.of(ExecUnitType.SHELLCODE_NATIVE, ExecUnitType.DOTNET_DLL,
+            ExecUnitType.DOTNET_EXE, ExecUnitType.NATIVE_LIB);
     }
     return Set.of();
   }
@@ -180,10 +184,21 @@ public class TcpListener implements ExecUnitListener {
       throw new SerializationException(
           "Unsupported execution unit type " + type + " for payload type " + payloadType);
     }
-    boolean linux = LINUX_X64.equals(payloadType);
+    String resource = switch (type) {
+      case SHELLCODE_NATIVE -> WINDOWS_SHELLCODE_PATH;
+      case DOTNET_DLL -> "/shellcodes/tcp-listener.dotnet_dll";
+      case DOTNET_EXE -> "/shellcodes/tcp-listener.dotnet_exe";
+      case NATIVE_LIB -> payloadType.operatingSystem() == OperatingSystem.WINDOWS
+          ? (payloadType.architecture() == Architecture.X86
+              ? "/shellcodes/tcp-listener.native32_dll" : "/shellcodes/tcp-listener.native64_dll")
+          : LINUX_EXECUNIT_PATH;
+    };
     ByteBuffer implantBuffer = ShellcodeUtil.readClasspathResourceToBuffer(
-        getClass(), linux ? LINUX_EXECUNIT_PATH : WINDOWS_SHELLCODE_PATH);
-    if (!linux) {
+        getClass(), resource);
+    if (type == ExecUnitType.SHELLCODE_NATIVE) {
+      if (pipeName == null) {
+        throw new SerializationException("Pipe name is missing");
+      }
       byte[] defaultPipeBytes = DEFAULT_PIPE_NAME.getBytes(PIPE_NAME_CHARSET);
       byte[] newPipeBytes = pipeName.getBytes(PIPE_NAME_CHARSET);
       ShellcodeUtil.replaceBytesInBuffer(implantBuffer, defaultPipeBytes, newPipeBytes);
@@ -194,7 +209,11 @@ public class TcpListener implements ExecUnitListener {
         .type(type)
         .ipcType(PluginIpcType.NAMED_PIPE)
         .configuration(config.serializeForShellcode())
-        .entrypoint(linux ? "run" : null)
+        .entrypoint(switch (type) {
+          case DOTNET_DLL -> ShellcodeUtil.dllEntrypoint(getClass(), resource);
+          case NATIVE_LIB -> payloadType.operatingSystem() == OperatingSystem.WINDOWS ? "start" : "run";
+          default -> null;
+        })
         .build();
   }
 

@@ -1,0 +1,12 @@
+{
+  "source": "commands_default/common/CommonCppExecUnit",
+  "files": {
+    "CommunicationNamedPipes.h": "29fd9ce3270d54e707f8eb594e9342ae1e55cd4a0154c21fb69f76d6820d340b",
+    "CommunicationNamedPipes.cpp": "452a4e94c4cacc1978711c9531822f401581c30d197283d8cb9cbc47489e7d8d",
+    "CommunicationNamedPipesCommand.h": "62940c92be1b5deef43dbe7f124f29f554d4bad5840618ed853ba08aa61a3a4d",
+    "CommunicationNamedPipesCommand.cpp": "62e9dac58fd62d53701aef2925b27f59d521464bd6fb31e42140c72ba3c6e0ab",
+    "TLV.h": "cf52d44316ba7e9138bd557916adfbd017cf71f8bfd88be25447dd9618c1b651",
+    "TLV.cpp": "37a95819927dae3cac7f49e4128ca563fb73684fdc749f0483e41f3cc3f4f0d7"
+  },
+  "hash_normalization": "CRLF to LF"
+}
