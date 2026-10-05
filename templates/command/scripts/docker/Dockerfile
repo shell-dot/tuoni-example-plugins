@@ -2,7 +2,10 @@
 FROM mono:6 AS csharp-build
 WORKDIR /build/exec-code/win
 COPY exec-code/win/ .
-RUN msbuild command-execunit.csproj /p:Configuration=Release /p:PostBuildEvent=
+RUN set -eu; \
+    for format in shellcode dotnet-exe dotnet-dll; do \
+        msbuild command-execunit.csproj /p:Configuration=Release /p:PostBuildEvent= /p:ExecUnitFormat="$format"; \
+    done
 
 # Produce the execunit artifact using the bundled converter, as in the examples.
 FROM debian:bookworm-slim AS shellcode-build
@@ -39,10 +42,26 @@ FROM scratch AS linux-artifacts
 COPY --from=linux-build /build/exec-code/linux/build/command-linux.native64_so \
      /command-linux.native64_so
 
-# Package both rebuilt execunits at the classpath paths used by TemplateCommand.
+# Cross-compile Windows x86/x64 native DLLs and verify their loader contract.
+FROM debian:bookworm-slim AS windows-native-build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        g++-mingw-w64-i686-posix g++-mingw-w64-x86-64-posix python3 \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+COPY exec-code/win-native/ exec-code/win-native/
+COPY scripts/verify_windows_native.py scripts/verify_windows_native.py
+RUN bash exec-code/win-native/build_windows.sh
+
+FROM scratch AS windows-native-artifacts
+COPY --from=windows-native-build /build/exec-code/win-native/build/ /
+
+# Package all rebuilt execunit formats into the Java plugin.
 FROM eclipse-temurin:21-jdk AS java-build
 WORKDIR /build
+COPY --from=windows-native-build /build/exec-code/win-native/build/ exec-code/win-native/build/
 COPY java-plugin/ java-plugin/
+COPY --from=csharp-build /build/exec-code/win/ /build/exec-code/win/
 COPY --from=shellcode-build /build/exec-code/win/bin/Release/command-execunit-template.shellcode \
      /build/java-plugin/src/main/resources/command.shellcode
 COPY --from=linux-build /build/exec-code/linux/build/command-linux.native64_so \
@@ -50,15 +69,21 @@ COPY --from=linux-build /build/exec-code/linux/build/command-linux.native64_so \
 WORKDIR /build/java-plugin
 RUN chmod +x gradlew && ./gradlew build --no-daemon
 
-# Export only the .NET executable when the build-dotnet Make target is used.
+# Export managed formats and the legacy shellcode-input EXE without conversion.
 FROM scratch AS dotnet-artifacts
 COPY --from=csharp-build /build/exec-code/win/bin/Release/command-execunit-template.exe \
      /command-execunit-template.exe
+COPY --from=csharp-build /build/exec-code/win/bin/Release/dotnet-exe/command-execunit-template.dotnet_exe \
+     /command-execunit-template.dotnet_exe
+COPY --from=csharp-build /build/exec-code/win/bin/Release/dotnet-dll/command-execunit-template.dotnet_dll \
+     /command-execunit-template.dotnet_dll
+COPY --from=csharp-build /build/exec-code/win/bin/Release/dotnet-dll/command-execunit-template.dotnet_dll_method \
+     /command-execunit-template.dotnet_dll_method
 
 # Export the full set of artifacts by default.
 FROM scratch AS artifacts
-COPY --from=shellcode-build /build/exec-code/win/bin/Release/command-execunit-template.exe \
-     /command-execunit-template.exe
+COPY --from=windows-native-artifacts / /
+COPY --from=dotnet-artifacts / /
 COPY --from=shellcode-build /build/exec-code/win/bin/Release/command-execunit-template.shellcode \
      /command-execunit-template.shellcode
 COPY --from=linux-build /build/exec-code/linux/build/command-linux.native64_so \

@@ -9,8 +9,8 @@ The [idle source default](../README.md#default-behavior) still requires native c
 Unless the user explicitly requests otherwise, build **the exec-units and the packaged Java plugin in Docker**. Use local build tools only when the user explicitly requests a non-Docker route; missing or unusable Docker does not authorize an automatic fallback. Apply this to complete implementations and focused configuration, logic, or output changes. Keep every existing in-scope platform in the build; lack of a compiler does not remove it from scope.
 
 - Build after a substantial, coherent implementation step: a configuration/codec handoff, major behavior or lifecycle change, transport/output change, or source-list/build/dependency change. Combine closely related edits into one checkpoint; do not build after every small edit.
-- After the final code/build-input change, actually execute `make build` from the selected/generated plugin root and wait for it to finish. This is required for each configuration, implementation, logic, and output task, even a Java-only change, and for creation requests that include behavior. It runs the complete Docker pipeline: Windows compilation and shellcode conversion, Linux compilation, Java compilation and dependency/resource packaging, then artifact export. A successful full build already executed during this task counts only when every final build input is unchanged.
-- The gate passes only when the complete command exits successfully and the current exported EXE, shellcode, Linux library and distributable JAR are verified as described under [Package and verify](#package-and-verify), including native-byte equality inside the JAR. Record the command, working directory, exit status and artifact paths. Docker readiness checks, a proposed command, `compileJava`, `make build-dotnet`, `make build-linux`, or historical artifacts alone do not establish a full build. A successful build establishes compilation/packaging, not runtime behavior.
+- After the final code/build-input change, actually execute `make build` from the selected/generated plugin root and wait for it to finish. This is required for each configuration, implementation, logic, and output task, even a Java-only change, and for creation requests that include behavior. It runs the complete Docker pipeline: Windows managed/native compilation and shellcode conversion, Linux compilation, Java compilation and dependency/resource packaging, then artifact export. A successful full build already executed during this task counts only when every final build input is unchanged.
+- The gate passes only when the complete command exits successfully and the current exported managed EXE/DLL, DLL entrypoint metadata, shellcode, Windows native DLLs, Linux library and distributable JAR are verified as described under [Package and verify](#package-and-verify), including native-byte equality inside the JAR. Record the command, working directory, exit status and artifact paths. Docker readiness checks, a proposed command, `compileJava`, `make build-dotnet`, `make build-linux`, or historical artifacts alone do not establish a full build. A successful build establishes compilation/packaging, not runtime behavior.
 - Before reporting the plugin runnable, also pass the [isolated exported-JAR initialization test](java-verification.md#isolated-initialization-smoke-test). Record this Java runtime result separately from the full Docker build, archive checks, and native failure/unload tests; each establishes different behavior.
 - Address source/build errors at the checkpoint and rerun the complete Docker build before declaring this gate passed. Where an environmental blocker prevents a phase, continue independent checks and report the phase as unavailable; do not substitute stale artifacts or call the package current.
 - If the user explicitly skips builds or narrows platform coverage, honor that instruction and record the skipped checks and artifact freshness. Documentation-only changes need documentation validation, not regenerated binaries.
@@ -124,17 +124,43 @@ Use the [existing plugin map](existing-plugins.md) to locate a matching Java/nat
 
 For each supported combination, check OS, **process** architecture, exec-unit type, resource path, loader entrypoint, and the actual artifact. Reject unsupported/unknown combinations at both capability selection and generation. Do not choose x64 solely because architecture is not x86. Add platforms or artifact types only when the request requires them and matching implementations exist.
 
-If a requested extension adds .NET DLL exec-units, existing plugins read the companion `<artifact>.dotnet_dll_method` resource through `DotnetDllEntrypoint`. Preserve the generated entrypoint metadata and test it against the actual DLL; an obfuscated assembly cannot assume a hardcoded source method name. Windows native DLLs and POSIX libraries have different entrypoints/ABIs; inspect their loader contract rather than copying one export name everywhere. The fresh template does not claim these extra artifact types.
+The template supports Windows x86/x64 `SHELLCODE_NATIVE`, `DOTNET_EXE`, and
+`DOTNET_DLL`, and `NATIVE_LIB`, plus Linux x64 `NATIVE_LIB`. Managed code receives the pipe name in
+`args[0]`; only shellcode uses the UTF-16LE patch marker. `ShellcodeResource.dllEntrypoint`
+reads and validates the companion `<artifact>.dotnet_dll_method` resource. The
+shared `exec-unit-utils/ExecUnitFormats.targets` emits `<RootNamespace>.Program::start`
+for the public static C# wrapper. These assemblies are not obfuscated. If adding
+obfuscation, generate metadata from the resulting method mapping instead. Windows
+native DLLs use the `start(const char*)` ABI and architecture-specific `.native32_dll`
+and `.native64_dll` artifacts. See [Windows native builds and checks](windows-native.md).
+
+`ExecUnitFormat` defaults to `shellcode`; `dotnet-exe` and `dotnet-dll` compile the
+same source with argument-based pipe startup and separate output/intermediate
+directories. Both managed builds are required before a direct Java build. For an
+explicitly requested local build, run:
+
+```powershell
+msbuild exec-code/win/listener-execunit.csproj /p:Configuration=Release /p:ExecUnitFormat=dotnet-exe
+msbuild exec-code/win/listener-execunit.csproj /p:Configuration=Release /p:ExecUnitFormat=dotnet-dll
+```
+
+The Gradle `check` task runs `execUnitFormatsCheck` against freshly built resources
+in Docker. It covers every SDK OS/architecture/type combination, rejects unsupported
+combinations, verifies managed PE DLL/EXE roles and the CLR header, checks DLL method
+metadata, Windows native x86/x64 PE roles and `start`, and Linux `run`, and checks unchanged managed bytes, shellcode pipe patches,
+and independent code/configuration buffers. It does not execute native code or
+replace the isolated exported-JAR initialization and host lifecycle checks below.
 
 ## Rebuild native resources
 
-By default, use `make build` to compile both native implementations and package Java inside Docker. The Make targets below have different results; run them in the Linux/WSL shell described above:
+By default, use `make build` to compile all exec-unit implementations and package Java inside Docker. The Make targets below have different results; run them in the Linux/WSL shell described above:
 
 | Command | Result |
 | --- | --- |
 | `make build-linux` | Builds Linux in Docker and writes `exec-code/linux/build/listener-linux.native64_so` plus a copy under `build/`; it does not build Windows or package Java. |
-| `make build-dotnet` | Exports only `build/listener-execunit-template.exe`; it does not generate shellcode or a JAR. |
-| `make build` | Builds both exec-units, converts Windows shellcode, and packages Java inside Docker; exports the JAR, EXE, shellcode and Linux library under `build/`. It does not refresh the local Gradle output or local native-resource paths. |
+| `make build-dotnet` | Exports the managed EXE/DLL, DLL method sidecar, and legacy shellcode-input EXE under `build/`; it does not generate shellcode, refresh the managed files under `exec-code/win/bin/Release/`, or package Java. |
+| `make build-windows-native` | Builds Windows x86/x64 DLLs in Docker and writes `exec-code/win-native/build/listener.native32_dll` and `listener.native64_dll` plus copies under `build/`; it does not build managed formats or Java. |
+| `make build` | Builds all exec-unit formats, converts Windows shellcode, and packages Java inside Docker; exports the JAR, managed EXE/DLL and method metadata, legacy EXE, shellcode, Windows native DLLs and Linux library under `build/`. It does not refresh the local Gradle output or local native-resource paths. |
 
 ### Local native compilation (explicit user override only)
 
@@ -142,9 +168,30 @@ Use these commands only when the user explicitly requested a non-Docker build. O
 
 ```powershell
 msbuild exec-code/win/listener-execunit.sln /t:Rebuild /p:Configuration=Release
+msbuild exec-code/win/listener-execunit.csproj /t:Rebuild /p:Configuration=Release /p:ExecUnitFormat=dotnet-exe
+msbuild exec-code/win/listener-execunit.csproj /t:Rebuild /p:Configuration=Release /p:ExecUnitFormat=dotnet-dll
 ```
 
 `dotnet msbuild` with the same arguments is an alternative when the required targeting pack is installed. The post-build event in `exec-code/win/listener-execunit.csproj` converts `exec-code/win/bin/Release/listener-execunit-template.exe` into `listener-execunit-template.shellcode` beside the EXE and copies it to `java-plugin/src/main/resources/listener.shellcode`. The template contains `exec-code/win/donut.exe` for this step. A build using `/p:PostBuildEvent=` verifies C# compilation only and does not refresh the resource.
+
+The managed format builds write their own artifacts and DLL method sidecar under
+`exec-code/win/bin/Release/dotnet-exe/` and `dotnet-dll/`; they do not run the
+shellcode post-build event. A direct Gradle build requires both variants plus the
+shellcode resource.
+
+For Windows native x86/x64, use a Bash environment with the POSIX-thread MinGW
+compilers `i686-w64-mingw32-g++-posix` and `x86_64-w64-mingw32-g++-posix`, plus
+Python 3:
+
+```sh
+bash exec-code/win-native/build_windows.sh
+```
+
+The script writes both DLLs under `exec-code/win-native/build/` and runs the PE
+checker. Add new Windows translation units to that script for both architectures;
+these sources are independent from the managed `.csproj` and Linux source list.
+See [Windows native DLLs](windows-native.md) for the existing ABI and separate
+runtime checks.
 
 In Linux/WSL with g++, run:
 
@@ -152,11 +199,11 @@ In Linux/WSL with g++, run:
 bash exec-code/linux/build_linux.sh
 ```
 
-This produces `exec-code/linux/build/listener-linux.native64_so`. Add new `.cpp` translation units to the compiler command in that script; add new C# files as `<Compile Include="..." />` entries in the `.csproj`. For an explicitly requested local Linux build on Windows, use Linux/WSL; a Windows compiler's output is not a Linux library.
+This produces `exec-code/linux/build/listener-linux.native64_so`. Add new Linux `.cpp` translation units to that script and Windows native translation units to `exec-code/win-native/build_windows.sh`; add new C# files as `<Compile Include="..." />` entries in the `.csproj`. For an explicitly requested local Linux build on Windows, use Linux/WSL; a Windows compiler's output is not a Linux library.
 
 ## Package and verify
 
-By default, run `make build` to compile and package everything inside Docker. Only when the user explicitly requested a local build, rebuild both native resources first, then run `bash java-plugin/gradlew -p java-plugin clean build` or `.\java-plugin\gradlew.bat -p java-plugin clean build`. Rebuild changed native sources even when old outputs exist. A successful package must include the fresh resources for every in-scope platform. Report separately any unavailable compilation, conversion, packaging or runtime checks.
+By default, run `make build` to compile and package everything inside Docker. Only when the user explicitly requested a local build, rebuild all exec-unit resources first, then run `bash java-plugin/gradlew -p java-plugin clean build` or `.\java-plugin\gradlew.bat -p java-plugin clean build`. Rebuild changed native sources even when old outputs exist. A successful package must include the fresh resources for every in-scope platform. Report separately any unavailable compilation, conversion, packaging or runtime checks.
 
 Use outputs from the route just completed:
 
@@ -164,6 +211,11 @@ Use outputs from the route just completed:
 | --- | --- | --- |
 | Distributable JAR | `java-plugin/build/libs/listener-plugin-template-0.0.1.jar` | `build/listener-plugin-template-0.0.1.jar` |
 | Windows bytes for JAR entry `listener.shellcode` | `java-plugin/src/main/resources/listener.shellcode` | `build/listener-execunit-template.shellcode` |
+| Windows JAR entry `listener.dotnet_exe` | `exec-code/win/bin/Release/dotnet-exe/listener-execunit-template.dotnet_exe` | `build/listener-execunit-template.dotnet_exe` |
+| Windows JAR entry `listener.dotnet_dll` | `exec-code/win/bin/Release/dotnet-dll/listener-execunit-template.dotnet_dll` | `build/listener-execunit-template.dotnet_dll` |
+| Windows JAR entry `listener.dotnet_dll_method` | `exec-code/win/bin/Release/dotnet-dll/listener-execunit-template.dotnet_dll_method` | `build/listener-execunit-template.dotnet_dll_method` |
+| Windows native JAR entry `listener.native32_dll` | `exec-code/win-native/build/listener.native32_dll` | `build/listener.native32_dll` |
+| Windows native JAR entry `listener.native64_dll` | `exec-code/win-native/build/listener.native64_dll` | `build/listener.native64_dll` |
 | Linux bytes for JAR entry `listener-linux.native64_so` | `exec-code/linux/build/listener-linux.native64_so` | `build/listener-linux.native64_so` |
 
 First run the supplied archive verifier against the **actual exported distributable** (adjust its name/version and build directory for this plugin):
@@ -190,12 +242,22 @@ if route == "local":
     artifacts = {
         "listener.shellcode": root / "java-plugin/src/main/resources/listener.shellcode",
         "listener-linux.native64_so": root / "exec-code/linux/build/listener-linux.native64_so",
+        "listener.native32_dll": root / "exec-code/win-native/build/listener.native32_dll",
+        "listener.native64_dll": root / "exec-code/win-native/build/listener.native64_dll",
+        "listener.dotnet_exe": root / "exec-code/win/bin/Release/dotnet-exe/listener-execunit-template.dotnet_exe",
+        "listener.dotnet_dll": root / "exec-code/win/bin/Release/dotnet-dll/listener-execunit-template.dotnet_dll",
+        "listener.dotnet_dll_method": root / "exec-code/win/bin/Release/dotnet-dll/listener-execunit-template.dotnet_dll_method",
     }
 elif route == "docker":
     archive = export_dir / archive_name
     artifacts = {
         "listener.shellcode": export_dir / "listener-execunit-template.shellcode",
         "listener-linux.native64_so": export_dir / "listener-linux.native64_so",
+        "listener.native32_dll": export_dir / "listener.native32_dll",
+        "listener.native64_dll": export_dir / "listener.native64_dll",
+        "listener.dotnet_exe": export_dir / "listener-execunit-template.dotnet_exe",
+        "listener.dotnet_dll": export_dir / "listener-execunit-template.dotnet_dll",
+        "listener.dotnet_dll_method": export_dir / "listener-execunit-template.dotnet_dll_method",
     }
 else:
     raise ValueError("route must be local or docker")

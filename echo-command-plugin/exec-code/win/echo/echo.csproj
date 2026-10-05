@@ -77,8 +77,9 @@
     </BootstrapperPackage>
   </ItemGroup>
   <Import Project="..\exec-unit-utils\exec-unit-utils.projitems" Label="Shared" />
+  <Import Project="..\exec-unit-utils\ExecUnitFormats.targets" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>$(SolutionDir)donut.exe -z 1 -e 1 -o "$(TargetDir)$(TargetName).shellcode" -i "$(TargetPath)"</PostBuildEvent>
+    <PostBuildEvent Condition="'$(ExecUnitFormat)' == 'shellcode'">$(SolutionDir)donut.exe -z 1 -e 1 -o "$(TargetDir)$(TargetName).shellcode" -i "$(TargetPath)"</PostBuildEvent>
   </PropertyGroup>
 </Project>

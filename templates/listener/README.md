@@ -1,8 +1,7 @@
 # Listener plugin skeleton
 
 Start with the [shared setup and build instructions](../README.md). This folder
-contains one listener plugin, a C# Windows entry point, and a C++ Linux x64
-entry point.
+contains one listener plugin, a C# Windows entry point, and C++ native entry points for Windows x86/x64 and Linux x64.
 
 | File under `java-plugin/src/main/java/com/example/tuoni/listener/` | Purpose |
 | --- | --- |
@@ -63,18 +62,23 @@ and stops are harmless; a stopped listener can restart. Deletion is terminal.
 object's local state; the idle template owns no endpoint and receives no native
 health observations. Start or reconfigure after deletion rejects the invalid lifecycle request.
 
-Both native entrypoints use the implemented pipe/FIFO utilities to connect to the
+Managed Windows, native Windows, and Linux entrypoints use the implemented pipe/FIFO utilities to connect to the
 local agent, receive and validate an empty configuration payload, and remain idle
 until the host closes the connection. Windows waits for its owned reader in
-`WaitForStop`; Linux's exported `run(char*, char*)` waits in `serve`. Cleanup joins
+`WaitForStop`; native Windows `start(const char*)` waits on `isConnected()`;
+Linux's exported `run(char*, char*)` waits in `serve`. Cleanup joins
 the reader and releases the connection before returning, including after failed startup.
 
 ## Extend the template
 
 The data traffic channel is intentionally TODO. Add Java transport setup and SDK
 request/command handling in `TemplateListener.start`, Windows channel behavior in
-`Program.Initialize`/`WaitForStop`, and matching Linux behavior in `serve`. The
-cleanup hooks also mark where to stop and join any added channel workers. The idle
+`Program.Initialize`/`WaitForStop`, native Windows behavior at the TODO in
+`exec-code/win-native/listener/Main.cpp`, and matching Linux behavior in `serve`.
+The cleanup hooks mark where to stop and join added work; retain scoped pipe
+ownership and joined reader cleanup before any entrypoint returns. Add C# sources
+to the `.csproj` and native Windows/Linux translation units to their corresponding
+`build_windows.sh` / `build_linux.sh` source lists. The idle
 default opens no application endpoint and exchanges no metadata, requests, or commands.
 The local-agent pipe/FIFO is separate from the future data traffic channel to Java.
 Before using the request helpers for traffic, add timeout/disconnect cancellation
@@ -82,17 +86,26 @@ for pending responses. The listener protocol has no command-style terminal succe
 report or stop message.
 
 The Java class implements `ExecUnitListener` and `ShellcodeListener`. It advertises
-Windows x86 and x64 payload types with `SHELLCODE_NATIVE`, and Linux x64 with
+Windows x86 and x64 payload types with `SHELLCODE_NATIVE`, `DOTNET_DLL`, and
+`DOTNET_EXE`, and `NATIVE_LIB`, and Linux x64 with
 `NATIVE_LIB`. Linux loads `/listener-linux.native64_so` with the `run` export; the
-agent supplies FIFO paths, so no byte patch is needed. Windows loads
+agent supplies FIFO paths, so no byte patch is needed. Windows shellcode loads
 `/listener.shellcode` from the JAR, replaces every UTF-16LE `QQQWWWEEE` pipe-name
 placeholder with the SDK pipe name, and returns it with named-pipe IPC and an empty
 configuration buffer. The new name must have the same encoded length as the
 placeholder. Build the C# Release project first so its post-build step creates
-`java-plugin/src/main/resources/listener.shellcode`. Build the Linux library before
-a direct Java build so Gradle can include it.
+`java-plugin/src/main/resources/listener.shellcode`. Build the managed formats, both Windows native DLLs, and Linux library before
+a direct Java build so Gradle can include all formats.
 Startup and valid `{}` replacement serialization use the same empty native payload.
 No fields require live application; serialization alone does not prove host delivery.
+
+Windows managed assemblies are packaged as `listener.dotnet_exe` and
+`listener.dotnet_dll`. They receive the pipe name in `args[0]`; their bytes are not
+patched. DLL generation reads `listener.dotnet_dll_method`, emitted from the C#
+project namespace as `<namespace>.Program::start`. All formats use the same
+configuration and behavior. Windows native DLLs are also packaged as `listener.native32_dll` and
+`listener.native64_dll`, exporting `start(const char*)`. See the
+[Windows native implementation and verification guide](docs/windows-native.md).
 
 ## Build
 
@@ -117,5 +130,20 @@ inside Docker and extract it for Gradle, run `make build-linux`.
 
 Use a Linux shell (WSL on Windows), GNU Make, standard Unix file utilities, and
 Docker configured for Linux containers. Run `make build` from this folder. The JAR,
-EXE, generated shellcode, and Linux library are extracted to `build/`.
-Run `make build-dotnet` to compile and extract only the EXE to `build/`.
+managed EXE/DLL, DLL method metadata, legacy shellcode-input EXE, shellcode, and
+Windows native DLLs and Linux library are extracted to `build/`. `make build-dotnet` exports the C#
+artifacts without shellcode conversion or Java packaging. The Java build runs
+`execUnitFormatsCheck` against rebuilt resources; see the [build guide](docs/building.md).
+
+For an explicitly requested local build, additionally run:
+
+```powershell
+msbuild exec-code/win/listener-execunit.csproj /p:Configuration=Release /p:ExecUnitFormat=dotnet-exe
+msbuild exec-code/win/listener-execunit.csproj /p:Configuration=Release /p:ExecUnitFormat=dotnet-dll
+```
+
+Managed artifacts appear in `bin/Release/dotnet-exe/` and
+`bin/Release/dotnet-dll/` under `exec-code/win/`. The default format remains
+`shellcode`. Unsupported `ExecUnitFormat` values fail the build.
+
+Use `make build-windows-native` to build and export just the Windows native DLLs.

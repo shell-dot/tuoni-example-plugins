@@ -25,7 +25,8 @@ public class TemplateCommandTemplate implements CommandTemplate {
     // Advertise the union of execution formats supplied by this command template.
     // Per-agent checks below and on TemplateCommand must narrow it to resources
     // that match the agent's OS and process architecture before code is generated.
-    return Set.of(ExecUnitType.SHELLCODE_NATIVE, ExecUnitType.NATIVE_LIB);
+    return Set.of(ExecUnitType.SHELLCODE_NATIVE, ExecUnitType.DOTNET_DLL,
+        ExecUnitType.DOTNET_EXE, ExecUnitType.NATIVE_LIB);
   }
 
   @Override

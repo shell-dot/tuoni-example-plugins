@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 
 namespace ExecUnitUtils
@@ -18,6 +19,14 @@ namespace ExecUnitUtils
 
         protected Action<byte[]> _actionNewData = null;
         protected Action _actionStop = null;
+
+        protected override bool HasCallbacks { get { return _actionNewData != null || _actionStop != null; } }
+
+        private void Send(TLV tlv)
+        {
+            if (!PutData(tlv.GetFullBuffer()))
+                throw new IOException("The command reporting pipe is disconnected.");
+        }
 
         /// <summary>
         /// Initializes a new instance with the pipe name and optional callbacks for new data and stop actions.
@@ -38,7 +47,7 @@ namespace ExecUnitUtils
         public void sendResult(byte[] data)
         {
             TLV tlv = new TLV(MessageTypeResult, data);
-            PutData(tlv.GetFullBuffer());
+            Send(tlv);
         }
 
         /// <summary>
@@ -48,7 +57,7 @@ namespace ExecUnitUtils
         public void sendError(byte[] msg)
         {
             TLV tlv = new TLV(MessageTypeError, msg);
-            PutData(tlv.GetFullBuffer());
+            Send(tlv);
         }
 
         /// <summary>
@@ -57,7 +66,7 @@ namespace ExecUnitUtils
         public void sendReturnSuccess()
         {
             TLV tlv = new TLV(MessageTypeSuccess, new byte[0]);
-            PutData(tlv.GetFullBuffer());
+            Send(tlv);
         }
 
         /// <summary>
@@ -66,7 +75,7 @@ namespace ExecUnitUtils
         public void sendReturnFailed()
         {
             TLV tlv = new TLV(MessageTypeFailed, new byte[0]);
-            PutData(tlv.GetFullBuffer());
+            Send(tlv);
         }
 
         /// <summary>
@@ -76,7 +85,7 @@ namespace ExecUnitUtils
         {
             TLV tlv = new TLV(MessageTypeConf);
             tlv.AddChild(new TLV(MessageTypeConf_ongoing, new byte[1] { 0x1 }));
-            PutData(tlv.GetFullBuffer());
+            Send(tlv);
         }
 
 
@@ -88,19 +97,23 @@ namespace ExecUnitUtils
         {
             TLV tlv = new TLV(MessageTypeConf);
             tlv.AddChild(new TLV(MessageTypeConf_stoptime, BitConverter.GetBytes(waitTime)));
-            PutData(tlv.GetFullBuffer());
+            Send(tlv);
         }
 
         override protected bool HandleIncomingData(TLV tlv)
         {
             if (tlv.Type == MessageTypeStop)
             {
+                if (tlv.IsParent || tlv.Data == null || tlv.Data.Length != 0)
+                    throw new IOException("A stop command must be an empty leaf TLV.");
                 if (_actionStop != null)
                     _actionStop();
                 return true;
             }
             if (tlv.Type == MessageTypeNewData)
             {
+                if (tlv.IsParent || tlv.Data == null)
+                    throw new IOException("A command update must be a leaf TLV.");
                 if (_actionNewData != null)
                     _actionNewData(tlv.Data);
                 return true;

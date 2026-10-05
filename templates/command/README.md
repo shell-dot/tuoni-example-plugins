@@ -1,8 +1,7 @@
 # Command plugin skeleton
 
 Start with the [shared setup and build instructions](../README.md). This folder
-contains one command template, a C# Windows entry point, and a C++ Linux x64
-entry point.
+contains one command template, a C# Windows entry point, and C++ native entry points for Windows x86/x64 and Linux x64.
 
 | File under `java-plugin/src/main/java/com/example/tuoni/command/` | Purpose |
 | --- | --- |
@@ -62,40 +61,55 @@ It connects to the agent, validates an empty configuration payload, sends `DONE`
 as UTF-8 result text, and then sends one success completion. Java displays `DONE`
 in the `output` text result. The result payload is exactly four bytes (`44 4f 4e 45`), with no newline or terminator. Startup/validation
 or result-send errors select failure completion when the reporting channel is usable.
-Both native entrypoints contain exceptions and release the connection before returning.
+Managed Windows, native Windows, and Linux entrypoints contain ordinary exceptions and release the connection before returning.
 
 ## Extend the template
 
-Add Windows behavior in `exec-code/win/Program.cs`'s `Execute`, and the matching
-Linux behavior in `exec-code/linux/command/Main.cpp`'s `execute`. Windows retains
-`Initialize`, `Complete`, and `Cleanup` hooks; Linux uses scoped pipe cleanup.
+Add managed Windows behavior in `exec-code/win/Program.cs`'s `Execute`, native
+Windows behavior in the `runCommand` callback in
+`exec-code/win-native/command/Main.cpp`, and matching Linux behavior in
+`exec-code/linux/command/Main.cpp`'s `execute`. Managed Windows retains
+`Initialize`, `Complete`, and `Cleanup`; native Windows keeps its terminal owner
+in `common/CommandRuntime.h`; Linux uses scoped pipe cleanup. Add C# sources to
+the `.csproj` and native Windows/Linux translation units to their corresponding
+`build_windows.sh` / `build_linux.sh` source lists.
 The implemented IPC utilities are compiled directly into each exec-unit. Check the
 boolean returned by result/error/terminal sends. Completion has one owner, so the
 operation hook must not send an additional terminal message.
 
 To add fields, extend `TemplateConfigurationSchema`, Java validation and the shared
-`serializeConfiguration()` encoder, then both native configuration decoders. To
+`serializeConfiguration()` encoder, then the managed Windows, native Windows, and Linux configuration decoders. To
 add text output, send complete UTF-8 payloads with `sendResult`; Java's `parseResult`
 already appends them to the `output` text result. Empty final notifications require
 no editor changes. Updates are explicitly unsupported until implemented.
 
-The no-op installs no callbacks or background workers. Before adding asynchronous
-behavior, apply the [native ownership requirements](docs/native-runtime.md),
-including replacing the Linux optional detached callback reader with joined work.
+The managed/Linux no-op installs no callbacks or background workers. The native
+Windows utility has an owned reader; its callbacks record input and cleanup joins
+the reader before releasing callback state. Before adding asynchronous behavior,
+apply the [native ownership requirements](docs/native-runtime.md), including
+replacing the Linux optional detached callback reader with joined work.
 
 The Java class implements `ExecUnitCommand` and `ShellcodeCommand` and accepts
-Windows x86/x64 and Linux x64 `SHELLCODE_AGENT` agents. It advertises `SHELLCODE_NATIVE`
-for Windows and `NATIVE_LIB` for Linux x64. Linux loads
+Windows x86/x64 and Linux x64 `SHELLCODE_AGENT` agents. It advertises `SHELLCODE_NATIVE`, `DOTNET_DLL`, and `DOTNET_EXE`
+and `NATIVE_LIB` for Windows, plus `NATIVE_LIB` for Linux x64. Linux loads
 `/command-linux.native64_so` with the `run` export; the agent supplies FIFO paths,
-so no byte patch is needed. Windows loads `/command.shellcode` from the JAR,
+so no byte patch is needed. Windows shellcode loads `/command.shellcode` from the JAR,
 replaces every UTF-16LE `QQQWWWEEE` pipe-name placeholder with the SDK pipe name,
 and returns it with named-pipe IPC and an empty configuration buffer. The new name
 must have the same encoded length as the placeholder. Build the C# Release project
 first so its post-build step creates
-`java-plugin/src/main/resources/command.shellcode`. Build the Linux library before
-a direct Java build so Gradle can include it.
+`java-plugin/src/main/resources/command.shellcode`. Build the managed formats, both Windows native DLLs, and Linux library before
+a direct Java build so Gradle can include all formats.
 Configuration validation, factory creation, empty-result handling, and completion
 are implemented; developers can start by adding the desired command operation.
+
+Windows managed assemblies are packaged as `command.dotnet_exe` and
+`command.dotnet_dll`. They receive the pipe name in `args[0]`; their bytes are not
+patched. DLL generation reads `command.dotnet_dll_method`, emitted from the C#
+project namespace as `<namespace>.Program::start`. All formats use the same
+configuration and behavior. Windows native DLLs are also packaged as `command.native32_dll` and
+`command.native64_dll`, exporting `start(const char*)`. See the
+[Windows native implementation and verification guide](docs/windows-native.md).
 
 ## Build
 
@@ -120,5 +134,20 @@ inside Docker and extract it for Gradle, run `make build-linux`.
 
 Use a Linux shell (WSL on Windows), GNU Make, standard Unix file utilities, and
 Docker configured for Linux containers. Run `make build` from this folder. The JAR,
-EXE, generated shellcode, and Linux library are extracted to `build/`.
-Run `make build-dotnet` to compile and extract only the EXE to `build/`.
+managed EXE/DLL, DLL method metadata, legacy shellcode-input EXE, shellcode, and
+Windows native DLLs and Linux library are extracted to `build/`. `make build-dotnet` exports the C#
+artifacts without shellcode conversion or Java packaging. The Java build runs
+`execUnitFormatsCheck` against rebuilt resources; see the [build guide](docs/building.md).
+
+For an explicitly requested local build, additionally run:
+
+```powershell
+msbuild exec-code/win/command-execunit.csproj /p:Configuration=Release /p:ExecUnitFormat=dotnet-exe
+msbuild exec-code/win/command-execunit.csproj /p:Configuration=Release /p:ExecUnitFormat=dotnet-dll
+```
+
+Managed artifacts appear in `bin/Release/dotnet-exe/` and
+`bin/Release/dotnet-dll/` under `exec-code/win/`. The default format remains
+`shellcode`. Unsupported `ExecUnitFormat` values fail the build.
+
+Use `make build-windows-native` to build and export just the Windows native DLLs.

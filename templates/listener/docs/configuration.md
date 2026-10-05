@@ -6,7 +6,7 @@ Parse user configuration in Java and pass a validated typed value into the liste
 
 Sections: [Java handoff](#follow-one-typed-value-through-the-plugin), [JSON validation](#strict-json-validation-with-the-sdk), [uploads](#file-uploads-when-requested), [payload and native decoders](#worked-binary-payload-and-native-decoders), [verification](#verify-the-complete-handoff).
 
-The [idle default](../README.md#default-behavior) already validates `{}` with JSON whitespace or multipart JSON without files and rejects fields, other values, malformed JSON, and uploads. The shared `serializeConfiguration()` returns fresh zero-length buffers for both startup methods and valid replacement serialization; both native entrypoints require zero payload bytes. Java empty replacement preserves the same instance/status. Encoding a no-field replacement is valid and does not claim native update delivery.
+The [idle default](../README.md#default-behavior) already validates `{}` with JSON whitespace or multipart JSON without files and rejects fields, other values, malformed JSON, and uploads. The shared `serializeConfiguration()` returns fresh zero-length buffers for both startup methods and valid replacement serialization; all managed/native entrypoints require zero payload bytes. Java empty replacement preserves the same instance/status. Encoding a no-field replacement is valid and does not claim native update delivery.
 
 ## Choose the payload format
 
@@ -180,7 +180,7 @@ The example JSON `{"attempts":3,"enabled":true}` becomes exactly five bytes:
 
 The maximum and minimum payload size are both five bytes for this example. Reject any different length, an out-of-range attempt count, or another boolean value. Java emits the resolved default explicitly. This payload has no host IPC header, application frame prefix, or field tags.
 
-### Windows (.NET Framework 4.6.2)
+### Managed Windows (.NET Framework 4.6.2)
 
 Decode the bytes returned by `pipe.Connect()` in the plugin's typed `Configuration.cs` before starting behavior. Add a new source file to `exec-code/win/listener-execunit.csproj` when needed. This example uses only platform APIs and explicit little-endian operations:
 
@@ -199,9 +199,9 @@ bool enabled = bytes[4] == 1;
 
 Preserve the implemented pipe helper's host-protocol boundary; it must return the inner configuration bytes unchanged. The configuration class does not parse the outer pipe envelope.
 
-### Linux (C++11)
+### Native Windows and Linux (C++11)
 
-Decode the vector returned by `pipe.connect()` in a typed configuration class beside `Main.cpp`; add new `.cpp` files to `exec-code/linux/build_linux.sh`. Include `<cstdint>` and `<stdexcept>` for this example:
+Decode the vector returned by `pipe.connect()` in a typed configuration class beside each `Main.cpp`. For Windows native, first check `isConnected()` in `exec-code/win-native/listener/Main.cpp` and add new `.cpp` files to `exec-code/win-native/build_windows.sh` for x86/x64. For Linux, add them to `exec-code/linux/build_linux.sh`. Include `<cstdint>` and `<stdexcept>` for this example:
 
 ```cpp
 if (bytes.size() != 5)
@@ -216,7 +216,7 @@ const bool enabled = bytes[4] == 1;
 // Store attempts and enabled in the returned typed configuration.
 ```
 
-Catch parsing failures in the native [startup/cleanup path](native-runtime.md); no C++ exception may escape the exported `run`. Failed updates retain the prior typed value. Host framing and callback dispatch stay in the pipe helper.
+Catch parsing failures in the native [startup/cleanup path](native-runtime.md); no C++ exception may escape exported `start` or `run`. Failed updates retain the prior typed value. Host framing and callback dispatch stay in the pipe helper.
 
 ### When a requested field is text
 
@@ -230,6 +230,6 @@ Apply the [Java artifact and initialization gate](java-verification.md) whenever
 
 Apply the [byte-verification gate](payload-verification.md) before declaring this handoff complete. Assert position zero and exact payload limit on both Java generation paths and supported updates. Test real Java-produced bytes against every native decoder, then through the actual native connection helper with verified startup framing; parser-only fixtures bypass that failure-prone boundary. Check a native response through the real Java receiver as well.
 
-Verify Java encoder output and both native decoders against the five-byte fixture when using this example. Check field values, defaulted enabled=false, minimum/maximum attempts, wrong length, out-of-range values, and invalid boolean bytes. Exercise the actual factory and both generation methods: equal inner payloads and independently readable buffers should emerge from each call. For another chosen format, make a fixture for its actual contract instead of changing it to match this example.
+Verify Java encoder output and managed Windows, native Windows, and Linux decoders against the five-byte fixture when using this example. Check field values, defaulted enabled=false, minimum/maximum attempts, wrong length, out-of-range values, and invalid boolean bytes. Exercise the actual factory and both generation methods: equal inner payloads and independently readable buffers should emerge from each call. For another chosen format, make a fixture for its actual contract instead of changing it to match this example.
 
 `serializeUpdatedConfiguration`, `generateExecUnit`, and `generateShellCode` permit `SerializationException`, not `ValidationException`. Parse initial input at the factory boundary; wrap candidate validation failures where only serialization errors are permitted, for example `throw new SerializationException("Invalid listener configuration", error);`. Do not widen the SDK method signatures or swallow the failure.

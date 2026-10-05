@@ -1,8 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Threading;
 using System.IO;
+using System.Threading;
 
 namespace ExecUnitUtils
 {
@@ -21,10 +20,6 @@ namespace ExecUnitUtils
         protected readonly Dictionary<int, EventWaitHandle> _signals;
         protected readonly object _responseLock;
 
-
-        /// <summary>
-        /// Initializes a new instance with the pipe name and optional callback.
-        /// </summary>
         public CommunicationNamedPipesListener(string pipeName, Action<byte[]> callback) : base(pipeName)
         {
             _responses = new Dictionary<int, TLV>();
@@ -32,104 +27,82 @@ namespace ExecUnitUtils
             _responseLock = new object();
             _seqNr = 1;
             _callback = callback;
+            Disconnected += WakeResponseWaiters;
         }
 
+        public void SetCallback(Action<byte[]> callback) { _callback = callback; }
+        public byte[] GetMetadata() { return RequestData(MessageTypeResponse1); }
+        public byte[] GetDataToSend() { return RequestData(MessageTypeResponse2); }
 
-        /// <summary>
-        /// Sets or updates the callback for incoming data messages
-        /// </summary>
-        /// 
-        public void SetCallback(Action<byte[]> callback)
-        {
-            _callback = callback;
-        }
-
-        /// <summary>
-        /// Gets metadata from the agent.
-        /// </summary>
-        /// <returns>Metadata or null on failure.</returns>
-        public byte[] GetMetadata()
+        private byte[] RequestData(byte type)
         {
             if (!_active) return null;
+            int seq = GetNextSeqNr();
+            EventWaitHandle signal = new EventWaitHandle(false, EventResetMode.AutoReset);
+            bool registered = false;
             try
             {
-                int seq = GetNextSeqNr();
-                TLV tlv = new TLV(MessageTypeResponse1);
+                lock (_responseLock)
+                {
+                    if (!_active) return null;
+                    // Register before sending: a fast response must have a bounded owner.
+                    _signals.Add(seq, signal);
+                    registered = true;
+                }
+                TLV tlv = new TLV(type);
                 tlv.AddChild(new TLV(ChildTypeCommand, new byte[] { 0x1 }));
                 tlv.AddChild(new TLV(ChildTypeSeqNr, BitConverter.GetBytes(seq)));
-                PutData(tlv.GetFullBuffer());
-                return WaitForResponseData(seq, Timeout.Infinite);
+                if (!PutData(tlv.GetFullBuffer())) return null;
+                byte[] data = WaitForResponseData(seq, Timeout.Infinite);
+                return data;
             }
-            catch (IOException)
+            finally
             {
-                return null;
+                lock (_responseLock)
+                {
+                    if (registered)
+                    {
+                        _signals.Remove(seq);
+                        _responses.Remove(seq);
+                    }
+                    signal.Dispose();
+                }
             }
         }
 
-        /// <summary>
-        /// Gets data to send from the agent.
-        /// </summary>
-        /// <returns>Data or null on failure.</returns>
-        public byte[] GetDataToSend()
-        {
-            if (!_active) return null;
-            try
-            {
-                int seq = GetNextSeqNr();
-                TLV tlv = new TLV(MessageTypeResponse2);
-                tlv.AddChild(new TLV(ChildTypeCommand, new byte[] { 0x1 }));
-                tlv.AddChild(new TLV(ChildTypeSeqNr, BitConverter.GetBytes(seq)));
-                PutData(tlv.GetFullBuffer());
-                return WaitForResponseData(seq, Timeout.Infinite);
-            }
-            catch (IOException)
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Sends new data from C2.
-        /// </summary>
-        /// <param name="data">Data to send.</param>
-        /// <returns>True if sent.</returns>
         public bool NewDataFromC2(byte[] data)
         {
             if (!_active) return false;
-            try
-            {
-                TLV tlv = new TLV(MessageTypeNewData, data);
-                return PutData(tlv.GetFullBuffer());
-            }
-            catch (IOException)
-            {
-                return false;
-            }
+            try { return PutData(new TLV(MessageTypeNewData, data).GetFullBuffer()); }
+            catch (Exception) { return false; }
         }
 
-        override protected bool HandleIncomingData(TLV tlv)
+        protected override bool HandleIncomingData(TLV tlv)
         {
-            if (tlv.Type == MessageTypeCallback && _callback != null)
+            if (tlv.Type == MessageTypeCallback)
             {
-                var child = tlv.GetChild(ChildTypeData, 0);
-                var childData = child != null ? child.GetAsBytes() : null;
-                if (childData != null)
-                    _callback(childData);
+                Action<byte[]> callback = _callback;
+                TLV child = tlv.GetChild(ChildTypeData);
+                byte[] data = child != null ? child.GetAsBytes() : null;
+                if (callback != null && data != null) callback(data);
                 return true;
             }
 
-            var seqChild = tlv.GetChild(ChildTypeSeqNr, 0);
-            if ((tlv.Type == MessageTypeResponse1 || tlv.Type == MessageTypeResponse2) && seqChild != null)
+            if (tlv.Type == MessageTypeResponse1 || tlv.Type == MessageTypeResponse2)
             {
-                int? id = seqChild.GetAsInt32();
-                if (id.HasValue)
+                TLV seqChild = tlv.GetChild(ChildTypeSeqNr);
+                if (seqChild == null || seqChild.IsParent ||
+                    seqChild.Data == null || seqChild.Data.Length != 4)
+                    throw new IOException("Invalid response sequence.");
+                int id = seqChild.GetAsInt32();
+                lock (_responseLock)
                 {
-                    lock (_responseLock)
+                    EventWaitHandle signal;
+                    // Unsolicited/late responses cannot accumulate in the dictionary.
+                    if (_signals.TryGetValue(id, out signal))
                     {
-                        _responses[id.Value] = tlv;
-                        EventWaitHandle signal;
-                        if (_signals.TryGetValue(id.Value, out signal))
-                            signal.Set();
+                        _responses[id] = tlv;
+                        signal.Set();
                     }
                 }
                 return true;
@@ -142,56 +115,39 @@ namespace ExecUnitUtils
             EventWaitHandle signal;
             lock (_responseLock)
             {
-                TLV resp;
-                if (_responses.TryGetValue(id, out resp))
-                {
-                    _responses.Remove(id);
-                    _signals.Remove(id);
-                    var child = resp.GetChild(ChildTypeData, 0);
-                    return child != null ? child.GetAsBytes() : null;
-                }
-                signal = new EventWaitHandle(false, EventResetMode.AutoReset);
-                _signals[id] = signal;
+                if (!_active || !_signals.TryGetValue(id, out signal)) return null;
             }
-
-            if (!signal.WaitOne(timeoutMs))
-            {
-                lock (_responseLock)
-                {
-                    _signals.Remove(id);
-                }
-                return null;
-            }
-
+            if (!signal.WaitOne(timeoutMs)) return null;
             lock (_responseLock)
             {
-                TLV resp;
-                if (_responses.TryGetValue(id, out resp))
-                {
-                    _responses.Remove(id);
-                    var child = resp.GetChild(ChildTypeData, 0);
-                    return child != null ? child.GetAsBytes() : null;
-                }
-                return null;
+                if (!_active) return null;
+                TLV response;
+                if (!_responses.TryGetValue(id, out response)) return null;
+                TLV child = response.GetChild(ChildTypeData);
+                return child != null ? child.GetAsBytes() : null;
             }
+        }
+
+        private void WakeResponseWaiters()
+        {
+            lock (_responseLock)
+                foreach (EventWaitHandle signal in _signals.Values)
+                    signal.Set();
         }
 
         protected int GetNextSeqNr()
         {
-            lock (_sendLock)
-            {
-                return _seqNr++;
-            }
+            lock (_sendLock) { return _seqNr++; }
         }
 
-        new public void Dispose()
+        public override void Dispose()
         {
             base.Dispose();
+            // Each request owns its wait handle and releases it in finally after
+            // disconnect wakes it. Never dispose a handle under an active WaitOne.
             lock (_responseLock)
             {
-                foreach (var sig in _signals.Values)
-                    sig.Dispose();
-                _signals.Clear();
+                _callback = null;
                 _responses.Clear();
             }
         }
