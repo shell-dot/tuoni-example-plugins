@@ -28,6 +28,8 @@ that cancels/drains I/O and joins the reader before releasing its state. Header
 changes support MinGW packing and explicit includes. Check `isConnected()` after
 `connect()` so failed startup cannot be confused with empty configuration. The
 owner must destroy the pipe outside its callbacks after application calls finish.
+The native entrypoint returns on invalid configuration, and the pipe helper
+reports event creation or request bookkeeping failure without throwing.
 
 [Conversions.h](../exec-code/win-native/exec-unit-utils/Conversions.h) declares
 `byte` explicitly as `BYTE`, so lean Windows headers do not remove the utility's

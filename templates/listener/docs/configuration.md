@@ -201,22 +201,24 @@ Preserve the implemented pipe helper's host-protocol boundary; it must return th
 
 ### Native Windows and Linux (C++11)
 
-Decode the vector returned by `pipe.connect()` in a typed configuration class beside each `Main.cpp`. For Windows native, first check `isConnected()` in `exec-code/win-native/listener/Main.cpp` and add new `.cpp` files to `exec-code/win-native/build_windows.sh` for x86/x64. For Linux, add them to `exec-code/linux/build_linux.sh`. Include `<cstdint>` and `<stdexcept>` for this example:
+Decode the vector returned by `pipe.connect()` in a typed configuration class beside each `Main.cpp`. For Windows native, first check `isConnected()` in `exec-code/win-native/listener/Main.cpp` and add new `.cpp` files to `exec-code/win-native/build_windows.sh` for x86/x64. For Linux, add them to `exec-code/linux/build_linux.sh`. Include `<cstdint>` and `<vector>` for this example:
 
 ```cpp
-if (bytes.size() != 5)
-    throw std::invalid_argument("Expected five configuration bytes");
-const std::uint32_t attempts = static_cast<std::uint32_t>(bytes[0])
-    | (static_cast<std::uint32_t>(bytes[1]) << 8)
-    | (static_cast<std::uint32_t>(bytes[2]) << 16)
-    | (static_cast<std::uint32_t>(bytes[3]) << 24);
-if (attempts < 1 || attempts > 1000 || bytes[4] > 1)
-    throw std::invalid_argument("Invalid configuration values");
-const bool enabled = bytes[4] == 1;
-// Store attempts and enabled in the returned typed configuration.
+bool decode(const std::vector<std::uint8_t>& bytes,
+            std::uint32_t& attempts, bool& enabled) {
+    if (bytes.size() != 5) return false;
+    const std::uint32_t value = std::uint32_t(bytes[0])
+        | (std::uint32_t(bytes[1]) << 8)
+        | (std::uint32_t(bytes[2]) << 16)
+        | (std::uint32_t(bytes[3]) << 24);
+    if (value < 1 || value > 1000 || bytes[4] > 1) return false;
+    attempts = value;
+    enabled = bytes[4] == 1;
+    return true;
+}
 ```
 
-Catch parsing failures in the native [startup/cleanup path](native-runtime.md); no C++ exception may escape exported `start` or `run`. Failed updates retain the prior typed value. Host framing and callback dispatch stay in the pipe helper.
+On Windows, return from the native [startup/cleanup path](native-runtime.md) when decoding fails; contain only unexpected library/runtime exceptions at the DLL boundary. Linux must also prevent exceptions from escaping `run` or a worker callback. Failed updates retain the prior typed value. Host framing and callback dispatch stay in the pipe helper.
 
 ### When a requested field is text
 

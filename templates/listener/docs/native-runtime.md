@@ -1,5 +1,9 @@
 # Listener native implementation map
 
+**Windows C++ policy:** Apply the hard [no authored exceptions requirement](native-memory-safety.md#windows-no-authored-exceptions). The exception boundaries described below provide defensive containment for dependency/runtime failures; they do not authorize project-authored throws or exception-based error handling.
+
+Before changing C++ functions, use the [native memory-safety review](native-memory-safety.md) for buffer lifetimes, checked lengths, allocation/release pairs, API failure handling, and races. It also distinguishes isolated diagnostic evidence from compilation.
+
 Read this when implementing or extending the native runtime. Paths are relative to the plugin root; use the renamed paths in the generated copy. Reuse existing runtime/transport classes instead of introducing duplicate owners. The [IPC reference](execunit-ipc.md) distinguishes the local-agent pipe from the transport to Java.
 
 The [idle entrypoints](../README.md#default-behavior) already connect, validate zero configuration bytes, wait for their owned reader, and clean up before return. Managed Windows uses `finally`; native Windows and Linux use RAII and whole-entrypoint exception boundaries. Traffic setup/forwarding and cleanup of added channel workers remain TODO. Extend those hooks; verify response-wait timeout/disconnect cancellation before using request helpers.

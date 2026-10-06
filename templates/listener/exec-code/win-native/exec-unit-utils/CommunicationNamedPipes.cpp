@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <utility>
 #include <limits>
-#include <stdexcept>
 
 // Imported from listeners_default; local changes enforce the template's bounded
 // I/O and joined-reader requirements. See README.md beside this source.
@@ -86,18 +85,14 @@ CommunicationNamedPipes::CommunicationNamedPipes(const std::string& name,
     InitializeCriticalSection(&csResponses);
     InitializeCriticalSection(&csWrite);
     shutdownEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    if (!shutdownEvent) {
-        DeleteCriticalSection(&csWrite);
-        DeleteCriticalSection(&csResponses);
-        throw std::runtime_error("Unable to create pipe shutdown event");
-    }
+    // connect() checks this handle and reports startup failure to the caller.
 }
 
 CommunicationNamedPipes::~CommunicationNamedPipes()
 {
     close();
     for (auto& pair : signals) CloseHandle(pair.second);
-    CloseHandle(shutdownEvent);
+    if (shutdownEvent) CloseHandle(shutdownEvent);
     DeleteCriticalSection(&csResponses);
     DeleteCriticalSection(&csWrite);
 }
@@ -111,7 +106,7 @@ void CommunicationNamedPipes::setCallback(std::function<void(const std::vector<b
 void CommunicationNamedPipes::requestStop() noexcept
 {
     active.store(false);
-    SetEvent(shutdownEvent);
+    if (shutdownEvent) SetEvent(shutdownEvent);
 }
 
 bool CommunicationNamedPipes::readExact(BYTE* buf, DWORD len, int timeoutMs)
@@ -166,7 +161,7 @@ bool CommunicationNamedPipes::putData(const std::vector<byte>& data)
 
 std::vector<byte> CommunicationNamedPipes::connect()
 {
-    if (hPipe != INVALID_HANDLE_VALUE) return {};
+    if (!shutdownEvent || hPipe != INVALID_HANDLE_VALUE) return {};
     hPipe = CreateFileA(pipePath.c_str(), GENERIC_READ | GENERIC_WRITE,
         0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
     if (hPipe == INVALID_HANDLE_VALUE) return {};
@@ -263,8 +258,17 @@ std::vector<byte> CommunicationNamedPipes::sendRequestAndWait(UINT8 messageType)
         CriticalSectionGuard lock(csResponses);
         HANDLE event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
         if (!event) { requestStop(); return {}; }
-        try { signals.emplace(seqNrKeep, event); }
-        catch (...) { CloseHandle(event); throw; }
+        try {
+            if (!signals.emplace(seqNrKeep, event).second) {
+                CloseHandle(event);
+                requestStop();
+                return {};
+            }
+        } catch (...) {
+            CloseHandle(event);
+            requestStop();
+            return {};
+        }
     }
     if (!putData(tlv->genBytes())) requestStop();
     return waitForResponseData(seqNrKeep);

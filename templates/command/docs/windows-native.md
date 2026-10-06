@@ -29,7 +29,9 @@ and completion using those classes. It selects bounded structured-command option
 checks `TryConnect` separately from empty configuration, and keeps callbacks limited
 to recording updates/stop requests. The command itself runs on the invocation thread.
 The pipe's cleanup cancels I/O and joins its reader before callback state is destroyed.
-Each entrypoint contains exceptions and keeps invocation state local.
+Each entrypoint keeps invocation state local. Expected validation, queue-limit,
+and pipe-write failures use checked results; the DLL boundary contains only
+unexpected library/runtime exceptions.
 
 `CommandInput.next()` drains updates accepted before a stop request in order
 before reporting stopped; updates received after stop are ignored. Queue and stop

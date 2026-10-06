@@ -5,6 +5,21 @@ description: Create a named Tuoni command plugin from this repository's template
 
 # New command plugin
 
+For Windows `native-lib` work, carry the hard [no authored exceptions requirement](../../../templates/command/docs/native-memory-safety.md#windows-no-authored-exceptions) into the local skill, including older copies: no project-authored throw/rethrow or exception-based error handling; require checked status/results.
+
+When continuing into C++ implementation, pass the [native memory-safety review](../../../templates/command/docs/native-memory-safety.md), copied as `docs/native-memory-safety.md`, to the local skill. It covers general Windows/Linux library ownership, bounds, API failures, concurrency, and isolated diagnostic tests; creating a scaffold provides no runtime safety evidence.
+
+The [exec-unit overview](../../../templates/command/docs/execunit-overview.md)
+explains the source template's three implementations, generated formats, and
+existing default behavior. It is copied as `docs/execunit-overview.md`; use the
+generated plugin's local copy and source when describing that project's state.
+
+If the developer requests only certain OSs, architectures, or exec-unit formats,
+use the [support-scope guide](../../../templates/command/docs/support-scope.md),
+copied as `docs/support-scope.md`. Carry the selected combinations and the
+distinction between task limits and support restrictions into the local skills.
+The copied source inventory does not override an explicit support limit.
+
 Find the repository containing this skill: resolve `../../..` from the skill directory `.agents/skills/new-command/` (or its `.claude` mirror) and confirm `templates/command/` and `tools/scaffold_plugin.py` exist. This is the helper's repository, which may differ from the user's current directory. Use the requested command name, or infer one from the user's description or destination folder. If no name can be inferred, use `new-command`.
 
 Keep the user's original working directory while invoking the helper by its absolute path. Use Python 3.9+ (`python --version` or `python3 --version`). Without a requested folder, replace the placeholders and run:
@@ -18,6 +33,17 @@ With an exact requested destination:
 ```text
 python3 "<repo-root>/tools/scaffold_plugin.py" command --name "<name>" --folder "<destination>"
 ```
+
+For an explicit support restriction, add `--execunits "native-lib dotnet-dll"`
+and/or `--os "windows linux"` to the same helper call before creating the
+plugin. Formats are `shellcode-native`, `dotnet-dll`, `dotnet-exe`, and
+`native-lib`; operating systems are `windows` and `linux`. Space- or
+comma-separated values are accepted. Pass only requested support restrictions,
+not task-only or test-only limits. The helper selects existing combinations and
+rejects an OS with no compatible format. Check the generated support table and
+Java declarations before continuing. For an architecture restriction, which the
+helper does not accept, narrow the generated declarations and context explicitly
+before treating the scaffold as complete.
 
 Use `python` instead of `python3` where that is the Python 3 command. For example, from any PowerShell working directory: `python "C:/Work/dev_examples/tuoni-example-plugins/tools/scaffold_plugin.py" command --name "Bob" --folder "C:/Work/Bob"` (replace the repository path with the located one).
 

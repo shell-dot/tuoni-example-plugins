@@ -1,5 +1,4 @@
 #include "../exec-unit-utils/CommunicationNamedPipes.h"
-#include <stdexcept>
 
 extern "C" __declspec(dllexport) void __cdecl start(const char* pipeName) {
     try {
@@ -7,8 +6,7 @@ extern "C" __declspec(dllexport) void __cdecl start(const char* pipeName) {
         CommunicationNamedPipes pipe(pipeName, {});
         const std::vector<byte> configuration = pipe.connect();
         if (!pipe.isConnected()) return;
-        if (!configuration.empty())
-            throw std::invalid_argument("The template listener expects an empty configuration payload.");
+        if (!configuration.empty()) return;
         // TODO: Add the data traffic channel using getMetadata(), getDataToSend()
         // and newDataFromC2(). The utility owns and joins the local pipe reader.
         while (pipe.isConnected()) Sleep(100);

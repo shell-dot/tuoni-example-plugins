@@ -6,6 +6,11 @@ This is the current source-template snapshot. When editing the source template i
 
 ## Purpose and scope
 
+For explicit OS, architecture, or format limits, use [support scope](docs/support-scope.md).
+These limits take precedence over generic all-exec-unit coverage instructions.
+Record task/test limits separately from changes to the supported set; the full
+template inventory below does not imply every combination remains requested.
+
 - Command name: `template-command`; plugin ID: `example.command.template`.
 - Java package: `com.example.tuoni.command`.
 - Purpose: working no-op starting point. The default command accepts `{}`, performs no operation, emits `DONE` as UTF-8 result text, and then reports success on a usable connection.
@@ -14,6 +19,10 @@ This is the current source-template snapshot. When editing the source template i
 
 ## Required exec-unit safety
 
+**Windows `native-lib`: no project-authored exceptions.** Follow the [Windows exception policy](docs/native-memory-safety.md#windows-no-authored-exceptions): use checked status/results, prohibit authored throw/rethrow and exception-based error handling, and treat catches only as defensive containment for dependency/runtime failures. This is a required review criterion, not a claim that the existing implementation has been audited for compliance.
+
+For Windows/Linux C++ review, use [native memory safety](docs/native-memory-safety.md). Identify ownership and valid buffer extents before access, and investigate suspected memory faults in an isolated local test process. Record observed diagnostics and unavailable checks; these review instructions are not runtime verification.
+
 Exec-units share the host process, and their code may be unloaded immediately after `Main` / `start` / `run` returns. They must never crash or terminate that process. Before any return, cancel and unblock owned work, unregister/drain callbacks, join/await all workers, and only then release shared state. No invocation-owned background activity may survive. Apply the [host process and unload requirements](docs/native-runtime.md#host-process-and-unload-requirements), including to reused helpers. Implement per-invocation cleanup before behavior and audit every constructor/connect/parse/execute/report/return path using the [failure-path cleanup gate](docs/native-runtime.md#failure-path-cleanup-before-return). Error reporting can itself fail and must never skip cleanup. Force operation, startup and reporting failures; verify host survival and safe immediate unload/repeated invocation separately from compilation. These are implementation requirements; the fresh scaffold has not passed lifecycle or unload verification.
 
 ## Required command completion
@@ -21,6 +30,11 @@ Exec-units share the host process, and their code may be unloaded immediately af
 Every implemented invocation must reach one completion owner. Before closing a usable reporting connection and returning, send exactly one checked terminal success or failure after required output and operation-worker completion. Empty output, early returns, errors and cancellation still need a final outcome. Error text, logging and a return code are not completion. Apply the [command completion gate](docs/command-completion.md), verify host final state and explicit startup/transport failure handling, and record unavailable checks. This scaffold has not passed those runtime checks.
 
 ## Source map
+
+Read the [exec-unit overview](docs/execunit-overview.md) for terminology, the
+three source families versus generated formats, and a plain-language account of
+the default lifecycle. It describes current behavior, not additional implemented
+features or runtime verification.
 
 | Responsibility | File / method |
 | --- | --- |
@@ -49,9 +63,15 @@ Every implemented invocation must reach one completion owner. Before closing a u
 - Linux optional callback helpers still detach their listener; the default no-op never invokes them. Before enabling updates/stop/streaming, replace that path with synchronized, cancellable, joined ownership as required above. Blocking transport startup/I/O and actual host disconnect handling still require runtime verification.
 - Use the [native implementation map](docs/native-runtime.md) and [output guide](docs/output.md) when implementing these areas; keep this section aligned with the actual code afterward.
 
-- Windows native DLLs use copied `ExecUnitUtils::CommunicationNamedPipesCommand`, base pipe, and `TLV` sources from `commands_default/common/CommonCppExecUnit`. The utility files are unchanged; a MinGW include shim handles header-name casing, and the build force-includes `compat/mingw/Win32Compatibility.h` to supply the documented `ERROR_UNHANDLED_EXCEPTION` value only when the toolchain headers omit it. `CommandRuntime.h` owns one checked terminal report and bounded update state. Update acceptance, stop recording, and queue exhaustion share a lock, so streaming examples drain accepted pre-stop updates in order. Callbacks record input, execution/output stay on the invocation thread, and reference cleanup cancels I/O and joins the reader before callback state is destroyed. [Utility provenance and local changes](exec-code/win-native/exec-unit-utils/README.md) are recorded beside the sources. The local runtime harness requires freshly built DLLs; this refactor has not passed DLL runtime verification.
+- Windows native DLLs use copied `ExecUnitUtils::CommunicationNamedPipesCommand`, base pipe, and `TLV` sources from `commands_default/common/CommonCppExecUnit`. The utility files are unchanged; a MinGW include shim handles header-name casing, and the build force-includes `compat/mingw/Win32Compatibility.h` to supply the documented `ERROR_UNHANDLED_EXCEPTION` value only when the toolchain headers omit it. `CommandRuntime.h` uses boolean outcomes and error text for expected failures, owns one checked terminal report, and records queue overflow without throwing. Update acceptance, stop recording, and queue exhaustion share a lock, so streaming examples drain accepted pre-stop updates in order. Callbacks record input, execution/output stay on the invocation thread, and reference cleanup cancels I/O and joins the reader before callback state is destroyed. Defensive catches contain unexpected library/runtime exceptions. [Utility provenance and local changes](exec-code/win-native/exec-unit-utils/README.md) are recorded beside the sources. The local runtime harness requires freshly built DLLs; this refactor has not passed DLL runtime verification.
 
 ## Builds and verification
+
+- Windows native no-throw source update: expected command validation, pipe-send and update-queue failures now return checked status; the template C++ decoder example returns `bool`. A source search found no authored `throw` in any Windows native example/template C++ file. The focused native utility and PE verifier suite ran 10 tests: 9 passed and the utility-copy comparison failed on three existing TCP listener example/template differences (`CommunicationNamedPipes.h`, `.cpp`, and `README.md`). `make build` was attempted from this template root through Git Bash but stopped before compilation because `make` is unavailable; Docker is also unavailable. No fresh DLL, runtime harness, JAR, or unload check was produced by this change.
+
+- Native memory-safety guidance: the local skills and repository routers link a general C/C++ review covering ownership, bounds, allocator pairing, API failures, races, and isolated diagnostic tests. Source-template validation passed the three existing documentation-copy, context-copy, and skill-mirror tests; all 36 repository/template skill files passed the skill-creator validator. This documentation-only change provides no new native build, sanitizer, or runtime evidence for the template or any generated plugin.
+
+- Documentation-only orientation and support-scope checks: the two existing scaffolding tests for copied skills/references and project context passed from `tools/` with `python -B -m unittest test_scaffold_plugin.ScaffoldPluginTests.test_skills_and_references_survive_scaffolding test_scaffold_plugin.ScaffoldPluginTests.test_plugin_context_survives_scaffolding -v`. The skill-creator validator passed for all 20 edited skill files; edited Codex/Claude mirrors were byte-identical. These checks include both template kinds and establish no new build or runtime evidence. No execution code, build inputs, artifacts, or actual support declarations changed.
 
 - Required workflow: unless the prompt explicitly overrides it, execute the complete `make build` from this plugin root after substantial coherent implementation steps and after the final code/build-input change, including focused configuration, logic, or output tasks. Wait for its result and verify all in-scope native exports and the packaged Java plugin. Use Docker for every build unless the user explicitly requests another route. If Docker is missing or unusable, inform the user and mark builds blocked without a local fallback; follow the [build checkpoints](docs/building.md#required-build-checkpoints). Record the actual command, working directory, exit status, artifact paths and failures/unavailable phases; partial compile targets do not satisfy this requirement.
 - Apply the [Java artifact and initialization gate](docs/java-verification.md): verify SDK APIs, complete plugin-owned dependency packaging, the exact exported JAR, and isolated provider initialization/schema/factory paths. A normal Gradle test classpath or server Jackson must not mask missing private dependencies. Record the artifact hash and actual startup-test result; the fresh scaffold has not passed this check.

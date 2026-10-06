@@ -170,6 +170,8 @@ make new-command NAME="Daily Check"
 make new-listener NAME="Event Relay"
 make new-command NAME="Daily Check" FOLDER="./custom plugins/daily-check"
 make new-listener NAME="Event Relay" FOLDER="/path/to/event-relay"
+make new-command NAME="Linux Check" EXECUNITS="native-lib" OS="linux"
+make new-listener NAME="Managed Relay" EXECUNITS="dotnet-dll dotnet-exe" OS="windows"
 ```
 
 `NAME` is required. Without `FOLDER`, the targets create
@@ -180,6 +182,16 @@ plugin destination, with relative paths resolved from Make's working directory
 destination is rejected without overwriting it. These targets copy and rename
 the templates. Build the generated plugin separately from its directory with
 `make build`. Scaffolding requires no Docker access.
+
+`EXECUNITS` accepts one or more of `shellcode-native`, `dotnet-dll`, `dotnet-exe`,
+and `native-lib`; `OS` accepts `windows` and `linux`. Separate values with spaces
+or commas. Either option can be used alone. Unspecified dimensions keep the
+template's existing support: Windows x86/x64 has all four formats; Linux x64 has
+`native-lib` only. The generated Java plugin advertises the selected combinations
+and rejects the others. A requested OS with no compatible selected execunit fails
+before a directory is created. The generated plugin retains the template's source
+files for later expansion, while `make build` compiles and packages only the
+selected formats.
 
 The targets use `python3` by default. Set `PYTHON=python` if that is your Python 3
 command, for example `make new-command NAME="Daily Check" PYTHON=python`.

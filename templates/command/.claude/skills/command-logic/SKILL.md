@@ -5,6 +5,22 @@ description: Implement the requested behavior of a Tuoni command plugin in every
 
 # Command logic
 
+**Windows `native-lib` requirement:** Project-authored C++ must not throw/rethrow or use exceptions for error handling. Use checked status/results and follow [the Windows exception policy](../../../docs/native-memory-safety.md#windows-no-authored-exceptions), including its distinction between authored failures and defensive dependency-exception containment.
+
+**Native C/C++ review.** For Windows or Linux `native-lib` changes, read the [native memory-safety review](../../../docs/native-memory-safety.md) after project context and before editing C++, including configuration/output helpers. Identify buffer owners and valid lengths, check arithmetic before access, and review callback lifetimes and shared state. Investigate suspected faults in an isolated local test process; compilation or `catch (...)` is not memory-safety evidence.
+
+Read the [exec-unit overview](../../../docs/execunit-overview.md) after project
+context for a plain-language map of all three source families, their artifact
+formats, and the current default lifecycle. Separate implemented behavior from
+examples and TODOs; verify these starting facts against the selected plugin.
+
+When the developer limits OSs, architectures, or exec-unit formats, follow the
+[support-scope guide](../../../docs/support-scope.md). Explicit limits take
+precedence over generic coverage instructions such as "all exec-units," "every
+native decoder," or "both generation paths" below. Distinguish a task or test
+limit from a change to the supported set, and preserve coverage on unspecified
+dimensions.
+
 The [default command](../../../README.md#default-behavior) already connects, validates empty native configuration, sends `DONE`, and reports success. Extend managed Windows `Execute`, the Windows native `runCommand` callback, and Linux `execute` while preserving their scoped pipe and completion owners. The managed/Linux defaults install no callbacks/workers. The Windows native utility starts an owned reader and callbacks record input; its close/join must finish before callback state is destroyed. Enabling Linux callbacks first requires replacing the optional detached reader with cancellable, joined ownership.
 
 Before editing, read the plugin-root `AGENTS.md` and `CLAUDE.md` when present, including their referenced project context and applicable instructions. Follow the [context maintenance guide](../../../docs/project-context.md) to create missing context and preserve the existing organization. Verify recorded facts against the files you change.

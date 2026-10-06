@@ -5,6 +5,22 @@ description: Implement a user's configuration fields for a Tuoni command plugin,
 
 # Command configuration
 
+**Windows `native-lib` requirement:** Project-authored C++ must not throw/rethrow or use exceptions for error handling. Use checked status/results and follow [the Windows exception policy](../../../docs/native-memory-safety.md#windows-no-authored-exceptions), including its distinction between authored failures and defensive dependency-exception containment.
+
+**Native C/C++ review.** For Windows or Linux `native-lib` changes, read the [native memory-safety review](../../../docs/native-memory-safety.md) after project context and before editing C++, including configuration/output helpers. Identify buffer owners and valid lengths, check arithmetic before access, and review callback lifetimes and shared state. Investigate suspected faults in an isolated local test process; compilation or `catch (...)` is not memory-safety evidence.
+
+Read the [exec-unit overview](../../../docs/execunit-overview.md) after project
+context for a plain-language map of all three source families, their artifact
+formats, and the current default lifecycle. Separate implemented behavior from
+examples and TODOs; verify these starting facts against the selected plugin.
+
+When the developer limits OSs, architectures, or exec-unit formats, follow the
+[support-scope guide](../../../docs/support-scope.md). Explicit limits take
+precedence over generic coverage instructions such as "all exec-units," "every
+native decoder," or "both generation paths" below. Distinguish a task or test
+limit from a change to the supported set, and preserve coverage on unspecified
+dimensions.
+
 The [default configuration](../../../README.md#default-behavior) already accepts only an empty JSON object (including whitespace and multipart input with no files) and rejects fields/uploads. Both generation paths share `serializeConfiguration()`, which returns a fresh zero-length buffer; managed Windows, native Windows, and Linux entrypoints validate zero payload bytes. Add typed models and parsers when fields are requested, preserving the working `DONE` result and completion path.
 
 Before editing, read the plugin-root `AGENTS.md` and `CLAUDE.md` when present, including their referenced project context and applicable instructions. Follow the [context maintenance guide](../../../docs/project-context.md) to create missing context and preserve the existing organization. Verify recorded facts against the files you change.
@@ -63,7 +79,7 @@ Return a fresh independent `ByteBuffer` with position zero and limit equal to th
 
 A validation or startup failure after connection must reach the completion owner and produce failure completion before the channel closes. Java factory validation errors use the actual SDK failure path before an exec-unit starts; never fabricate native success for rejected configuration. Use the [native startup and method map](../../../docs/native-runtime.md) for exact helper files, initialization ownership, and configuration-failure reporting.
 
-Implement every exec-unit found in the inventory, including source implementations missing from the advertised list. Reconcile that discrepancy without dropping an implementation merely to avoid work. Apply the same configuration semantics to additional platforms beyond the Windows/Linux paths below.
+Within the requested OS/architecture/format scope, cover every exec-unit found in the inventory, including source implementations missing from the advertised list. Record discrepancies using the support-scope guide; explicit exclusions do not require implementation work. Apply the same configuration semantics to additional in-scope platforms beyond the Windows/Linux paths below.
 
 - Managed Windows (shellcode, .NET DLL, and .NET EXE): extend the existing typed configuration/parser, or create `exec-code/win/Configuration.cs` and add it to `exec-code/win/command-execunit.csproj`. Call it from `exec-code/win/Program.cs` before behavior starts. Extend the implemented helper APIs according to the IPC reference, retain the connection for subsequent messages, and keep `QQQWWWEEE` for shellcode and `args[0]` for managed EXE/DLL pipe names.
 - Native Windows: decode the configuration in `exec-code/win-native/command/Main.cpp` before behavior starts. The `runCommand` callback receives the inner bytes after checked `TryConnect`; keep its completion owner in `exec-code/win-native/common/CommandRuntime.h`. Add new parser translation units to `exec-code/win-native/build_windows.sh` for both x86 and x64. Preserve the `start(const char*)` export and the copied utilities under `exec-code/win-native/exec-unit-utils/`; see [Windows native DLLs](../../../docs/windows-native.md).

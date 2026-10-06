@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
@@ -11,7 +14,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import scaffold_plugin
-from scaffold_plugin import REPO_ROOT, scaffold
+from scaffold_plugin import REPO_ROOT, scaffold, support_matrix
 
 
 class ScaffoldPluginTests(unittest.TestCase):
@@ -83,6 +86,145 @@ class ScaffoldPluginTests(unittest.TestCase):
         self.assertTrue(
             (destination / "java-plugin/src/main/java/com/example/tuoni/listener/event_relay/EventRelayListener.java").is_file()
         )
+
+    def test_selected_support_changes_generated_command_and_listener(self) -> None:
+        for kind in ("command", "listener"):
+            with self.subTest(kind=kind):
+                destination, _ = scaffold(
+                    kind, "Selected Native", str(self.output_root / kind),
+                    "native-lib", "linux",
+                )
+                package = destination / f"java-plugin/src/main/java/com/example/tuoni/{kind}/selected_native"
+                main = (package / f"SelectedNative{kind.capitalize()}.java").read_text(encoding="utf-8")
+                check = (destination / f"java-plugin/src/test/java/com/example/tuoni/{kind}/selected_native/ExecUnitFormatsCheck.java").read_text(encoding="utf-8")
+                if kind == "command":
+                    self.assertIn("case WINDOWS ->", main)
+                else:
+                    self.assertNotIn("PayloadType.of(OperatingSystem.WINDOWS, Architecture.X64),", main)
+                self.assertIn("? Set.of() : Set.of();", main)
+                self.assertNotIn("ShellcodeCommand {", main)
+                self.assertNotIn("ShellcodeListener {", main)
+                self.assertNotIn("generateShellCode(", main)
+                self.assertIn("? Set.of()", check)
+                self.assertIn("? Set.of(ExecUnitType.NATIVE_LIB)", check)
+                for doc in ("AGENTS.md", "README.md", "docs/support-scope.md"):
+                    content = (destination / doc).read_text(encoding="utf-8")
+                    self.assertIn("## Generated support", content)
+                    self.assertIn("| Linux | x64 | `NATIVE_LIB` |", content)
+                    self.assertNotIn("| Windows | x86, x64 |", content)
+                if kind == "command":
+                    template = (package / "SelectedNativeCommandTemplate.java").read_text(encoding="utf-8")
+                    self.assertIn("return Set.of(ExecUnitType.NATIVE_LIB);", template)
+
+    def test_format_only_infers_compatible_os_and_mixed_selection(self) -> None:
+        self.assertEqual(support_matrix(None, "linux"), {"linux": {"native-lib"}})
+        self.assertEqual(support_matrix("dotnet-dll", None), {"windows": {"dotnet-dll"}})
+        self.assertEqual(
+            support_matrix("native-lib, dotnet-exe", "windows linux"),
+            {"windows": {"native-lib", "dotnet-exe"}, "linux": {"native-lib"}},
+        )
+        destination, _ = scaffold(
+            "listener", "Mixed Scope", str(self.output_root / "mixed"),
+            "NATIVE_LIB, DOTNET_EXE", "windows linux",
+        )
+        main = (destination / "java-plugin/src/main/java/com/example/tuoni/listener/mixed_scope/MixedScopeListener.java").read_text(encoding="utf-8")
+        self.assertIn("Set.of(ExecUnitType.DOTNET_EXE, ExecUnitType.NATIVE_LIB)", main)
+        self.assertIn("return Set.of(ExecUnitType.NATIVE_LIB);", main)
+        self.assertNotIn("generateShellCode(", main)
+
+    def test_invalid_selection_fails_before_creating_destination(self) -> None:
+        cases = (("dotnet-dll", "linux"), ("shellcode-native", "linux"),
+                 ("bogus", "windows"), ("native-lib", "plan9"), ("", "windows"))
+        for index, (execunits, oses) in enumerate(cases):
+            with self.subTest(execunits=execunits, oses=oses):
+                destination = self.output_root / f"invalid-{index}"
+                with self.assertRaises(ValueError):
+                    scaffold("command", "Invalid", str(destination), execunits, oses)
+                self.assertFalse(destination.exists())
+
+    def test_cli_passes_selected_support_to_generated_plugin(self) -> None:
+        destination = self.output_root / "cli-selected"
+        result = subprocess.run(
+            [sys.executable, "-B", str(REPO_ROOT / "tools/scaffold_plugin.py"),
+             "command", "--name=CLI Selected", f"--folder={destination}",
+             "--execunits=dotnet-dll,dotnet-exe", "--os=windows"],
+            cwd=REPO_ROOT, check=True, capture_output=True, text=True,
+        )
+        self.assertIn("Created command 'cli-selected'", result.stdout)
+        main = (destination / "java-plugin/src/main/java/com/example/tuoni/command/cli_selected/CliSelectedCommand.java").read_text(encoding="utf-8")
+        self.assertIn("Set.of(ExecUnitType.DOTNET_DLL, ExecUnitType.DOTNET_EXE)", main)
+        self.assertNotIn("generateShellCode(", main)
+
+    def test_selected_builds_package_only_supported_formats(self) -> None:
+        cases = (
+            ("command", "Linux Native", "native-lib", "linux", {"linux-build", "linux-artifacts", "java-build", "artifacts"},
+             {"linux.native64_so"}, {".shellcode", ".dotnet_exe", ".dotnet_dll", ".native32_dll"}),
+            ("listener", "Managed Only", "dotnet-dll", "windows", {"csharp-build", "java-build", "dotnet-artifacts", "artifacts"},
+             {".dotnet_dll", ".dotnet_dll_method"}, {".shellcode", ".dotnet_exe", ".native32_dll", "linux.native64_so"}),
+            ("command", "Shellcode Only", "shellcode-native", "windows", {"csharp-build", "shellcode-build", "java-build", "artifacts"},
+             {".shellcode"}, {".dotnet_exe", ".dotnet_dll", ".native32_dll", "linux.native64_so"}),
+            ("listener", "Native Both", "native-lib", "windows linux", {"linux-build", "linux-artifacts", "windows-native-build", "windows-native-artifacts", "java-build", "artifacts"},
+             {".native32_dll", ".native64_dll", "linux.native64_so"}, {".shellcode", ".dotnet_exe", ".dotnet_dll"}),
+            ("command", "Every Format", "shellcode-native dotnet-dll dotnet-exe native-lib", "windows linux",
+             {"csharp-build", "shellcode-build", "linux-build", "linux-artifacts", "windows-native-build", "windows-native-artifacts", "java-build", "dotnet-artifacts", "artifacts"},
+             {".shellcode", ".dotnet_exe", ".dotnet_dll", ".dotnet_dll_method", ".native32_dll", ".native64_dll", "linux.native64_so"}, set()),
+        )
+        for index, (kind, name, formats, systems, stages, included, excluded) in enumerate(cases):
+            with self.subTest(kind=kind, name=name):
+                destination, slug = scaffold(kind, name, str(self.output_root / f"selected-{index}"), formats, systems)
+                artifact = f"{kind}-{slug}"
+                docker = (destination / "scripts/docker/Dockerfile").read_text(encoding="utf-8")
+                gradle = (destination / "java-plugin/build.gradle.kts").read_text(encoding="utf-8")
+                makefile = (destination / "Makefile").read_text(encoding="utf-8")
+                actual_stages = set(re.findall(r"(?m)^FROM [^\n]+ AS ([\w-]+)$", docker))
+                self.assertEqual(actual_stages, stages)
+                self.assertTrue(set(re.findall(r"--from=([\w-]+)", docker)) <= stages)
+                for suffix in included:
+                    resource = artifact + ("-" if suffix.startswith("linux") else "") + suffix
+                    self.assertIn(resource, gradle)
+                    if suffix.startswith("linux"):
+                        self.assertIn(resource, docker)
+                    elif suffix.startswith((".dotnet", ".shellcode")):
+                        self.assertIn(f"{artifact}-execunit{suffix}", docker)
+                for suffix in excluded:
+                    resource = artifact + ("-" if suffix.startswith("linux") else "") + suffix
+                    self.assertNotIn(resource, gradle)
+                self.assertIn("--target artifacts", makefile)
+                self.assertIn("\t@$(MAKE) clean\n", makefile)
+                self.assertIn("build-windows-native:", makefile)
+                context = (destination / "AGENTS.md").read_text(encoding="utf-8")
+                self.assertIn("- Packaged execution resources:", context)
+                self.assertNotIn("This is the current source-template snapshot", context)
+                self.assertNotIn("- Both generation methods", context)
+                self.assert_local_links_resolve(destination / "README.md", destination)
+                self.assert_local_links_resolve(destination / "AGENTS.md", destination)
+                if systems == "linux":
+                    self.assertNotIn("msbuild", (destination / "README.md").read_text(encoding="utf-8"))
+
+    def test_reserved_sdk_class_names_are_disambiguated(self) -> None:
+        cases = (("command", "Command"), ("listener", "Listener"),
+                 ("command", "Shellcode"), ("listener", "Exec Unit"))
+        for index, (kind, name) in enumerate(cases):
+            with self.subTest(kind=kind, name=name):
+                destination, _ = scaffold(kind, name, str(self.output_root / f"sdk-name-{index}"))
+                java_root = destination / "java-plugin/src/main/java"
+                for source in java_root.rglob("*.java"):
+                    content = source.read_text(encoding="utf-8")
+                    self.assertNotRegex(content, rf"(?m)^public class {re.escape(source.stem)} implements [^\n]*\b{re.escape(source.stem)}\b")
+                    imports = set(re.findall(r"(?m)^import [\w.]+\.([A-Za-z_$][\w$]*);$", content))
+                    self.assertNotIn(source.stem, imports)
+
+    @unittest.skipUnless(shutil.which("make"), "GNU Make is unavailable")
+    def test_make_target_forwards_support_options(self) -> None:
+        destination = self.output_root / "make-selected"
+        subprocess.run(
+            ["make", "new-command", "NAME=Make Selected", f"FOLDER={destination}",
+             "EXECUNITS=dotnet-dll", "OS=windows", f"PYTHON={sys.executable}"],
+            cwd=REPO_ROOT, check=True, capture_output=True, text=True,
+        )
+        main = (destination / "java-plugin/src/main/java/com/example/tuoni/command/make_selected/MakeSelectedCommand.java").read_text(encoding="utf-8")
+        self.assertIn("Set.of(ExecUnitType.DOTNET_DLL)", main)
+        self.assertNotIn("generateShellCode(", main)
 
     def test_default_reuses_existing_workspace_and_category_directories(self) -> None:
         for kind in ("command", "listener"):

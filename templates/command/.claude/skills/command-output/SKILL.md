@@ -5,7 +5,23 @@ description: Change a Tuoni command's result content and presentation from every
 
 # Command output
 
-The [default result](../../../README.md#default-behavior) is exactly `DONE` (`44 4f 4e 45`), without a newline or terminator. Both native senders check `sendResult`; Java strictly decodes complete UTF-8 payloads, appends to `output`, and commits. Empty final notifications preserve the displayed text; native terminal reports determine success. Extend this existing sender/parser path.
+**Windows `native-lib` requirement:** Project-authored C++ must not throw/rethrow or use exceptions for error handling. Use checked status/results and follow [the Windows exception policy](../../../docs/native-memory-safety.md#windows-no-authored-exceptions), including its distinction between authored failures and defensive dependency-exception containment.
+
+**Native C/C++ review.** For Windows or Linux `native-lib` changes, read the [native memory-safety review](../../../docs/native-memory-safety.md) after project context and before editing C++, including configuration/output helpers. Identify buffer owners and valid lengths, check arithmetic before access, and review callback lifetimes and shared state. Investigate suspected faults in an isolated local test process; compilation or `catch (...)` is not memory-safety evidence.
+
+Read the [exec-unit overview](../../../docs/execunit-overview.md) after project
+context for a plain-language map of all three source families, their artifact
+formats, and the current default lifecycle. Separate implemented behavior from
+examples and TODOs; verify these starting facts against the selected plugin.
+
+When the developer limits OSs, architectures, or exec-unit formats, follow the
+[support-scope guide](../../../docs/support-scope.md). Explicit limits take
+precedence over generic coverage instructions such as "all exec-units," "every
+native decoder," or "both generation paths" below. Distinguish a task or test
+limit from a change to the supported set, and preserve coverage on unspecified
+dimensions.
+
+The [default result](../../../README.md#default-behavior) is exactly `DONE` (`44 4f 4e 45`), without a newline or terminator. All three exec-unit implementations check `sendResult`; Java strictly decodes complete UTF-8 payloads, appends to `output`, and commits. Empty final notifications preserve the displayed text; native terminal reports determine success. Extend this existing sender/parser path.
 
 Before editing, read the plugin-root `AGENTS.md` and `CLAUDE.md` when present, including their referenced project context and applicable instructions. Follow the [context maintenance guide](../../../docs/project-context.md) to create missing context and preserve the existing organization. Verify recorded facts against the files you change.
 
@@ -29,7 +45,7 @@ Start with the [behavior selector](../../../docs/implementation-recipes.md#choos
 
 Reuse the current codecs and retain unrequested result fields and configuration/payload contracts. If older exec-units can still return data, preserve decoding compatibility or introduce an explicit version transition. Read the [IPC reference](../../../docs/execunit-ipc.md) for result framing and streaming modes and the [build guide](../../../docs/building.md) for parser dependencies and packaging.
 
-Inventory every implementation under `exec-code/` and the Java support methods in `TemplateCommandTemplate.java` and `TemplateCommand.java`. Update all existing exec-units unless the user limits platforms. Keep their result field meanings and encoding consistent so one Java parser can handle them. Do not reduce advertised platform support to skip output work.
+Inventory every implementation under `exec-code/` and the Java support methods in `TemplateCommandTemplate.java` and `TemplateCommand.java`. Apply the requested OS/architecture/format scope to the affected exec-units. Keep their result field meanings and encoding consistent so one Java parser can handle them. Do not reduce advertised support merely to avoid requested work; explicit support restrictions still apply.
 
 Choose an inner payload format that fits the requested data and can be implemented with the project's actual dependencies: UTF-8 text, JSON, or a documented binary layout are common choices. Java generation methods supply only these payload bytes, and `parseResult` receives only result payload bytes. The SDK/agent and native pipe helpers own the outer framing described in the [IPC reference](../../../docs/execunit-ipc.md#payload-boundary). No Java transport-codec library is required.
 

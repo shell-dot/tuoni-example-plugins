@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <stdexcept>
 #include <thread>
 
 namespace {
@@ -28,12 +27,14 @@ class Winsock {
 public:
     Winsock() {
         WSADATA data = {};
-        if (WSAStartup(MAKEWORD(2, 2), &data) != 0)
-            throw std::runtime_error("Unable to initialize Winsock");
+        started_ = WSAStartup(MAKEWORD(2, 2), &data) == 0;
     }
-    ~Winsock() { WSACleanup(); }
+    ~Winsock() { if (started_) WSACleanup(); }
+    bool ready() const { return started_; }
     Winsock(const Winsock&) = delete;
     Winsock& operator=(const Winsock&) = delete;
+private:
+    bool started_ = false;
 };
 
 
@@ -97,8 +98,10 @@ bool sendAll(SOCKET socket, CommunicationNamedPipes& pipe, const Bytes& bytes, U
 }
 
 bool sendFrame(SOCKET socket, CommunicationNamedPipes& pipe, const Bytes& metadata, const Bytes& data) {
-    if (metadata.empty() || metadata.size() > maxFrameBytes || data.size() > maxFrameBytes)
-        throw std::runtime_error("Invalid TCP frame size");
+    if (metadata.empty() || metadata.size() > maxFrameBytes || data.size() > maxFrameBytes) {
+        pipe.signalStop();
+        return false;
+    }
     // This repository's Java handler always expects both lengths, even registration.
     Bytes frame;
     frame.reserve(8 + metadata.size() + data.size());
@@ -220,29 +223,34 @@ void serve(CommunicationNamedPipes& pipe, const std::string& host, const std::st
         waitForReconnect(pipe);
     }
 }
+
+bool parseEndpoint(const Bytes& configuration, std::string& host, std::string& port) {
+    const std::string address(configuration.begin(), configuration.end());
+    const size_t separator = address.rfind(':');
+    if (separator == std::string::npos || separator == 0 || separator + 1 == address.size())
+        return false;
+    host = address.substr(0, separator);
+    port = address.substr(separator + 1);
+    unsigned numericPort = 0;
+    for (char digit : port) {
+        if (digit < '0' || digit > '9' || numericPort > 6553) return false;
+        numericPort = numericPort * 10 + static_cast<unsigned>(digit - '0');
+    }
+    return numericPort != 0 && numericPort <= 65535 && host.find('\0') == std::string::npos;
+}
 }
 
 extern "C" __declspec(dllexport) void __cdecl start(const char* pipeName) {
     try {
         if (!pipeName || !*pipeName) return;
         Winsock winsock;
+        if (!winsock.ready()) return;
         CommunicationNamedPipes pipe(pipeName, {});
         const Bytes configuration = pipe.connect();
         if (!pipe.isConnected()) return;
-        const std::string address(configuration.begin(), configuration.end());
-        const size_t separator = address.rfind(':');
-        if (separator == std::string::npos || separator == 0 || separator + 1 == address.size())
-            throw std::invalid_argument("Expected host:port configuration");
-        const std::string host = address.substr(0, separator);
-        const std::string port = address.substr(separator + 1);
-        unsigned numericPort = 0;
-        for (char digit : port) {
-            if (digit < '0' || digit > '9' || numericPort > 6553)
-                throw std::invalid_argument("Invalid TCP port");
-            numericPort = numericPort * 10 + static_cast<unsigned>(digit - '0');
-        }
-        if (numericPort == 0 || numericPort > 65535 || host.find('\0') != std::string::npos)
-            throw std::invalid_argument("Invalid TCP endpoint");
+        std::string host;
+        std::string port;
+        if (!parseEndpoint(configuration, host, port)) return;
         serve(pipe, host, port);
     } catch (...) {
         // The copied pipe utility cancels and joins its reader before DLL return.
