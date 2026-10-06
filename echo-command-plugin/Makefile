@@ -77,14 +77,15 @@ install: build
 .PHONY: clean
 clean:
 	@set -eu; \
-	if [ ! -d "$(BUILD_DIR)" ]; then exit 0; fi; \
 	project_dir=$$(pwd -P); \
-	artifact_dir=$$(CDPATH= cd -- "$(BUILD_DIR)" && pwd -P); \
-	case "$$artifact_dir" in \
-		"$$project_dir"/*) ;; \
-		*) printf '%s\n' "Refusing to clean outside a project subdirectory: $$artifact_dir" >&2; exit 1 ;; \
-	esac; \
-	rm -rf -- "$$artifact_dir"
+	for candidate in "$(BUILD_DIR)" exec-code/linux/build exec-code/win-native/build; do \
+		if [ ! -d "$$candidate" ]; then continue; fi; \
+		artifact_dir=$$(CDPATH= cd -- "$$candidate" && pwd -P); \
+		if [ "$$artifact_dir" != "$$project_dir/$$candidate" ]; then \
+			printf '%s\n' "Refusing to clean redirected build directory: $$candidate" >&2; exit 1; \
+		fi; \
+		rm -rf -- "$$artifact_dir"; \
+	done
 	@echo "[+] Cleaned"
 
 ## build-windows-native: Build Windows x86/x64 native DLLs inside Docker

@@ -173,21 +173,24 @@ bool enabled = bytes[4] == 1;
 
 Use `using System;`, store the decoded values in a typed configuration, and let the owning execution path report failure and clean up on exceptions.
 
-Native Windows and Linux (C++11): use the same typed decoder for each C++ implementation. On Windows, decode the configuration vector supplied to the `runCommand` callback in `exec-code/win-native/command/Main.cpp`; add translation units to `exec-code/win-native/build_windows.sh` for x86/x64. On Linux, decode the vector returned by `pipe.connect()` beside `Main.cpp` and add translation units to `build_linux.sh`. Include `<cstdint>` and `<stdexcept>`:
+Native Windows and Linux (C++11): use the same typed decoder for each C++ implementation. On Windows, decode the configuration vector supplied to the `runCommand` callback in `exec-code/win-native/command/Main.cpp`; add translation units to `exec-code/win-native/build_windows.sh` for x86/x64. On Linux, decode the vector returned by `pipe.connect()` beside `Main.cpp` and add translation units to `build_linux.sh`. Include `<cstdint>` and `<vector>`:
 
 ```cpp
-if (bytes.size() != 5)
-    throw std::invalid_argument("Expected five configuration bytes");
-const std::uint32_t attempts = std::uint32_t(bytes[0])
-    | (std::uint32_t(bytes[1]) << 8)
-    | (std::uint32_t(bytes[2]) << 16)
-    | (std::uint32_t(bytes[3]) << 24);
-if (attempts < 1 || attempts > 1000 || bytes[4] > 1)
-    throw std::invalid_argument("Invalid attempts or enabled");
-const bool enabled = bytes[4] == 1;
+bool decode(const std::vector<std::uint8_t>& bytes,
+            std::uint32_t& attempts, bool& enabled) {
+    if (bytes.size() != 5) return false;
+    const std::uint32_t value = std::uint32_t(bytes[0])
+        | (std::uint32_t(bytes[1]) << 8)
+        | (std::uint32_t(bytes[2]) << 16)
+        | (std::uint32_t(bytes[3]) << 24);
+    if (value < 1 || value > 1000 || bytes[4] > 1) return false;
+    attempts = value;
+    enabled = bytes[4] == 1;
+    return true;
+}
 ```
 
-Catch exceptions before they leave `start`, `run`, or a worker callback. Variable-length binary formats additionally need checked lengths/offsets and bounds before allocating. Define endianness, width, signedness, units and maximum lengths beside the actual encoder.
+On Windows, use a false return to select command failure; contain only unexpected library/runtime exceptions at the DLL boundary. Linux must also contain exceptions before they leave `run` or a worker callback. Variable-length binary formats additionally need checked lengths/offsets and bounds before allocating. Define endianness, width, signedness, units and maximum lengths beside the actual encoder.
 
 ## UTF-8 payloads
 

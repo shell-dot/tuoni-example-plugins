@@ -31,6 +31,8 @@ The following guides are copied into generated plugins:
 
 | Task | Guide |
 | --- | --- |
+| Understand every exec-unit family, format, and current default | [Exec-unit overview](docs/execunit-overview.md) |
+| Limit requested support to selected OSs, architectures, or formats | [Support scope and coverage](docs/support-scope.md) |
 | Implement a complete command with only the needed features | [Implementation recipe and worked trace](docs/implementation-recipes.md) |
 | Adapt an existing Java/native command pair | [Existing plugin patterns](docs/existing-plugins.md) |
 | Maintain context for later commands and skills | [Context maintenance](docs/project-context.md) |

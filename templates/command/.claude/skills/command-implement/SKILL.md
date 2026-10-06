@@ -5,6 +5,22 @@ description: Implement or finish an entire Tuoni command plugin from a user's pr
 
 # Command implementation
 
+**Windows `native-lib` requirement:** Project-authored C++ must not throw/rethrow or use exceptions for error handling. Use checked status/results and follow [the Windows exception policy](../../../docs/native-memory-safety.md#windows-no-authored-exceptions), including its distinction between authored failures and defensive dependency-exception containment.
+
+**Native C/C++ review.** For Windows or Linux `native-lib` changes, read the [native memory-safety review](../../../docs/native-memory-safety.md) after project context and before editing C++, including configuration/output helpers. Identify buffer owners and valid lengths, check arithmetic before access, and review callback lifetimes and shared state. Investigate suspected faults in an isolated local test process; compilation or `catch (...)` is not memory-safety evidence.
+
+Read the [exec-unit overview](../../../docs/execunit-overview.md) after project
+context for a plain-language map of all three source families, their artifact
+formats, and the current default lifecycle. Separate implemented behavior from
+examples and TODOs; verify these starting facts against the selected plugin.
+
+When the developer limits OSs, architectures, or exec-unit formats, follow the
+[support-scope guide](../../../docs/support-scope.md). Explicit limits take
+precedence over generic coverage instructions such as "all exec-units," "every
+native decoder," or "both generation paths" below. Distinguish a task or test
+limit from a change to the supported set, and preserve coverage on unspecified
+dimensions.
+
 The [default command](../../../README.md#default-behavior) already validates `{}`, connects managed Windows, native Windows, and Linux exec-units through their utilities, emits exact UTF-8 `DONE`, displays it in Java's `output` result, and sends checked success completion. Extend this path with the requested operation. No placeholder exception needs removing; keep updates unsupported unless requested.
 
 Use this skill in the command plugin root containing `java-plugin/` and `exec-code/`. Turn the prompt into a complete implementation in the current plugin, including configuration, Java and native behavior, result presentation, and build integration. Preserve existing work and user limits. For a request confined to one area, use the corresponding focused skill directly.
@@ -29,7 +45,7 @@ Read the plugin-root `AGENTS.md` and `CLAUDE.md` when present and follow the [co
 
 Extract the requested operation, inputs/defaults/validation, returned data and presentation, execution duration, failure behavior, and any stop/update requirements. Infer reasonable unspecified details from the prompt and existing code, and record those decisions. Ask only about missing choices that materially prevent implementation; continue independent work while awaiting answers.
 
-Inventory `exec-code/` and reconcile it with `TemplateCommandTemplate.canSendToAgent` and `TemplateCommand.supportedTypes`. Implement all existing OS/architecture implementations unless the user limits the scope. Do not drop support to avoid work.
+Inventory `exec-code/` and reconcile it with `TemplateCommandTemplate.canSendToAgent` and `TemplateCommand.supportedTypes`. Cover the existing OS/architecture/format combinations within the user's requested scope. Do not drop support merely to avoid requested work; explicit support restrictions still apply.
 
 ## Apply the existing skills
 

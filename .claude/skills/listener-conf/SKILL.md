@@ -5,6 +5,10 @@ description: Configure an existing Tuoni listener in workspace/listeners when th
 
 # Existing listener: configuration
 
+For Windows `native-lib` work, carry the hard [no authored exceptions requirement](../../../templates/listener/docs/native-memory-safety.md#windows-no-authored-exceptions) into the local skill, including older copies: no project-authored throw/rethrow or exception-based error handling; require checked status/results.
+
+For C++ changes, carry the [native memory-safety review](../../../templates/listener/docs/native-memory-safety.md) into the selected local skill, including older copies. Review ownership, bounds, API failures, and concurrency; investigate memory faults with isolated local tests. Record actual diagnostic evidence separately from compilation.
+
 This is the repository-root router for `listener-conf`. Before editing, read and follow the [workspace routing guide](../../../.agents/references/workspace-skills.md). Operate only on an existing listener under this repository's `workspace/listeners/`.
 
 Consult the routing guide's [current template defaults](../../../.agents/references/workspace-skills.md#current-template-defaults), then verify the selected copy's actual behavior. Extend its implemented helpers and hooks within the user's scope.

@@ -5,6 +5,10 @@ description: Configure an existing Tuoni command in workspace/commands when the 
 
 # Existing command: configuration
 
+For Windows `native-lib` work, carry the hard [no authored exceptions requirement](../../../templates/command/docs/native-memory-safety.md#windows-no-authored-exceptions) into the local skill, including older copies: no project-authored throw/rethrow or exception-based error handling; require checked status/results.
+
+For C++ changes, carry the [native memory-safety review](../../../templates/command/docs/native-memory-safety.md) into the selected local skill, including older copies. Review ownership, bounds, API failures, and concurrency; investigate memory faults with isolated local tests. Record actual diagnostic evidence separately from compilation.
+
 This is the repository-root router for `command-conf`. Before editing, read and follow the [workspace routing guide](../../../.agents/references/workspace-skills.md). Operate only on an existing command under this repository's `workspace/commands/`.
 
 Consult the routing guide's [current template defaults](../../../.agents/references/workspace-skills.md#current-template-defaults), then verify the selected copy's actual behavior. Extend its implemented helpers and hooks within the user's scope.

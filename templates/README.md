@@ -3,6 +3,18 @@
 Copy one of these folders to start a plugin. Each folder is independent and uses the
 same Java server plugin / `exec-code` layout as the repository examples.
 
+For a first reading, use the [command exec-unit overview](command/docs/execunit-overview.md)
+or [listener exec-unit overview](listener/docs/execunit-overview.md). Each explains
+all three source families, their generated formats, and the existing default
+lifecycle before the detailed guides. The [payload source overview](payloads/README.md#source-and-current-behavior)
+describes a separate, unfinished program template; command/listener skill
+workflows do not establish its implementation status.
+
+For requests covering only some OSs, architectures, or exec-unit formats, see
+the [command support-scope guide](command/docs/support-scope.md) or
+[listener support-scope guide](listener/docs/support-scope.md). Each is copied
+with its template and distinguishes support restrictions from task/test limits.
+
 | Folder | Java server plugin | Native starting point |
 | --- | --- | --- |
 | [command](command/README.md) | Empty configuration, factory, UTF-8 results, and lifecycle | Windows/Linux pipe startup, `DONE`, and success completion |

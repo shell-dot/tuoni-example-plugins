@@ -1,5 +1,9 @@
 # Command native implementation map
 
+**Windows C++ policy:** Apply the hard [no authored exceptions requirement](native-memory-safety.md#windows-no-authored-exceptions). The exception boundaries described below provide defensive containment for dependency/runtime failures; they do not authorize project-authored throws or exception-based error handling.
+
+Before changing C++ functions, use the [native memory-safety review](native-memory-safety.md) for buffer lifetimes, checked lengths, allocation/release pairs, API failure handling, and races. It also distinguishes isolated diagnostic evidence from compilation.
+
 Read this when extending the native no-op entrypoints or their IPC helpers. Paths are relative to the plugin root; use the renamed paths in the generated copy. Reuse existing runtime classes when they already implement these responsibilities. The [IPC reference](execunit-ipc.md) defines the wire bytes.
 
 The [current no-op](../README.md#default-behavior) already connects and validates zero configuration bytes, checks its `DONE` result send, selects one terminal outcome, and releases the pipe. Managed Windows uses `finally`; Windows native uses `runCommand` with scoped pipe ownership; Linux uses scoped destruction and a whole-entrypoint exception boundary. Extend `Execute`, the `runCommand` callback, and `execute` without replacing these owners. The optional Linux callback reader is still detached and must be repaired before enabling callbacks.

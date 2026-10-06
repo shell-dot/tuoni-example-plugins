@@ -5,6 +5,22 @@ description: Shape the data and user-facing output of a Tuoni listener across ev
 
 # Listener output
 
+**Windows `native-lib` requirement:** Project-authored C++ must not throw/rethrow or use exceptions for error handling. Use checked status/results and follow [the Windows exception policy](../../../docs/native-memory-safety.md#windows-no-authored-exceptions), including its distinction between authored failures and defensive dependency-exception containment.
+
+**Native C/C++ review.** For Windows or Linux `native-lib` changes, read the [native memory-safety review](../../../docs/native-memory-safety.md) after project context and before editing C++, including configuration/output helpers. Identify buffer owners and valid lengths, check arithmetic before access, and review callback lifetimes and shared state. Investigate suspected faults in an isolated local test process; compilation or `catch (...)` is not memory-safety evidence.
+
+Read the [exec-unit overview](../../../docs/execunit-overview.md) after project
+context for a plain-language map of all three source families, their artifact
+formats, and the current default lifecycle. Separate implemented behavior from
+examples and TODOs; verify these starting facts against the selected plugin.
+
+When the developer limits OSs, architectures, or exec-unit formats, follow the
+[support-scope guide](../../../docs/support-scope.md). Explicit limits take
+precedence over generic coverage instructions such as "all exec-units," "every
+native decoder," or "both generation paths" below. Distinguish a task or test
+limit from a change to the supported set, and preserve coverage on unspecified
+dimensions.
+
 The [idle default](../../../README.md#default-behavior) exposes only listener ID and local lifecycle status through `getInfo()`. It has no application receiver, native telemetry, or command-style `parseResult`. Java-only formatting can extend that state without a channel. Remote facts need a requested application sender/receiver path; preserve the traffic TODOs when that path is outside scope.
 
 Before editing, read the plugin-root `AGENTS.md` and `CLAUDE.md` when present, including their referenced project context and applicable instructions. Follow the [context maintenance guide](../../../docs/project-context.md) to create missing context and preserve the existing organization. Verify recorded facts against the files you change.
@@ -27,7 +43,7 @@ Start with [the output selection table](../../../docs/implementation-recipes.md#
 
 Reuse existing codecs, configuration/payload contracts, and unrequested output fields. Read the [IPC and Java transport reference](../../../docs/execunit-ipc.md) to trace data delivery and the [build guide](../../../docs/building.md) for dependencies and packaging.
 
-Inventory every implementation under `exec-code/` and the Java support methods in `TemplateListener.java`. When native output or encoding changes, update all existing exec-units unless the user limits platforms. Keep their field meanings and encoding consistent, and do not reduce advertised platform support to skip output work. A change confined to formatting existing Java state needs no new native protocol. The default final build still covers the in-scope exec-units and packaged plugin.
+Inventory every implementation under `exec-code/` and the Java support methods in `TemplateListener.java`. When native output or encoding changes, apply the requested OS/architecture/format scope to the affected exec-units. Keep their field meanings and encoding consistent. Do not reduce advertised support merely to avoid requested work; explicit support restrictions still apply. A change confined to formatting existing Java state needs no new native protocol. The default final build still covers the in-scope exec-units and packaged plugin.
 
 Choose a straightforward payload format for the requested configuration, application data, or telemetry: UTF-8 text/JSON or explicit binary fields, with matching Java and native encoders/decoders. Use Java standard APIs for text/binary; declare and bundle a JSON parser when needed. Keep plugin payload bytes separate from the native helper's host-controlled IPC framing; see [payload boundaries](../../../docs/execunit-ipc.md#plugin-payloads-and-host-ipc).
 

@@ -20,6 +20,28 @@ This payload scaffold still requires its validation, serialization, and program
 behavior to be implemented. The command and listener defaults described in the
 [template overview](../README.md) do not implement these payload hooks.
 
+## Source and current behavior
+
+This template has one C# program source family, not the three exec-unit families
+in each command/listener template. Its Java plugin describes a downloadable
+artifact; the program source describes that artifact's intended runtime. A Java
+JAR, a program executable, and filename/platform metadata are different things.
+
+| Source | Current behavior |
+| --- | --- |
+| [TemplatePayloadPlugin.java](java-plugin/src/main/java/com/example/tuoni/payload/TemplatePayloadPlugin.java) | Registers the payload template. Registration does not establish a working payload. |
+| [TemplatePayloadTemplate.java](java-plugin/src/main/java/com/example/tuoni/payload/TemplatePayloadTemplate.java) | Exposes placeholder metadata/schema. Validation throws an unimplemented error, so the factory cannot complete normally. |
+| [TemplatePayload.java](java-plugin/src/main/java/com/example/tuoni/payload/TemplatePayload.java) | Reports a proposed filename/type; serialization throws an unimplemented error instead of producing an artifact. |
+| [Program.cs](exec-code/Program.cs) | Writes an unimplemented diagnostic and returns a failure code. Comments describe future work, not existing behavior. |
+
+There is no payload-specific skill tree in this template. Do not apply command
+completion rules or listener idle behavior to this program. The declared Windows
+x64 target and `.exe` filename are metadata placeholders, not evidence of a
+generated, runnable payload. Source review and compilation do not resolve the
+unimplemented validation, serialization, or program behavior.
+
+## Build
+
 Open [exec-code/payload.sln](exec-code/payload.sln) in Visual Studio,
 or build the C# skeleton from this folder:
 

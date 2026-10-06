@@ -51,6 +51,13 @@ Wait for the missing target information before dependent work. A name inferred f
 
 ## Current template defaults
 
+For terminology and the distinction between source families and generated
+formats, see the [command overview](../../templates/command/docs/execunit-overview.md)
+and [listener overview](../../templates/listener/docs/execunit-overview.md).
+New copies include their own `docs/execunit-overview.md`. Prefer the selected
+plugin's local documentation and source; a template overview is not evidence of
+behavior in an older or customized plugin.
+
 New command copies accept `{}`, serialize zero native payload bytes, connect through
 the utilities, emit exact UTF-8 `DONE`, and report success. Java appends the text to
 `output`. New listener copies accept `{}`, implement local Java lifecycle and empty
@@ -64,6 +71,20 @@ copies can differ. Extend working helpers and lifecycle ownership; implement onl
 the requested behavior. A listener formatting or idle-startup task does not require
 adding a traffic channel. Do not add command terminal reports to a listener or treat
 Java STARTED as observed remote readiness.
+
+## Requested support subsets
+
+Carry explicit OS, architecture, and exec-unit-format limits into the selected
+plugin's local skills. Use its `docs/support-scope.md` when present. The current
+[command guide](../../templates/command/docs/support-scope.md) and
+[listener guide](../../templates/listener/docs/support-scope.md) explain how to
+interpret and record these limits; verify facts against the selected plugin.
+Generic all/every coverage instructions do not override an explicit limit.
+Separate support restrictions from task-only or test-only limits, and retain
+existing coverage on unspecified dimensions. Report requested, advertised,
+implemented, and verified support separately; an unavailable check is not an
+implicit decision to drop support. Do not overwrite older plugin guidance to
+add these references.
 
 ## Build and byte-verification defaults
 

@@ -2,7 +2,7 @@
 #include "../exec-unit-utils/CommunicationNamedPipesCommand.h"
 
 #include <deque>
-#include <stdexcept>
+#include <exception>
 #include <utility>
 
 namespace commandexample {
@@ -10,9 +10,6 @@ using Bytes = std::vector<std::uint8_t>;
 const std::size_t maxFrameBytes = 64u * 1024u * 1024u;
 
 inline Bytes textBytes(const std::string& text) { return Bytes(text.begin(), text.end()); }
-inline void requireSend(bool sent) {
-    if (!sent) throw std::runtime_error("Agent pipe write failed");
-}
 
 // Callbacks only record input. The invocation thread owns command behavior/output.
 class CommandInput {
@@ -22,14 +19,21 @@ public:
     void push(const Bytes& data) {
         std::lock_guard<std::mutex> lock(mutex_);
         if (stopped.load()) return;
-        if (updates_.size() >= 64 || data.size() > maxFrameBytes - queuedBytes_)
-            throw std::runtime_error("Command update queue exceeded its limit");
+        if (updates_.size() >= 64 || data.size() > maxFrameBytes - queuedBytes_) {
+            overflow_ = true;
+            stopped.store(true);
+            return;
+        }
         updates_.push_back(data);
         queuedBytes_ += data.size();
     }
     void stop() {
         std::lock_guard<std::mutex> lock(mutex_);
         stopped.store(true);
+    }
+    bool overflowed() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return overflow_;
     }
     State next(Bytes& data) {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -45,6 +49,7 @@ private:
     std::mutex mutex_;
     std::deque<Bytes> updates_;
     std::size_t queuedBytes_ = 0;
+    bool overflow_ = false;
 };
 
 // Expose connection state without modifying the vendored transport or its framing.
@@ -70,18 +75,41 @@ void runCommand(const char* name, Execute execute) noexcept {
         CommandInput input; // Must outlive callbacks and the pipe's joined reader.
         CommandChannel pipe(name, input);
         bool succeeded = false;
+        std::string error;
         try {
             Bytes configuration;
             if (!pipe.TryConnect(configuration)) return;
-            execute(pipe, configuration, input);
-            succeeded = true;
-        } catch (const std::exception& error) {
-            try { if (pipe.connected()) requireSend(pipe.sendError(textBytes(error.what()))); }
-            catch (...) { }
-        } catch (...) { }
+            succeeded = execute(pipe, configuration, input, error);
+        } catch (const std::exception& failure) {
+            // Contain allocation and other library failures at the DLL boundary.
+            try { error = failure.what(); }
+            catch (...) { error.clear(); }
+        } catch (...) {
+            error.clear();
+        }
+        input.stop(); // Freeze callback input before deciding the final outcome.
+        if (input.overflowed()) {
+            succeeded = false;
+            error = "Command update queue exceeded its limit";
+        }
+        if (!succeeded && pipe.connected() && !error.empty()) {
+            try {
+                if (!pipe.sendError(textBytes(error))) {
+                    pipe.close();
+                    return;
+                }
+            } catch (...) {
+                // Error encoding failed before the write; still send failure completion.
+            }
+        }
         // One terminal owner. A failed write is never retried on a partial channel.
-        if (pipe.connected())
-            requireSend(succeeded ? pipe.sendReturnSuccess() : pipe.sendReturnFailed());
+        if (pipe.connected()) {
+            const bool completed = succeeded ? pipe.sendReturnSuccess() : pipe.sendReturnFailed();
+            if (!completed) {
+                pipe.close();
+                return;
+            }
+        }
         pipe.close(); // Cancels I/O and joins the reader before input is destroyed.
     } catch (...) { }
 }
