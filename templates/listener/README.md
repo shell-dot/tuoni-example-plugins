@@ -111,6 +111,15 @@ configuration and behavior. Windows native DLLs are also packaged as `listener.n
 
 ## Build
 
+`make install` builds the plugin, copies its JAR into `PLUGIN_DIR` (default:
+`/srv/tuoni/plugins/server`), and runs `tuoni restart`. The copied standalone
+[installer](scripts/install/install-plugin.sh) resolves Tuoni in the current
+user's PATH and login shell, then root's login shell through sudo. It supports
+root's standard `/srv/tuoni/tuoni` installation and checks for Tuoni before
+copying. Use `PLUGIN_DIR=/path/to/plugins` or `TUONI=/path/to/tuoni` to override
+the destination or executable. Generated plugins retain this target even when
+OSs or exec-unit formats are restricted.
+
 Skills build with Docker unless the user explicitly requests another route. If Docker
 is missing or unusable, inform the user and report the blocked build; do not fall
 back to local tools. The local build examples below apply only to an explicitly

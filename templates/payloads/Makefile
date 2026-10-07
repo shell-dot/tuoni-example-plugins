@@ -7,10 +7,12 @@ DOCKER ?= sh scripts/docker/run-docker.sh
 BUILD_DIR := build
 JAR_NAME := payload-plugin-template-0.0.1.jar
 EXEC_NAME := payload-template
+PLUGIN_DIR ?= /srv/tuoni/plugins/server
+TUONI ?= tuoni
 
-.PHONY: help build build-dotnet clean
+.PHONY: help build build-dotnet install clean
 help:
-	@printf '%s\n' 'make build         Build the payload program and plugin JAR with Docker' 'make build-dotnet  Build only the .NET payload executable with Docker' 'make clean         Remove the extracted build artifacts'
+	@printf '%s\n' 'make build         Build the payload program and plugin JAR with Docker' 'make build-dotnet  Build only the .NET payload executable with Docker' 'make install       Build, copy the plugin JAR to Tuoni and restart' 'make clean         Remove the extracted build artifacts'
 
 build:
 	@mkdir -p -- "$(BUILD_DIR)"
@@ -29,6 +31,9 @@ build-dotnet:
 		--output "type=local,dest=$(BUILD_DIR)/" \
 		.
 	@printf '%s\n' "Built $(BUILD_DIR)/$(EXEC_NAME).exe"
+
+install: build
+	sh scripts/install/install-plugin.sh "$(BUILD_DIR)/$(JAR_NAME)" "$(PLUGIN_DIR)" "$(TUONI)"
 
 clean:
 	@set -eu; \

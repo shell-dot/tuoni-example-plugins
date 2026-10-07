@@ -7,10 +7,12 @@ DOCKER ?= sh scripts/docker/run-docker.sh
 BUILD_DIR := build
 JAR_NAME := listener-plugin-template-0.0.1.jar
 EXEC_NAME := listener-execunit-template
+PLUGIN_DIR ?= /srv/tuoni/plugins/server
+TUONI ?= tuoni
 
-.PHONY: help build build-dotnet build-linux clean
+.PHONY: help build build-dotnet build-linux install clean
 help:
-	@printf '%s\n' 'make build         Build all listener execunit formats and the plugin JAR with Docker' 'make build-dotnet  Build the .NET EXE, DLL and entrypoint metadata with Docker' 'make build-linux   Build only the Linux x64 native execunit with Docker' 'make build-windows-native  Build Windows x86/x64 native DLLs' 'make clean         Remove the extracted build artifacts'
+	@printf '%s\n' 'make build         Build all listener execunit formats and the plugin JAR with Docker' 'make build-dotnet  Build the .NET EXE, DLL and entrypoint metadata with Docker' 'make build-linux   Build only the Linux x64 native execunit with Docker' 'make build-windows-native  Build Windows x86/x64 native DLLs' 'make install       Build, copy the plugin JAR to Tuoni and restart' 'make clean         Remove the extracted build artifacts'
 
 build:
 	@mkdir -p -- "$(BUILD_DIR)"
@@ -38,6 +40,9 @@ build-linux:
 		--output "type=local,dest=exec-code/linux/build/" \
 		.
 	cp exec-code/linux/build/listener-linux.native64_so "$(BUILD_DIR)/"
+
+install: build
+	sh scripts/install/install-plugin.sh "$(BUILD_DIR)/$(JAR_NAME)" "$(PLUGIN_DIR)" "$(TUONI)"
 
 clean:
 	@set -eu; \
