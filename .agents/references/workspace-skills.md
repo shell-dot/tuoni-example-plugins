@@ -40,12 +40,12 @@ Do not create directories, scaffold a replacement, copy a template skill into an
 
 Give a short explanation and a concrete next step:
 
-- No matching plugins: say which workspace category was checked and that no eligible plugin was found. Point to `new-command` or `new-listener` for creation; do not invoke it automatically.
+- No matching plugins: say which workspace category was checked and that no eligible plugin was found. Point to `command-new` or `listener-new` for creation; do not invoke it automatically.
 - Target missing or invalid: identify the requested target and the resolver's reason. List relevant existing candidates, if any, and ask for the correct name/path.
 - Target unclear: list the existing names/paths and ask which one the user means. If only one exists, still ask whether it is the intended target.
 - Missing local skill or incomplete scaffold: explain the exact missing item. Preserve the plugin; do not overwrite its files or silently substitute the repository template.
 
-For example: "I found commands `daily-check` and `inventory`, but this request does not identify one. Which should `command-output` apply to?" With no listeners: "No listener plugins were found under `workspace/listeners`. Create one with `new-listener` before using `listener-conf`."
+For example: "I found commands `daily-check` and `inventory`, but this request does not identify one. Which should `command-output` apply to?" With no listeners: "No listener plugins were found under `workspace/listeners`. Create one with `listener-new` before using `listener-conf`."
 
 Wait for the missing target information before dependent work. A name inferred from an unrelated example or silence after a question is not a selection.
 

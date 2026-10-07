@@ -58,7 +58,7 @@ Make the context update before the skill's final report, using the files actuall
 
 | Skill | Context to create or refresh |
 | --- | --- |
-| Scaffolding (`new-command`) | Actual name/ID/package, generated destination-relative source map, copied skills/docs, advertised and existing exec-units, the implemented `DONE` default, and the exact scaffold/build checks completed. |
+| Scaffolding (`command-new`) | Actual name/ID/package, generated destination-relative source map, copied skills/docs, advertised and existing exec-units, the implemented `DONE` default, and the exact scaffold/build checks completed. |
 | Complete implementation (`command-implement`) | User-requested scope and inferred decisions; integrated configuration, behavior, and output contracts; platform coverage; build/runtime evidence and artifact freshness; any remaining work across the focused skills. |
 | Configuration (`command-conf`) | Actual schema/typed classes, added or changed fields/defaults/validation, Java handoff methods, each native decoder, payload format and any versioning, update behavior, and cross-language checks performed. |
 | Logic (`command-logic`) | Implemented behavior and limits, touched exec-units, entrypoints/helpers, lifecycle/cancellation/update handling, the output contract retained or added, and actual build/runtime results. |

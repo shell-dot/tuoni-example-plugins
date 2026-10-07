@@ -87,6 +87,12 @@ public class EchoCommandOngoingMoreDataTemplate implements CommandTemplate {
   private void validateEchoConfiguration(EchoConfigurationOngoingMoreData echoConfiguration)
       throws ValidationException {
     ArrayList<ValidationViolation> violations = new ArrayList<>();
+    if (echoConfiguration == null) {
+      throw new ValidationException(
+          "Invalid echo command configuration",
+          List.of(new ValidationViolation(
+              "configuration", "must be a JSON object", ValidationViolation.ViolationType.ERROR)));
+    }
     if (echoConfiguration.message() == null) {
       violations.add(
           new ValidationViolation(
@@ -97,7 +103,8 @@ public class EchoCommandOngoingMoreDataTemplate implements CommandTemplate {
           new ValidationViolation(
               "port", "must not be null", ValidationViolation.ViolationType.ERROR));
     }
-    if (echoConfiguration.port() < 1 || echoConfiguration.port() > 65535) {
+    if (echoConfiguration.port() != null
+        && (echoConfiguration.port() < 1 || echoConfiguration.port() > 65535)) {
       violations.add(
           new ValidationViolation(
               "port",

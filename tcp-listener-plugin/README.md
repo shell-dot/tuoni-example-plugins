@@ -72,6 +72,9 @@ or
 - `meta` is the agent metadata blob produced by the Tuoni SDK.
 - `data` is an opaque serialized request/response. `dataLen == 0` is allowed and is used by the
   exec unit's first frame to register the agent.
+- The Java receiver rejects negative lengths and lengths above **64 MiB
+  (67,108,864 bytes)** before allocating a buffer. This limit applies independently
+  to `metaLen` and `dataLen`.
 - Server-to-client frames omit the meta section and carry only `<lenLE><bytes>` (a single command
   payload). See `TcpConnectionHandler#runCommandPusher` and `Program.RunReadLoop` for the
   authoritative encoders.
@@ -235,6 +238,19 @@ parser and resource safety fixes. The managed TCP entrypoint now closes its acti
 socket and joins its sender thread when the host pipe disconnects, including during
 a pending connection attempt or response wait. Managed DLL unload safety still
 requires a compiled runtime check.
+
+The Linux execunit owns its FIFO reader and TCP sender threads. Invalid startup
+configuration closes the FIFO connection and joins the reader. Host disconnect
+wakes pending FIFO response waits, stops socket polling and reconnect waits, and
+joins both workers before the entrypoint returns. FIFO writes protect against
+`SIGPIPE` on the calling thread while preserving the host's signal settings.
+
+Verification for the 2026-10-07 fixes: the Java plugin passed the offline Gradle
+`compileJava` task. A focused Java check confirmed rejection of negative and
+oversized frame lengths before reading input, and successful reading of a normal
+frame. The Linux lifecycle and FIFO changes have been reviewed in source;
+Linux compilation and runtime checks remain pending because a Linux build
+environment and Docker were unavailable.
 
 ## Windows native libraries
 

@@ -104,7 +104,7 @@ def resolve_workspace_plugin(
         if target is None:
             if result["candidates"]:
                 return finish("needs_target", "target_required", "Specify an existing plugin name or path, or use an unambiguous target from prior context. Inventory alone does not select a target.")
-            return finish("no_plugins", "no_usable_plugins", f"No existing {kind} plugins with a usable {kind}-{action} skill were found in this workspace category. Create one with new-{kind} first, or repair the intended plugin's local skill.")
+            return finish("no_plugins", "no_usable_plugins", f"No existing {kind} plugins with a usable {kind}-{action} skill were found in this workspace category. Create one with {kind}-new first, or repair the intended plugin's local skill.")
         if not target.strip():
             return finish("invalid_target", "empty_target", "The explicit target is empty; specify an existing plugin name or path.")
         supplied = Path(target)

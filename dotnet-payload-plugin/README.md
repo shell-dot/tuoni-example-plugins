@@ -169,6 +169,26 @@ The agent uses a two-layer architecture that separates network communication fro
 
 The plugin supports native shellcode exec units only. The server selects this format when the listener supports it. The agent checks the execution format in listener TLV child `0x07` and rejects other formats. Older listener TLVs without child `0x07` still load as shellcode.
 
+### Command Completion and Stopping
+
+The cooperative-stop grace period is expressed in **milliseconds**, with a
+default of **5,000 ms**. An execunit value of `10000` requests a ten-second wait
+after the stop request is sent. Reaching the grace-period limit does not itself
+terminate a still-running execution thread.
+
+After the execution thread returns, the command allows the pipe reader up to
+**4,000 ms** to finish processing output. If the reader is still running, the
+command closes the pipe and joins the reader. It checks for a missing terminal
+outcome only after the reader stops, and cleanup closes the pipe and joins the
+reader before disposing the result buffers. The reader join has no timeout, so
+the 4,000 ms wait is not a total cleanup deadline. It is separate from the
+cooperative-stop grace period.
+
+Verification for the 2026-10-07 fixes: the .NET agent compiled successfully in
+Debug configuration using `dotnet msbuild`. Runtime checks for completion races,
+pipe shutdown, and stop timing remain pending; compilation alone does not verify
+those behaviors.
+
 ### Payload Identity Metadata
 
 When Tuoni creates a payload, the Java plugin writes the SDK `payloadId` to the optional agent configuration (listener child `0x02`) as an eight-byte, little-endian signed integer. The .NET agent reports the same eight bytes as metadata child `0x43`; this payload-specific field remains separate from the global public-key configuration appended by the listener serializer. Older payloads without the optional configuration remain supported and omit `payloadId`, while a present value must be exactly eight bytes or listener configuration loading fails.

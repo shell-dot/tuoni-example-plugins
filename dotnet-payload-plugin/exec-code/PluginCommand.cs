@@ -33,7 +33,7 @@ namespace DotNetAgent
         private MemoryStream _resultError = new MemoryStream();
         private bool _finished = false;
         private bool _ongoing = false;
-        private UInt32 _maxStopTime = 5;
+        private UInt32 _maxStopTime = 5000; // Milliseconds, as sent by the execunit.
         private bool _noCommunication = false;
 
         private PluginCommand() { }
@@ -113,19 +113,28 @@ namespace DotNetAgent
                     IsPlugin = true
                 });
                 shellcodeThread.Start();
-                pipeCommunication.WaitConnection(_conf, (data) => GotNewData(data), () => GotDisconnected());
+                bool connected = pipeCommunication.WaitConnection(
+                    _conf, (data) => GotNewData(data), () => GotDisconnected());
                 // DEADLOCK RISK: If the shellcode thread never exits, this blocks indefinitely.
                 // Safe as long as Run() is on its own thread (it is, via StartNewPluginCommand).
                 shellcodeThread.Join();
 
+                // Process frames already written before deciding whether completion is missing.
+                // A returned execunit may still have left its pipe open; close it after a
+                // bounded wait so the reader can finish before result buffers are disposed.
+                if (connected && !pipeCommunication.WaitForReader(4000))
+                    pipeCommunication.Close();
+                pipeCommunication.WaitForReader(Timeout.Infinite);
+
                 if (!_finished)
                 {
                     MessagesManager.NewResult(_id, null, MessagesManager.CommandStatus.FAILED, Encoding.UTF8.GetBytes("Ended without success/failure confirmation"));
-                    pipeCommunication.Close();
                 }
             }
             finally
             {
+                pipeCommunication.Close();
+                pipeCommunication.WaitForReader(Timeout.Infinite);
                 RunningCommandsManager.UnregisterCommand(_id);
                 _resultData.Dispose();
                 _resultError.Dispose();
@@ -167,7 +176,7 @@ namespace DotNetAgent
                     {
                         _maxStopTime = tlv.GetChild(TLV_MAX_STOP_TIME_VALUE).GetAsUInt32();
                         RunningCommandsManager.UpdateCommandMaxStopTime(_id, _maxStopTime);
-                        Logger.Info($"Command max stop time is {_maxStopTime} seconds");
+                        Logger.Info($"Command max stop time is {_maxStopTime} milliseconds");
                     }
                     break;
 

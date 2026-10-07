@@ -1,5 +1,5 @@
 ---
-name: new-listener
+name: listener-new
 description: Create a named Tuoni listener plugin from this repository's template and continue with listener-implement when the user describes the requested behavior.
 ---
 
@@ -22,7 +22,7 @@ copied as `docs/support-scope.md`. Carry the selected combinations and the
 distinction between task limits and support restrictions into the local skills.
 The copied source inventory does not override an explicit support limit.
 
-Find the repository containing this skill: resolve `../../..` from the skill directory `.agents/skills/new-listener/` (or its `.claude` mirror) and confirm `templates/listener/` and `tools/scaffold_plugin.py` exist. This is the helper's repository, which may differ from the user's current directory. Use the requested listener name, or infer one from the user's description or destination folder. If no name can be inferred, use `new-listener`.
+Find the repository containing this skill: resolve `../../..` from the skill directory `.agents/skills/listener-new/` (or its `.claude` mirror) and confirm `templates/listener/` and `tools/scaffold_plugin.py` exist. This is the helper's repository, which may differ from the user's current directory. Use the requested listener name, or infer one from the user's description or destination folder. If no name can be inferred, use `new-listener`.
 
 Keep the user's original working directory while invoking the helper by its absolute path. Use Python 3.9+ (`python --version` or `python3 --version`). Without a requested folder, replace the placeholders and run:
 

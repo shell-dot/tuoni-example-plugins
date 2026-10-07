@@ -8,6 +8,7 @@ namespace DotNetAgent
     internal class NamedPipeCommunication
     {
         private NamedPipeServerStream _pipeServer;
+        private Thread _readThread;
 
         private readonly object _lock = new object();
         private readonly ManualResetEventSlim _listeningEvent = new ManualResetEventSlim(false);
@@ -60,9 +61,9 @@ namespace DotNetAgent
                     pipe.Write(initialBytes, 0, initialBytes.Length);
                 pipe.Flush();
 
-                Thread readThread = new Thread(() => ReadLoop(pipe, callbackData, callbackClosed));
-                readThread.IsBackground = true;
-                readThread.Start();
+                _readThread = new Thread(() => ReadLoop(pipe, callbackData, callbackClosed));
+                _readThread.IsBackground = true;
+                _readThread.Start();
 
                 return true;
             }
@@ -117,6 +118,12 @@ namespace DotNetAgent
             _listeningEvent.Wait();
         }
 
+        public bool WaitForReader(int timeoutMilliseconds)
+        {
+            Thread readThread = _readThread;
+            return readThread == null || readThread.Join(timeoutMilliseconds);
+        }
+
         public bool Send(byte[] data)
         {
             try
@@ -149,8 +156,6 @@ namespace DotNetAgent
                 {
                     if (_pipeServer != null)
                     {
-                        if (_pipeServer.IsConnected)
-                            _pipeServer.Disconnect();
                         _pipeServer.Dispose();
                         _pipeServer = null;
                     }
