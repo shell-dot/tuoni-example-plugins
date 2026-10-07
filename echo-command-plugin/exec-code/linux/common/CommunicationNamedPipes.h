@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <atomic>
+#include <cstddef>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -8,12 +11,9 @@
 
 #include "TLV.h"
 
-typedef void (CallbackFunc)(const std::vector<uint8_t>);
-typedef void (CallbackFuncStop)();
-
 class CommunicationNamedPipes {
 private:
-    bool active = false;
+    std::atomic<bool> active{false};
     bool listenerStarted = false;
     int pipe_read = -1;
     int pipe_write = -1;
@@ -21,28 +21,30 @@ private:
     std::string pipeNameWrite;
     std::mutex mtx;
     std::thread listen_thread;
-    CallbackFunc* callbackNewData = nullptr;
-    CallbackFuncStop* callbackStop = nullptr;
+    std::function<void(const std::vector<uint8_t>&)> callbackNewData;
+    std::function<void()> callbackStop;
 
     void startListenerIfNeeded();
+    bool readExact(void* buffer, std::size_t size);
 
 public:
     CommunicationNamedPipes(const std::string &pipeNameReadIn, const std::string &pipeNameWriteIn)
         : pipeNameRead(pipeNameReadIn), pipeNameWrite(pipeNameWriteIn) {}
 
-    void setCallback(CallbackFunc* callbackIn);
-    void setCallbackNewData(CallbackFunc* callbackIn);
-    void setCallbackStop(CallbackFuncStop* callbackIn);
+    ~CommunicationNamedPipes() { close(); }
+    void setCallbackNewData(std::function<void(const std::vector<uint8_t>&)> callbackIn);
+    void setCallbackStop(std::function<void()> callbackIn);
+    bool isConnected() const { return active.load(); }
     std::vector<uint8_t> connect();
     std::vector<uint8_t> getData();
     bool putData(const std::vector<uint8_t> &data);
     void close();
-    void sendResult(const std::vector<uint8_t> &data);
-    void sendError(const std::vector<uint8_t> &data);
-    void sendReturnSuccess();
-    void sendReturnFailed();
-    void sendConf_ongoingResult();
-    void sendConf_relayInBlocks();
-    void sendConf_stoppable(uint32_t waitTime);
+    bool sendResult(const std::vector<uint8_t> &data);
+    bool sendError(const std::vector<uint8_t> &data);
+    bool sendReturnSuccess();
+    bool sendReturnFailed();
+    bool sendConf_ongoingResult();
+    bool sendConf_relayInBlocks();
+    bool sendConf_stoppable(uint32_t waitTime);
     void listenForMessages();
 };

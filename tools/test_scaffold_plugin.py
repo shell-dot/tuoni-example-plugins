@@ -506,7 +506,7 @@ class ScaffoldPluginTests(unittest.TestCase):
                         self.assertEqual(source.read_bytes(), (native / "exec-unit-utils" / source.name).read_bytes())
                 self.assertFalse((native / "common/WinPipe.h").exists())
                 if kind == "command":
-                    self.assertTrue((native / "common/CommandRuntime.h").is_file())
+                    self.assertFalse((native / "common/CommandRuntime.h").exists())
                     compatibility = REPO_ROOT / "templates/command/exec-code/win-native/compat/mingw"
                     for header in compatibility.glob("*.h"):
                         self.assertEqual(header.read_bytes(), (native / "compat/mingw" / header.name).read_bytes())

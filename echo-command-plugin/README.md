@@ -113,6 +113,10 @@ under `exec-code/linux/`: `echo/`, `echo-ongoing/`, `echo-ongoing-file/`, and
 both platforms inside Docker and packages them in the plugin JAR. The JAR and
 both platforms' artifacts are exported to `build/`; `BUILD_DIR` overrides that location.
 
+Each Linux `Main.cpp` contains its command behavior and terminal report. The
+shared pipe utility accepts callbacks bound to invocation state and joins its
+reader during cleanup.
+
 The Java command templates accept Windows and Linux shellcode agents. Windows shellcode payloads
 retain their UTF-16LE pipe-name patch; Linux payloads use the native `run` export and
 receive their FIFO paths from the agent loader.
@@ -137,11 +141,11 @@ target also writes them to `exec-code/win-native/build/` for direct Gradle build
 The native commands use `CommunicationNamedPipesCommand` and `TLV`, copied from
 `commands_default/common/CommonCppExecUnit` into
 [`exec-unit-utils/`](exec-code/win-native/exec-unit-utils/README.md). The utility
-sources are unchanged; the build supplies a MinGW header-name compatibility shim.
+adds a public connection-status query; the build supplies a MinGW header-name compatibility shim.
 It also force-includes a guarded compatibility header for the Windows error code
 `ERROR_UNHANDLED_EXCEPTION`, which some MinGW headers omit.
-Callbacks record updates/stop requests, while command execution and output stay on
-the invocation thread. All four variants share one checked terminal-report owner.
+Each native `Main.cpp` contains its own connection, behavior and checked terminal
+report. Callbacks record updates/stop requests; output stays on the invocation thread.
 Cleanup cancels I/O and joins the pipe reader before callback state is destroyed.
 The build's [PE verifier](scripts/verify_windows_native.py) checks architecture,
 the sole `start` export, absence of a CLR header and OS-only DLL dependencies.

@@ -17,15 +17,12 @@ so sources using either header spelling receive a guarded fallback for
 Microsoft's [documented value, 574](https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--500-999-#error_unhandled_exception),
 and preserves the toolchain definition when present.
 
-[CommandRuntime.h](../common/CommandRuntime.h) supplies per-invocation ownership
-and checked completion using these public utility methods. It selects bounded
-structured-command transport options, with a 64 MiB frame cap. Its callbacks only
-record updates and stop requests; command output stays on the invocation thread.
-Update acceptance, stop recording and queue exhaustion share a lock. Streaming
-commands drain accepted updates before observing stop; updates after stop are
-ignored. The atomic flag still permits immediate cancellation of file delays.
-The pipe is destroyed before callback state, and its reference cleanup cancels
-I/O and joins the reader. Do not destroy the pipe from a reader callback.
+[Main.cpp](../command/Main.cpp) owns a scoped pipe and uses these public methods
+for connection, result, error, and terminal reporting. It selects bounded
+structured-command options with a 64 MiB frame cap. The no-op command passes
+empty callbacks because it does not use updates or stop requests. The utility
+still starts a reader; its cleanup cancels I/O and joins the reader before the
+DLL returns. Do not destroy the pipe from a reader callback.
 
 Keep these files in sync with the reference utilities when updating them. Update
 the hashes only after reviewing a deliberate upstream refresh. Compilation and

@@ -68,7 +68,7 @@ worked examples elsewhere do not make updates or streaming active.
 | Family | Where lifetime is described by the current source |
 | --- | --- |
 | Managed Windows | The entrypoint coordinates initialization, the no-op, outcome reporting, and cleanup in a finalization block. The default installs no reader callbacks. |
-| Native Windows | The short entrypoint delegates ownership to [CommandRuntime.h](../exec-code/win-native/common/CommandRuntime.h). The utility owns a reader; the short entrypoint alone is not the whole lifetime. |
+| Native Windows | [Main.cpp](../exec-code/win-native/command/Main.cpp) owns a scoped pipe and the final report. The utility's reader is cancelled and joined when that pipe is destroyed. |
 | Linux | The entrypoint owns a scoped connection whose destruction releases resources. The default does not activate the optional callback reader. |
 
 The shared visible result does not imply identical worker or cleanup behavior.

@@ -4,7 +4,7 @@ Read this when implementing `parseResult` in `java-plugin/src/main/java/com/exam
 
 The [implemented default](../README.md#default-behavior) sends exact UTF-8 `DONE` (`44 4f 4e 45`), with no newline or terminator. `TemplateCommand.parseResult` strictly decodes each complete nonempty payload using a read-only buffer, calls `appendTextResult("output", text)`, then `commit()`. Empty notifications return without editing results. Keep that simple path for complete text; add stateful reassembly only when the requested output needs split characters or records.
 
-The native sender hooks are managed Windows `Execute` in `exec-code/win/Program.cs`, the `runCommand` callback in `exec-code/win-native/command/Main.cpp`, and Linux `execute` in `exec-code/linux/command/Main.cpp`. Update all three to preserve one payload contract; add C# sources to the `.csproj`, Windows C++ sources to `exec-code/win-native/build_windows.sh`, and Linux C++ sources to `exec-code/linux/build_linux.sh`. Preserve checked sends and the existing completion/cleanup owners.
+The native sender hooks are managed Windows `Execute` in `exec-code/win/Program.cs`, Windows native `start` in `exec-code/win-native/command/Main.cpp`, and Linux `execute` in `exec-code/linux/command/Main.cpp`. Update all three to preserve one payload contract; add C# sources to the `.csproj`, Windows C++ sources to `exec-code/win-native/build_windows.sh`, and Linux C++ sources to `exec-code/linux/build_linux.sh`. Preserve checked sends and the existing completion/cleanup owners.
 
 ## Payload formats
 

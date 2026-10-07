@@ -68,8 +68,8 @@ it does not need the native helper's envelope codec or server-internal classes.
    in `exports.def`. These Makefile variables
    do not change the Dockerfile paths; both files must agree with your project
    settings. Update the project README's build commands and output names too.
-6. For commands, extend managed Windows `Execute`, the native Windows `runCommand`
-   callback in `exec-code/win-native/command/Main.cpp`, Linux `execute`, and Java
+6. For commands, extend managed Windows `Execute`, native Windows `start` in
+   `exec-code/win-native/command/Main.cpp`, Linux `execute`, and Java
    `parseResult`.
    For listeners, implement the requested channel at the Java/native TODO markers.
    Add configuration fields only when needed: extend `TemplateConfigurationSchema`,

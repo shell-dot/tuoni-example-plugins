@@ -46,7 +46,7 @@ The following are navigation hints for the unrenamed template. After scaffolding
 | Java registration and factory | `java-plugin/src/main/java/com/example/tuoni/command/TemplateCommandPlugin.java`; `TemplateCommandTemplate.java`: schema, validation, examples, `createCommand`, supported agents/types. |
 | Java execution/configuration/output | Same package: `TemplateCommand.java`: constructor, `generateExecUnit`, `generateShellCode`, `serializeCommandUpdate`, `parseResult`, `forceStop`; `TemplateConfigurationSchema.java`; `ShellcodeResource.java`. |
 | Managed Windows | `exec-code/win/Program.cs`: `Initialize`, `Execute`, `Complete`, `Cleanup`; `exec-code/win/exec-unit-utils/`; `exec-code/win/command-execunit.csproj` and `command-execunit.sln`. |
-| Windows native | `exec-code/win-native/command/Main.cpp`: exported `start`; `exec-code/win-native/exec-unit-utils/`; `exec-code/win-native/common/CommandRuntime.h`; `exec-code/win-native/build_windows.sh` explicit source list and `exports.def`. |
+| Windows native | `exec-code/win-native/command/Main.cpp`: exported `start`, scoped connection and terminal report; `exec-code/win-native/exec-unit-utils/`; `exec-code/win-native/build_windows.sh` explicit source list and `exports.def`. |
 | Linux | `exec-code/linux/command/Main.cpp`: exported `run`; `exec-code/linux/common/`; `exec-code/linux/build_linux.sh` explicit source list. |
 | Packaging | `java-plugin/build.gradle.kts`, `Makefile`, `scripts/docker/Dockerfile`; `java-plugin/src/main/resources/command.shellcode`; `exec-code/win/bin/Release/dotnet-exe/` and `dotnet-dll/` managed artifacts/method sidecar; `exec-code/win-native/build/command.native32_dll` and `command.native64_dll`; `exec-code/linux/build/command-linux.native64_so`. |
 

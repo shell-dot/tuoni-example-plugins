@@ -6,7 +6,7 @@ Before changing C++ functions, use the [native memory-safety review](native-memo
 
 Read this when extending the native no-op entrypoints or their IPC helpers. Paths are relative to the plugin root; use the renamed paths in the generated copy. Reuse existing runtime classes when they already implement these responsibilities. The [IPC reference](execunit-ipc.md) defines the wire bytes.
 
-The [current no-op](../README.md#default-behavior) already connects and validates zero configuration bytes, checks its `DONE` result send, selects one terminal outcome, and releases the pipe. Managed Windows uses `finally`; Windows native uses `runCommand` with scoped pipe ownership; Linux uses scoped destruction and a whole-entrypoint exception boundary. Extend `Execute`, the `runCommand` callback, and `execute` without replacing these owners. The optional Linux callback reader is still detached and must be repaired before enabling callbacks.
+The [current no-op](../README.md#default-behavior) already connects and validates zero configuration bytes, checks its `DONE` result send, selects one terminal outcome, and releases the pipe. Managed Windows uses `finally`; Windows native owns the scoped pipe and final report directly in `start`; Linux uses scoped destruction and a whole-entrypoint exception boundary. Extend `Execute`, Windows native `start`, and Linux `execute` while keeping their completion owners. The optional Linux callback reader is still detached and must be repaired before enabling callbacks.
 
 ## Host process and unload requirements
 
@@ -101,12 +101,11 @@ Keep the initial configuration read and subsequent reader loop under one reader 
 
 | File | Place to implement or extend |
 | --- | --- |
-| `exec-code/win-native/command/Main.cpp` | Exported `start(const char*)` passes the operation to `commandexample::runCommand`; its callback validates configuration and sends the no-op `DONE` result. |
-| `exec-code/win-native/common/CommandRuntime.h` | Owns `CommandInput`, `CommandChannel`, checked startup and the single terminal outcome. Keep callbacks limited to recording input and operation/output on the invocation thread. |
+| `exec-code/win-native/command/Main.cpp` | Exported `start(const char*)` owns the scoped pipe, checks startup and empty configuration, sends `DONE`, and selects one terminal outcome. The no-op registers no callbacks. |
 | `exec-code/win-native/exec-unit-utils/CommunicationNamedPipesCommand.*`, `CommunicationNamedPipes.*`, and `TLV.*` | Copied reference utilities own the local-agent framing, callbacks, bounded I/O, cancellation and joined reader cleanup. Record local changes beside the copied sources. |
 | `exec-code/win-native/build_windows.sh` and `exports.def` | Add parser/behavior translation units to both architecture builds; keep the undecorated `start` export and x86/x64 artifact names. |
 
-Keep `CommandInput` alive until the pipe reader has been cancelled and joined. Preserve the completion owner even when parsing or result/error reporting fails; a failed partial write disables further reporting. The `start` argument is the local pipe name, and native DLL bytes are never patched. Check the [Windows DLL artifact and lifecycle requirements](windows-native.md) after rebuilding; reader shutdown and safe unload need runtime evidence.
+Keep the pipe alive through final reporting; its destructor cancels and joins the reader before `start` returns. Preserve the completion owner even when parsing or result/error reporting fails; a failed partial write disables further reporting. The `start` argument is the local pipe name, and native DLL bytes are never patched. Check the [Windows DLL artifact and lifecycle requirements](windows-native.md) after rebuilding; reader shutdown and safe unload need runtime evidence.
 
 ## Linux files and methods
 
