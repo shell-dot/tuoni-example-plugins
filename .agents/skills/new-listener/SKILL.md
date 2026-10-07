@@ -5,6 +5,8 @@ description: Create a named Tuoni listener plugin from this repository's templat
 
 # New listener plugin
 
+Use this skill when the user requests creation. A planning, review, or explanation-only request does not authorize scaffolding or implementation. A behavior description extends a creation request; it does not override an explicit plan-only or scaffold-only limit.
+
 For Windows `native-lib` work, carry the hard [no authored exceptions requirement](../../../templates/listener/docs/native-memory-safety.md#windows-no-authored-exceptions) into the local skill, including older copies: no project-authored throw/rethrow or exception-based error handling; require checked status/results.
 
 When continuing into C++ implementation, pass the [native memory-safety review](../../../templates/listener/docs/native-memory-safety.md), copied as `docs/native-memory-safety.md`, to the local skill. It covers general Windows/Linux library ownership, bounds, API failures, concurrency, and isolated diagnostic tests; creating a scaffold provides no runtime safety evidence.
@@ -42,8 +44,10 @@ comma-separated values are accepted. Pass only requested support restrictions,
 not task-only or test-only limits. The helper selects existing combinations and
 rejects an OS with no compatible format. Check the generated support table and
 Java declarations before continuing. For an architecture restriction, which the
-helper does not accept, narrow the generated declarations and context explicitly
-before treating the scaffold as complete.
+helper does not accept, reconcile the generated support declarations, generation
+guards, format-check expectations, and context. Check that build and packaging
+scope agree with the restriction; distinguish retained extra build outputs from
+advertised support before treating the scaffold as complete.
 
 Use `python` instead of `python3` where that is the Python 3 command. For example, from any PowerShell working directory: `python "C:/Work/dev_examples/tuoni-example-plugins/tools/scaffold_plugin.py" listener --name "Beacon" --folder "C:/Work/Beacon"` (replace the repository path with the located one).
 
@@ -57,8 +61,9 @@ The helper keeps these renamed locations in sync:
 - `java-plugin/src/main/resources/META-INF/services/`: provider class name. Keep the SDK interface filename.
 - `java-plugin/settings.gradle.kts` and `build.gradle.kts`: project name, group, `Plugin-Id`, display name, description, and Linux resource filename.
 - `exec-code/win/`: solution and project filenames, solution project name and GUID, C# namespace, `RootNamespace`, `AssemblyName`, and post-build Windows shellcode resource path.
+- `exec-code/win-native/`: listener source folder, build source list, and both native DLL artifact names.
 - `exec-code/linux/`: listener source folder, compiler input, and output library name. Keep the exported `run` function.
-- `TemplateListener` resource constants, `scripts/docker/Dockerfile`, `Makefile`, and copied `README.md`: Windows shellcode, Linux library, JAR, executable, and build paths.
+- `TemplateListener` resource constants, `scripts/docker/Dockerfile`, `Makefile`, and copied `README.md`: Windows shellcode, managed EXE/DLL and method metadata, native DLLs, Linux library, JAR, and build paths.
 
 Keep `QQQWWWEEE` as the Windows pipe-name placeholder. The helper preserves the listener's working default: `{}` validation, zero-byte native configuration, Java lifecycle/replacement handling, and native pipe/FIFO startup with disconnect waiting. Data traffic remains intentionally TODO; the generic `ShellcodeResource` utility name stays intact. After creation, read the copied `AGENTS.md` and `CLAUDE.md` before further edits or validation; follow their context links.
 
@@ -79,6 +84,6 @@ When the prompt describes behavior, `listener-implement` must actually execute t
 
 When implementing Java/exec-unit data exchange, choose and document a payload format suited to the requested data, such as UTF-8 text, JSON, or explicitly laid-out binary fields. Match Java encoding/decoding to every native implementation. Use Java's standard text/binary APIs, or declare and bundle a parser dependency when needed. Keep the native helpers responsible for the separate [host IPC framing](../../../templates/listener/docs/execunit-ipc.md); the Java SDK hands the plugin the inner payload bytes. No external server checkout is needed to define or encode that payload.
 
-Before finishing, read the generated plugin's `AGENTS.md` and `CLAUDE.md` and refresh its shared context using the [context maintenance guide](../../../templates/listener/docs/project-context.md), also copied as `docs/project-context.md`. The helper copies and renames the starter context files. Record the actual name, purpose requested by the user, platform scope, source paths, the implemented idle default and remaining traffic channel TODOs, and commands/checks performed, including native artifact freshness and unavailable checks. Create missing context files according to that guide; preserve existing instructions. Do not carry successful template-repository checks into a generated plugin as if they were run there.
+Before finishing, read the generated plugin's `AGENTS.md` and `CLAUDE.md` and refresh its shared context using the [context maintenance guide](../../../templates/listener/docs/project-context.md), also copied as `docs/project-context.md`. The helper copies and renames the starter context files and resets template verification history to an unverified generated-instance record. Record the actual name, purpose requested by the user, platform scope, source paths, the implemented idle default and remaining traffic channel TODOs, and commands/checks performed, including native artifact freshness and unavailable checks. Create missing context files according to that guide; preserve existing instructions. Do not carry successful template-repository checks into a generated plugin as if they were run there.
 
 Report the created path, whether behavior was implemented or only scaffolded, the context file updated, and actual compilation, packaging, runtime checks, and remaining limitations. Do not stop at reporting scaffold creation when the user also requested behavior.

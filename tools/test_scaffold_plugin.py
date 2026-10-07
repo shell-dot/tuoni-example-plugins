@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import html
 import re
 import shutil
 import subprocess
@@ -12,9 +13,46 @@ import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import unquote
 
 import scaffold_plugin
 from scaffold_plugin import REPO_ROOT, scaffold, support_matrix
+
+
+def markdown_prose(content: str) -> str:
+    """Ignore fenced examples when checking real headings and links."""
+    lines = []
+    fence = None
+    for line in content.splitlines():
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+        if fence is None:
+            if marker:
+                fence = marker.group(1)
+            else:
+                lines.append(line)
+        elif (marker and marker.group(1)[0] == fence[0]
+              and len(marker.group(1)) >= len(fence) and not marker.group(2).strip()):
+            fence = None
+    return "\n".join(lines)
+
+
+def markdown_anchors(content: str) -> set[str]:
+    content = markdown_prose(content)
+    anchors = set(re.findall(r'<[^>]+\b(?:id|name)=["\']([^"\']+)["\']', content))
+    used = set()
+    for heading in re.findall(r"^ {0,3}#{1,6}\s+(.+)$", content, re.MULTILINE):
+        heading = re.sub(r"\s+#+\s*$", "", heading)
+        heading = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", heading)
+        heading = re.sub(r"<[^>]*>", "", heading)
+        base = re.sub(r"[^\w\- ]", "", html.unescape(heading).lower()).strip().replace(" ", "-")
+        anchor = base
+        suffix = 0
+        while anchor in used:
+            suffix += 1
+            anchor = f"{base}-{suffix}"
+        used.add(anchor)
+        anchors.add(anchor)
+    return anchors
 
 
 class ScaffoldPluginTests(unittest.TestCase):
@@ -352,13 +390,46 @@ class ScaffoldPluginTests(unittest.TestCase):
                     self.assertIn(f"{executable}.exe", (destination / "scripts/docker/Dockerfile").read_text(encoding="utf-8"))
 
     def assert_local_links_resolve(self, markdown: Path, boundary: Path) -> None:
-        for href in re.findall(r"\[[^\]]+\]\(([^)]+)\)", markdown.read_text(encoding="utf-8")):
+        content = markdown_prose(markdown.read_text(encoding="utf-8"))
+        for href in re.findall(r"\[[^\]]+\]\(([^)]+)\)", content):
             href = href.strip("<>")
-            if "://" in href or href.startswith("#"):
+            if "://" in href:
                 continue
-            target = (markdown.parent / href.split("#", 1)[0]).resolve()
+            relative, _, fragment = href.partition("#")
+            target = (markdown.parent / unquote(relative)).resolve() if relative else markdown.resolve()
             self.assertTrue(target.is_relative_to(boundary), (markdown, href))
             self.assertTrue(target.is_file(), (markdown, href))
+            if fragment:
+                self.assertIn(unquote(fragment), markdown_anchors(target.read_text(encoding="utf-8")),
+                              (markdown, href))
+
+    def test_local_links_validate_section_fragments(self) -> None:
+        target = self.output_root / "target.md"
+        target.write_text(
+            "# Shared heading\n## Shared heading\n## Shared heading-1\n"
+            "## A `code` &amp; text heading\n<a id=\"explicit-section\"></a>\n"
+            "```markdown\n## Example only\n[not a link](missing.md)\n```\n"
+            "~~~~\n## Also an example\n~~~\n~~~~\n",
+            encoding="utf-8",
+        )
+        source = self.output_root / "links.md"
+        source.write_text(
+            "# Local heading\n[local](#local-heading)\n"
+            "[first](target.md#shared-heading)\n[second](target.md#shared-heading-1)\n"
+            "[collision](target.md#shared-heading-1-1)\n"
+            "[formatted](target.md#a-code--text-heading)\n"
+            "[explicit](target.md#explicit%2Dsection)\n"
+            "```markdown\n[example](missing.md#section)\n```\n",
+            encoding="utf-8",
+        )
+        self.assert_local_links_resolve(source, self.output_root)
+        self.assert_local_links_resolve(target, self.output_root)
+        for href in ("#absent", "target.md#absent", "target.md#shared-heading-2",
+                     "target.md#example-only", "target.md#also-an-example"):
+            with self.subTest(href=href):
+                source.write_text(f"[broken]({href})\n", encoding="utf-8")
+                with self.assertRaises(AssertionError):
+                    self.assert_local_links_resolve(source, self.output_root)
 
     def test_skills_and_references_survive_scaffolding(self) -> None:
         for kind in ("command", "listener"):
@@ -372,7 +443,7 @@ class ScaffoldPluginTests(unittest.TestCase):
                 {path.relative_to(destination / "docs") for path in (destination / "docs").rglob("*") if path.is_file()},
             )
             for client in (".agents", ".claude"):
-                for suffix in ("conf", "logic", "output"):
+                for suffix in ("implement", "conf", "logic", "output"):
                     name = f"{kind}-{suffix}"
                     skill = destination / client / "skills" / name / "SKILL.md"
                     self.assertTrue(skill.is_file(), skill)
@@ -427,6 +498,7 @@ class ScaffoldPluginTests(unittest.TestCase):
                 expected_sources = (
                     f"java-plugin/src/main/java/com/example/tuoni/{kind}/context_copy/{main_class}.java",
                     f"exec-code/win/{kind}-{slug}-execunit.csproj",
+                    f"exec-code/win-native/{kind}-{slug}/Main.cpp",
                     f"exec-code/linux/{kind}-{slug}/Main.cpp",
                 )
                 for relative in expected_sources:
@@ -443,6 +515,37 @@ class ScaffoldPluginTests(unittest.TestCase):
                     f"exec-code/linux/{kind}/Main.cpp",
                 ):
                     self.assertNotIn(original, context)
+
+    def test_generated_context_does_not_inherit_template_verification(self) -> None:
+        for kind in ("command", "listener"):
+            for restricted in (False, True):
+                with self.subTest(kind=kind, restricted=restricted):
+                    folder = self.output_root / f"{kind}-{restricted}"
+                    destination, slug = scaffold(
+                        kind, "Fresh Context", str(folder),
+                        "native-lib" if restricted else None,
+                        "linux" if restricted else None,
+                    )
+                    context = (destination / "AGENTS.md").read_text(encoding="utf-8")
+                    self.assertIn("This is a generated plugin.", context)
+                    self.assertIn("## Generated-plugin verification", context)
+                    self.assertIn("checks have not been run for this generated copy", context)
+                    for stale in ("source-template snapshot", "## Source-template verification",
+                                  "template-verification:", "- Template-source verification:",
+                                  "- Native memory-safety guidance:",
+                                  "- Documentation-only orientation and support-scope checks:",
+                                  "repository tooling suite ran", "- Creation-skill audit:"):
+                        self.assertNotIn(stale, context)
+                    self.assertIn("- Required workflow:", context)
+                    self.assertIn("make build", context)
+                    self.assertIn("docs/java-verification.md", context)
+                    self.assertIn(f"exec-code/win-native/{kind}-{slug}/Main.cpp", context)
+                    self.assertNotIn(f"`{kind}/Main.cpp`", context)
+                    if kind == "command":
+                        self.assertIn("Linux optional callback helpers still detach", context)
+                    else:
+                        self.assertIn("No application transport is implemented", context)
+                    self.assertEqual("## Generated support" in context, restricted)
 
     def test_codex_and_claude_skill_trees_match(self) -> None:
         for root in (REPO_ROOT, REPO_ROOT / "templates/command", REPO_ROOT / "templates/listener"):

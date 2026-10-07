@@ -1,6 +1,6 @@
 # Always finish a command with an explicit outcome
 
-Apply this gate to every command implementation and every configuration, logic or output change. Commands must report a terminal **success or failure**; reaching the end of `run` / `Main`, closing a pipe, sending text, or logging an exception is not completion. Implement this in every supported exec-unit and test the host-visible command state.
+Apply this gate to every command implementation and every configuration, logic or output change. Before `Main`, `start`, or `run` returns, the exec-unit must send one checked `sendReturnSuccess()` on success or `sendReturnFailed()` on failure while its reporting connection is usable. **`sendError(...)` only sends diagnostic text; it does not mark the command failed and never replaces `sendReturnFailed()`.** Reaching the end of the entrypoint, closing a pipe, sending text, or logging an exception is not completion. Implement this in every supported exec-unit and test the host-visible command state. For startup or disconnect failures that prevent delivery, use the host failure path described below.
 
 
 The default already checks `sendResult` for exact UTF-8 `DONE` and then one selected terminal send. Success is selected only after the result write succeeds; failures attempt diagnostic text and failure completion on a usable connection. Java displays `DONE` independently of terminal status. Preserve this ordering when extending the operation.

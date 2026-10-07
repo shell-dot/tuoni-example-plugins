@@ -110,7 +110,7 @@ Retain the scoped pipe until added work and callbacks have ended. A failed `conn
 | File | Place to implement or extend |
 | --- | --- |
 | `exec-code/linux/listener/Main.cpp` | Extend `serve` inside exported `run(char*, char*)`: preserve scoped connect/configuration validation/reader waiting and add the requested application transport at its TODO. |
-| `exec-code/linux/common/CommunicationNamedPipes.h` and `.cpp` | `connect`, `getData`, and `putData` handle framed I/O; `setCallback`/`listenForMessages` dispatch inbound messages; `getMetadata`, `getDataToSend`, `waitForResponseData`, and `newDataFromC2` implement agent exchanges; `close` unblocks and ends owned work. |
+| `exec-code/linux/common/CommunicationNamedPipes.h` and `.cpp` | `connect`, `getData`, and `putData` handle framed I/O; `setCallback`/`listenForMessages` dispatch inbound messages; `getMetadata`, `getDataToSend`, `waitForResponseData`, and `newDataFromC2` implement agent exchanges. `close` stops and joins the idle reader and closes descriptors; response-waiter shutdown remains unresolved as described below. |
 | `exec-code/linux/common/TLV.h` and `.cpp` | Preserve the host IPC envelope codec and repair bounds validation where required; plugin payload decoders stay separate. |
 | `exec-code/linux/build_linux.sh` | Include any new transport/parser translation units in this exec-unit's compiler invocation; preserve the `run` export and artifact name. |
 
