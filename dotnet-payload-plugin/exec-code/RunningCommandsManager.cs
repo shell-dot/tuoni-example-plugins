@@ -59,7 +59,7 @@ namespace DotNetAgent
             public Thread Thread;
             public NamedPipeCommunication Pipe;
             public IntPtr ProcessHandle;
-            public uint MaxStopTime = 5;
+            public uint MaxStopTime = 5000; // Milliseconds, as sent by the execunit.
             public bool IsPlugin;
 
         }
@@ -146,8 +146,15 @@ public static void SetCommandProcessHandle(uint id, IntPtr processHandle)
                 TLV stopTlv = new TLV(PLUGIN_STOP_TLV);
                 info.Pipe.Send(stopTlv.GetFullBuffer());
 
-                if (info.Thread != null && info.Thread.IsAlive)
-                    info.Thread.Join((int)(info.MaxStopTime * 1000));
+                uint remainingMilliseconds = info.MaxStopTime;
+                while (info.Thread != null && info.Thread.IsAlive && remainingMilliseconds > 0)
+                {
+                    int waitMilliseconds = remainingMilliseconds > int.MaxValue
+                        ? int.MaxValue : (int)remainingMilliseconds;
+                    if (info.Thread.Join(waitMilliseconds))
+                        break;
+                    remainingMilliseconds -= (uint)waitMilliseconds;
+                }
             }
 
             if (info.Thread != null && info.Thread.IsAlive)

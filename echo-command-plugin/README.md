@@ -91,6 +91,10 @@ Here is a list of the example plugins included in this repository:
     - **Command template class in Java**: `EchoCommandOngoingMoreDataTemplate`
     - **Shellcode project**: `echo-ongoing-more-data`
 
+For `echo-ongoing-more-data`, `port` is required and must be an integer from 1 to
+65535. Missing, null, or out-of-range ports are rejected with a configuration
+validation error. A JSON `null` configuration is also rejected.
+
 Additionally, there is a set of .NET utility classes that facilitate communication between the command shellcode and the agent. These are located at `exec-code/win/exec-unit-utils` and are implemented as a shared code project, which is referenced and used by the shellcode solution. These are also available at [tuoni-execunit-utils-dotnet](https://github.com/shell-dot/tuoni-execunit-utils-dotnet) repository.
 
 The local managed copies include defensive framing and cleanup changes documented
@@ -115,7 +119,14 @@ both platforms' artifacts are exported to `build/`; `BUILD_DIR` overrides that l
 
 Each Linux `Main.cpp` contains its command behavior and terminal report. The
 shared pipe utility accepts callbacks bound to invocation state and joins its
-reader during cleanup.
+reader during cleanup. FIFO startup and frame writes protect the calling thread
+against `SIGPIPE` and preserve the host's signal settings. A closed FIFO reader
+causes the write to fail without terminating the hosting process through `SIGPIPE`.
+
+Verification for the 2026-10-07 fixes: the Java validation change passed the offline
+Gradle `compileJava` task. The Linux FIFO change has been reviewed in source;
+Linux compilation and runtime checks remain pending because a Linux build
+environment and Docker were unavailable.
 
 The Java command templates accept Windows and Linux shellcode agents. Windows shellcode payloads
 retain their UTF-16LE pipe-name patch; Linux payloads use the native `run` export and

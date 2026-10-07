@@ -4,8 +4,46 @@
 #include <cerrno>
 #include <limits>
 #include <poll.h>
+#include <pthread.h>
+#include <signal.h>
 #include <utility>
 #include <unistd.h>
+
+namespace {
+bool writeAll(int fd, const void* data, size_t length) {
+    sigset_t blocked, previous, pending;
+    sigemptyset(&blocked);
+    sigaddset(&blocked, SIGPIPE);
+    if (pthread_sigmask(SIG_BLOCK, &blocked, &previous) != 0)
+        return false;
+    if (sigpending(&pending) != 0) {
+        pthread_sigmask(SIG_SETMASK, &previous, nullptr);
+        return false;
+    }
+    const bool alreadyPending = sigismember(&pending, SIGPIPE) == 1;
+    const uint8_t* cursor = static_cast<const uint8_t*>(data);
+    bool success = true;
+    bool brokenPipe = false;
+    while (length != 0) {
+        const ssize_t count = write(fd, cursor, length);
+        if (count < 0 && errno == EINTR)
+            continue;
+        if (count <= 0) {
+            brokenPipe = count < 0 && errno == EPIPE;
+            success = false;
+            break;
+        }
+        cursor += count;
+        length -= static_cast<size_t>(count);
+    }
+    if (brokenPipe && !alreadyPending) {
+        const timespec noWait = {0, 0};
+        while (sigtimedwait(&blocked, nullptr, &noWait) < 0 && errno == EINTR) { }
+    }
+    pthread_sigmask(SIG_SETMASK, &previous, nullptr);
+    return success;
+}
+}
 
 std::vector<uint8_t> CommunicationNamedPipes::connect()
 {
@@ -22,7 +60,7 @@ std::vector<uint8_t> CommunicationNamedPipes::connect()
         return {};
     }
 
-    if (write(pipe_write, "\x00", 1) != 1)
+    if (!writeAll(pipe_write, "\x00", 1))
     {
         close();
         return {};
@@ -86,8 +124,8 @@ bool CommunicationNamedPipes::putData(const std::vector<uint8_t> &data)
     }
 
     uint32_t len = static_cast<uint32_t>(data.size());
-    if (write(pipe_write, &len, sizeof(len)) != sizeof(len) ||
-        (len != 0 && write(pipe_write, data.data(), len) != len))
+    if (!writeAll(pipe_write, &len, sizeof(len)) ||
+        !writeAll(pipe_write, data.data(), len))
     {
         active.store(false);
         return false;

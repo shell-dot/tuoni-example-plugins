@@ -1,5 +1,5 @@
 ---
-name: new-command
+name: command-new
 description: Create a named Tuoni command plugin from this repository's template and continue with command-implement when the user describes the requested behavior.
 ---
 
@@ -22,7 +22,7 @@ copied as `docs/support-scope.md`. Carry the selected combinations and the
 distinction between task limits and support restrictions into the local skills.
 The copied source inventory does not override an explicit support limit.
 
-Find the repository containing this skill: resolve `../../..` from the skill directory `.agents/skills/new-command/` (or its `.claude` mirror) and confirm `templates/command/` and `tools/scaffold_plugin.py` exist. This is the helper's repository, which may differ from the user's current directory. Use the requested command name, or infer one from the user's description or destination folder. If no name can be inferred, use `new-command`.
+Find the repository containing this skill: resolve `../../..` from the skill directory `.agents/skills/command-new/` (or its `.claude` mirror) and confirm `templates/command/` and `tools/scaffold_plugin.py` exist. This is the helper's repository, which may differ from the user's current directory. Use the requested command name, or infer one from the user's description or destination folder. If no name can be inferred, use `new-command`.
 
 Keep the user's original working directory while invoking the helper by its absolute path. Use Python 3.9+ (`python --version` or `python3 --version`). Without a requested folder, replace the placeholders and run:
 

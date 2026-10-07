@@ -196,9 +196,9 @@ selected formats.
 The targets use `python3` by default. Set `PYTHON=python` if that is your Python 3
 command, for example `make new-command NAME="Daily Check" PYTHON=python`.
 
-The repository provides `new-command` and `new-listener` skills for Codex CLI and
-Claude Code. In Codex, invoke `$new-command` or `$new-listener`; in Claude Code,
-invoke `/new-command` or `/new-listener`. Give a name and optional destination
+The repository provides `command-new` and `listener-new` skills for Codex CLI and
+Claude Code. In Codex, invoke `$command-new` or `$listener-new`; in Claude Code,
+invoke `/command-new` or `/listener-new`. Give a name and optional destination
 folder. Without a folder, the skill creates `workspace/commands/<name>` or
 `workspace/listeners/<name>` under this repository, creating missing parent
 directories and normalizing the name (for example, `Daily Check` becomes

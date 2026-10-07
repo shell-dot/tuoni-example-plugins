@@ -23,8 +23,8 @@ final class TcpFrameCodec {
   }
 
   static byte[] readFully(InputStream in, int length) throws IOException {
-    if (length < 0) {
-      throw new IOException("Refusing to read negative byte count: " + length);
+    if (length < 0 || length > MAX_FRAME_BYTES) {
+      throw new IOException("Refusing to read invalid byte count: " + length);
     }
     byte[] buffer = new byte[length];
     int offset = 0;

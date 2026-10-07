@@ -60,7 +60,7 @@ Make the context update before the skill's final report, using the files actuall
 
 | Skill | Context to create or refresh |
 | --- | --- |
-| Scaffolding (`new-listener`) | Actual name/ID/package, generated destination-relative source map, copied skills/docs, advertised and existing exec-units, the implemented idle default and remaining channel TODOs, and the exact scaffold/build checks completed. |
+| Scaffolding (`listener-new`) | Actual name/ID/package, generated destination-relative source map, copied skills/docs, advertised and existing exec-units, the implemented idle default and remaining channel TODOs, and the exact scaffold/build checks completed. |
 | Complete implementation (`listener-implement`) | User-requested scope and inferred decisions; integrated configuration, transport/lifecycle, and output contracts; platform coverage; build/runtime evidence and artifact freshness; any remaining work across the focused skills. |
 | Configuration (`listener-conf`) | Actual schema/typed classes, added or changed fields/defaults/validation, Java handoff methods, each native decoder, payload fields/encoding/versioning, update behavior, and cross-language checks performed. |
 | Logic (`listener-logic`) | Implemented behavior and limits, touched exec-units, entrypoints/helpers, lifecycle/cancellation/update handling, the output contract retained or added, and actual build/runtime results. |
