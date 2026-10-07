@@ -1,9 +1,8 @@
 # Windows command utilities
 
-These six C++ files are copied unchanged from
-`commands_default/common/CommonCppExecUnit`. [UPSTREAM.json](UPSTREAM.json)
-records the source directory and LF-normalized SHA-256 of every imported file. The echo example
-and command template carry identical copies.
+These six C++ files come from `commands_default/common/CommonCppExecUnit`.
+The echo example adds only a public `isConnected()` query to
+`CommunicationNamedPipes.h`; its other utility sources match the command template.
 
 The build compiles `CommunicationNamedPipes.cpp`,
 `CommunicationNamedPipesCommand.cpp`, and `TLV.cpp` separately, then links them
@@ -17,16 +16,12 @@ so sources using either header spelling receive a guarded fallback for
 Microsoft's [documented value, 574](https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--500-999-#error_unhandled_exception),
 and preserves the toolchain definition when present.
 
-[CommandRuntime.h](../common/CommandRuntime.h) supplies per-invocation ownership
-and checked completion using these public utility methods. It selects bounded
-structured-command transport options, with a 64 MiB frame cap. Its callbacks only
-record updates and stop requests; command output stays on the invocation thread.
-Update acceptance, stop recording and queue exhaustion share a lock. Streaming
-commands drain accepted updates before observing stop; updates after stop are
-ignored. The atomic flag still permits immediate cancellation of file delays.
-The pipe is destroyed before callback state, and its reference cleanup cancels
-I/O and joins the reader. Do not destroy the pipe from a reader callback.
+Each command's `Main.cpp` owns its connection, behavior and checked terminal
+report. Only the more-data command needs a bounded update queue; its callbacks
+record updates and stop requests, while output stays on the invocation thread.
+Callback state is declared before the pipe. Pipe destruction cancels I/O and
+joins the reader before that state is destroyed.
 
-Keep these files in sync with the reference utilities when updating them. Update
-the hashes only after reviewing a deliberate upstream refresh. Compilation and
-DLL runtime checks are separate from source-copy verification.
+Keep the unchanged sources in sync with the reference utilities. Update original
+hashes only after reviewing an upstream refresh. Compilation and DLL runtime
+checks are separate from source-copy verification.

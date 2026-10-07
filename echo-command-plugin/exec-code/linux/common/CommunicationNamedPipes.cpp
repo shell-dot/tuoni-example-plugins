@@ -1,6 +1,10 @@
 #include "CommunicationNamedPipes.h"
 
 #include <fcntl.h>
+#include <cerrno>
+#include <limits>
+#include <poll.h>
+#include <utility>
 #include <unistd.h>
 
 std::vector<uint8_t> CommunicationNamedPipes::connect()
@@ -18,15 +22,18 @@ std::vector<uint8_t> CommunicationNamedPipes::connect()
         return {};
     }
 
-    ssize_t bytes_written = write(pipe_write, "\x00", 1);
-    (void)bytes_written;
+    if (write(pipe_write, "\x00", 1) != 1)
+    {
+        close();
+        return {};
+    }
 
-    active = true;
+    active.store(true);
     auto data = getData();
     TLV tlv;
     if (!tlv.load(data))
     {
-        active = false;
+        close();
         return {};
     }
 
@@ -36,44 +43,53 @@ std::vector<uint8_t> CommunicationNamedPipes::connect()
 
 std::vector<uint8_t> CommunicationNamedPipes::getData()
 {
-    if (!active)
+    if (!active.load())
     {
         return {};
     }
 
-    uint32_t len;
-    ssize_t bytes_read = read(pipe_read, &len, sizeof(len));
-    if (bytes_read <= 0)
+    uint32_t len = 0;
+    if (!readExact(&len, sizeof(len)) || len > 64u * 1024u * 1024u)
     {
         return {};
     }
 
     std::vector<uint8_t> buffer(len);
-    uint32_t offset = 0;
-    while (len > 0)
-    {
-        bytes_read = read(pipe_read, buffer.data() + offset, len);
-        if (bytes_read <= 0)
-        {
-            return {};
-        }
-        offset += bytes_read;
-        len -= bytes_read;
-    }
+    if (len != 0 && !readExact(buffer.data(), len)) return {};
     return buffer;
+}
+
+bool CommunicationNamedPipes::readExact(void* buffer, std::size_t size)
+{
+    std::size_t received = 0;
+    while (received < size && active.load())
+    {
+        pollfd descriptor = {pipe_read, POLLIN, 0};
+        const int ready = poll(&descriptor, 1, 100);
+        if (ready == 0 || (ready < 0 && errno == EINTR)) continue;
+        if (ready < 0) return false;
+        const ssize_t count = read(pipe_read,
+            static_cast<uint8_t*>(buffer) + received, size - received);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) return false;
+        received += static_cast<std::size_t>(count);
+    }
+    return received == size;
 }
 
 bool CommunicationNamedPipes::putData(const std::vector<uint8_t> &data)
 {
     std::lock_guard<std::mutex> lock(mtx);
-    if (!active)
+    if (!active.load() || data.size() > (std::numeric_limits<uint32_t>::max)())
     {
         return false;
     }
 
-    uint32_t len = data.size();
-    if (write(pipe_write, &len, sizeof(len)) == -1 || write(pipe_write, data.data(), len) == -1)
+    uint32_t len = static_cast<uint32_t>(data.size());
+    if (write(pipe_write, &len, sizeof(len)) != sizeof(len) ||
+        (len != 0 && write(pipe_write, data.data(), len) != len))
     {
+        active.store(false);
         return false;
     }
 
@@ -82,6 +98,8 @@ bool CommunicationNamedPipes::putData(const std::vector<uint8_t> &data)
 
 void CommunicationNamedPipes::close()
 {
+    active.store(false);
+    if (listen_thread.joinable()) listen_thread.join();
     if (pipe_read != -1)
     {
         ::close(pipe_read);
@@ -92,136 +110,123 @@ void CommunicationNamedPipes::close()
         ::close(pipe_write);
         pipe_write = -1;
     }
-    active = false;
 }
 
-void CommunicationNamedPipes::sendResult(const std::vector<uint8_t> &data)
+bool CommunicationNamedPipes::sendResult(const std::vector<uint8_t> &data)
 {
-    if (!active)
+    if (!active.load())
     {
-        return;
+        return false;
     }
     TLV tlv(0x30, data);
-    putData(tlv.genBytes());
+    return putData(tlv.genBytes());
 }
 
-void CommunicationNamedPipes::sendError(const std::vector<uint8_t> &data)
+bool CommunicationNamedPipes::sendError(const std::vector<uint8_t> &data)
 {
-    if (!active)
+    if (!active.load())
     {
-        return;
+        return false;
     }
     TLV tlv(0x32, data);
-    putData(tlv.genBytes());
+    return putData(tlv.genBytes());
 }
 
-void CommunicationNamedPipes::sendReturnSuccess()
+bool CommunicationNamedPipes::sendReturnSuccess()
 {
-    if (!active)
+    if (!active.load())
     {
-        return;
+        return false;
     }
     TLV tlv(0x33);
-    putData(tlv.genBytes());
+    return putData(tlv.genBytes());
 }
 
-void CommunicationNamedPipes::sendReturnFailed()
+bool CommunicationNamedPipes::sendReturnFailed()
 {
-    if (!active)
+    if (!active.load())
     {
-        return;
+        return false;
     }
     TLV tlv(0x34);
-    putData(tlv.genBytes());
+    return putData(tlv.genBytes());
 }
 
-void CommunicationNamedPipes::sendConf_ongoingResult()
+bool CommunicationNamedPipes::sendConf_ongoingResult()
 {
-    if (!active)
+    if (!active.load())
     {
-        return;
+        return false;
     }
     TLV tlv(0x31);
     tlv.addChild(std::shared_ptr<TLV>(new TLV(0x1, (PVOID)"\x01", 1)));
-    putData(tlv.genBytes());
+    return putData(tlv.genBytes());
 }
 
-void CommunicationNamedPipes::sendConf_relayInBlocks()
+bool CommunicationNamedPipes::sendConf_relayInBlocks()
 {
-    if (!active)
+    if (!active.load())
     {
-        return;
+        return false;
     }
     TLV tlv(0x31);
     tlv.addChild(std::shared_ptr<TLV>(new TLV(0x2, (PVOID)"\x01", 1)));
-    putData(tlv.genBytes());
+    return putData(tlv.genBytes());
 }
 
-void CommunicationNamedPipes::sendConf_stoppable(uint32_t waitTime)
+bool CommunicationNamedPipes::sendConf_stoppable(uint32_t waitTime)
 {
-    if (!active)
+    if (!active.load())
     {
-        return;
+        return false;
     }
     TLV tlv(0x31);
     tlv.addChild(std::shared_ptr<TLV>(new TLV(0x3, (PVOID)&waitTime, sizeof(waitTime))));
-    putData(tlv.genBytes());
+    return putData(tlv.genBytes());
 }
 
-void CommunicationNamedPipes::setCallback(CallbackFunc* callbackIn)
+void CommunicationNamedPipes::setCallbackNewData(
+    std::function<void(const std::vector<uint8_t>&)> callbackIn)
 {
-    setCallbackNewData(callbackIn);
-}
-
-void CommunicationNamedPipes::setCallbackNewData(CallbackFunc* callbackIn)
-{
-    callbackNewData = callbackIn;
+    callbackNewData = std::move(callbackIn);
     startListenerIfNeeded();
 }
 
-void CommunicationNamedPipes::setCallbackStop(CallbackFuncStop* callbackIn)
+void CommunicationNamedPipes::setCallbackStop(std::function<void()> callbackIn)
 {
-    callbackStop = callbackIn;
+    callbackStop = std::move(callbackIn);
     startListenerIfNeeded();
 }
 
 void CommunicationNamedPipes::startListenerIfNeeded()
 {
-    if (!active || listenerStarted || (!callbackNewData && !callbackStop))
+    if (!active.load() || listenerStarted || (!callbackNewData && !callbackStop))
     {
         return;
     }
 
-    listenerStarted = true;
     listen_thread = std::thread(&CommunicationNamedPipes::listenForMessages, this);
-    listen_thread.detach();
+    listenerStarted = true;
 }
 
 void CommunicationNamedPipes::listenForMessages()
 {
-    while (true)
+    try
     {
-        auto data = getData();
-        if (data.empty())
+        while (active.load())
         {
-            return;
-        }
+            auto data = getData();
+            if (data.empty()) break;
 
-        std::shared_ptr<TLV> tlv(new TLV());
-        if (!tlv->load(data))
-        {
-            continue;
-        }
+            std::shared_ptr<TLV> tlv(new TLV());
+            if (!tlv->load(data)) continue;
 
-        if (tlv->getType() == 0x39 && callbackNewData)
-        {
-            callbackNewData(tlv->getValue());
-            continue;
-        }
-        if (tlv->getType() == 0x3F && callbackStop)
-        {
-            callbackStop();
-            continue;
+            if (tlv->getType() == 0x39 && callbackNewData)
+                callbackNewData(tlv->getValue());
+            else if (tlv->getType() == 0x3F && callbackStop)
+                callbackStop();
         }
     }
+    catch (...) { }
+    active.store(false);
 }

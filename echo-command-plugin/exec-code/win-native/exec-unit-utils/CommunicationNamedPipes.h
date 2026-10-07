@@ -113,6 +113,7 @@ namespace ExecUnitUtils {
             NamedPipeTransportError* error = nullptr);
         bool TryClose(NamedPipeTransportError* error = nullptr) noexcept;
         void close() noexcept;
+        bool isConnected() const noexcept { return _active.load() && !_cancelRequested.load(); }
 
         // Blocking 0x3A request/response. Returns <username,password>; both empty on failure/timeout.
         std::pair<std::string, std::string> getCurrentCredentials(int timeoutMs = 10000);

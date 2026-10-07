@@ -14,7 +14,7 @@ For files under `java-plugin/src/main/java/com/example/tuoni/command/`:
 4. Extend the existing shared `serializeConfiguration()` encoder to return the typed payload in a fresh readable `ByteBuffer`.
 5. In `generateExecUnit`, keep `.configuration(serializeConfiguration())` and extend the existing shared encoder.
 6. In `generateShellCode`, keep the second `ShellCodeWithConf` argument using that same encoder. Preserve resource selection and pipe-name patching.
-7. Decode the bytes returned by managed Windows `Connect()`, supplied to the Windows native `runCommand` callback after `TryConnect`, and returned by Linux `connect()` before running the operation. Native connection failure must be distinguishable from a valid empty payload.
+7. Decode the bytes returned by managed Windows `Connect()`, received by Windows native `start` through `TryConnect`, and returned by Linux `connect()` before running the operation. Native connection failure must be distinguishable from a valid empty payload.
 8. Implement `serializeCommandUpdate` only when requested. Validate a candidate before encoding it; apply it atomically in native code and retain old state on rejection. Document whether it is a patch or complete replacement.
 
 Validation creates no runtime resources. Both generation methods send the same inner representation and independently readable buffers; Java does not add pipe headers. A command without user fields must accept a valid empty object and can send an empty payload. Do not copy the sample fields below into that command.
@@ -173,7 +173,7 @@ bool enabled = bytes[4] == 1;
 
 Use `using System;`, store the decoded values in a typed configuration, and let the owning execution path report failure and clean up on exceptions.
 
-Native Windows and Linux (C++11): use the same typed decoder for each C++ implementation. On Windows, decode the configuration vector supplied to the `runCommand` callback in `exec-code/win-native/command/Main.cpp`; add translation units to `exec-code/win-native/build_windows.sh` for x86/x64. On Linux, decode the vector returned by `pipe.connect()` beside `Main.cpp` and add translation units to `build_linux.sh`. Include `<cstdint>` and `<vector>`:
+Native Windows and Linux (C++11): use the same typed decoder for each C++ implementation. On Windows, decode the configuration vector filled by `TryConnect` in `exec-code/win-native/command/Main.cpp`; add translation units to `exec-code/win-native/build_windows.sh` for x86/x64. On Linux, decode the vector returned by `pipe.connect()` beside `Main.cpp` and add translation units to `build_linux.sh`. Include `<cstdint>` and `<vector>`:
 
 ```cpp
 bool decode(const std::vector<std::uint8_t>& bytes,

@@ -68,11 +68,10 @@ Managed Windows, native Windows, and Linux entrypoints contain ordinary exceptio
 ## Extend the template
 
 Add managed Windows behavior in `exec-code/win/Program.cs`'s `Execute`, native
-Windows behavior in the `runCommand` callback in
-`exec-code/win-native/command/Main.cpp`, and matching Linux behavior in
-`exec-code/linux/command/Main.cpp`'s `execute`. Managed Windows retains
-`Initialize`, `Complete`, and `Cleanup`; native Windows keeps its terminal owner
-in `common/CommandRuntime.h`; Linux uses scoped pipe cleanup. Add C# sources to
+Windows behavior in `exec-code/win-native/command/Main.cpp`, and matching Linux
+behavior in `exec-code/linux/command/Main.cpp`'s `execute`. Managed Windows retains
+`Initialize`, `Complete`, and `Cleanup`; native Windows keeps its terminal report
+and scoped pipe in `Main.cpp`; Linux uses scoped pipe cleanup. Add C# sources to
 the `.csproj` and native Windows/Linux translation units to their corresponding
 `build_windows.sh` / `build_linux.sh` source lists.
 The implemented IPC utilities are compiled directly into each exec-unit. Check the

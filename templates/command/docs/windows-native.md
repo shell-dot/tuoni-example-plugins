@@ -24,24 +24,18 @@ reference file hashes. A MinGW include shim preserves the upstream header spelli
 The build force-includes [Win32Compatibility.h](../exec-code/win-native/compat/mingw/Win32Compatibility.h)
 to supply `ERROR_UNHANDLED_EXCEPTION` only when the installed headers omit it.
 
-[CommandRuntime.h](../exec-code/win-native/common/CommandRuntime.h) supplies ownership
-and completion using those classes. It selects bounded structured-command options,
-checks `TryConnect` separately from empty configuration, and keeps callbacks limited
-to recording updates/stop requests. The command itself runs on the invocation thread.
-The pipe's cleanup cancels I/O and joins its reader before callback state is destroyed.
-Each entrypoint keeps invocation state local. Expected validation, queue-limit,
-and pipe-write failures use checked results; the DLL boundary contains only
-unexpected library/runtime exceptions.
+[Main.cpp](../exec-code/win-native/command/Main.cpp) directly owns the pipe and
+the terminal outcome. It selects bounded structured-command options, calls
+`TryConnect`, and distinguishes an empty configuration from connection failure.
+The default installs no callbacks because it does not use live updates or stop
+requests. The utility still starts a reader; its destructor cancels I/O and joins
+that reader before the DLL returns.
 
-`CommandInput.next()` drains updates accepted before a stop request in order
-before reporting stopped; updates received after stop are ignored. Queue and stop
-decisions use the same lock. This is utility behavior for code that consumes input;
-the no-op template still leaves live command updates unsupported.
-
-The default validates empty configuration and writes UTF-8 `DONE`. The shared
-`runCommand` owns one checked terminal success/failure attempt after the operation;
-failed reporting cannot bypass scoped cleanup. Broken channels are closed and
-partial terminal writes are not retried.
+The default validates empty configuration and sends exactly `DONE` before terminal
+success. Invalid configuration attempts an error and terminal failure when the pipe
+is usable. Every send is checked, and a failed write ends reporting on that pipe.
+Defensive catches contain unexpected library/runtime exceptions while the scoped
+pipe still permits a failure completion attempt.
 
 Build from this plugin root with `make build`. The standalone
 `make build-windows-native` target cross-compiles both DLLs in Docker using MinGW
