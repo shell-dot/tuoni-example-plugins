@@ -19,8 +19,9 @@ case "$docker_error" in
     *"permission denied"*) ;;
     *) printf '%s\n' "$docker_error" >&2; exit "$docker_status" ;;
 esac
+# Docker 29 calls this a "docker API" connection rather than a "daemon socket".
 case "$docker_error" in
-    *"daemon socket"*|*"dial unix "*) ;;
+    *"daemon socket"*|*"dial unix "*|*"connect to the docker API at unix://"*) ;;
     *) printf '%s\n' "$docker_error" >&2; exit "$docker_status" ;;
 esac
 if [ "$(id -u)" = 0 ]; then
