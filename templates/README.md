@@ -101,6 +101,17 @@ the same location to remove the extracted artifacts. The templates are
 skeletons, so the aggregate
 `make install` target does not install them.
 
+Each individual template includes `make install` for use in copied/generated
+plugins. It builds the JAR, copies it into `PLUGIN_DIR` (default:
+`/srv/tuoni/plugins/server`), and runs `tuoni restart`. The standalone
+`scripts/install/install-plugin.sh` prefers the current user's PATH and login
+shell, then checks root's login shell with sudo and the standard
+`/srv/tuoni/tuoni` location. Root installations run as root. Missing Tuoni fails
+before copying the JAR; copy and restart failures fail the target. Override the
+destination with `PLUGIN_DIR=/path/to/plugins` and the executable with
+`TUONI=/path/to/tuoni`. Both default and restricted command/listener scaffolds
+retain this target and installer.
+
 The default Docker runner checks access when a build runs and automatically uses
 `sudo` if the local socket denies permission, including users outside the Docker
 group. Sudo may prompt for authentication. Accessible Docker/rootless setups run

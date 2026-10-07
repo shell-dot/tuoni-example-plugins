@@ -203,7 +203,15 @@ def refresh_generated_context(root: Path, kind: str, slug: str,
                "export a family only when that family is selected; other focused "
                "targets report an error. `make clean` removes exported build outputs. "
                "For direct compiler commands and platform requirements, see "
-               "[building.md](docs/building.md) and apply only the selected formats.\n")
+               "[building.md](docs/building.md) and apply only the selected formats.\n\n"
+               "`make install` builds the plugin, copies its JAR into `PLUGIN_DIR` "
+               "(default: `/srv/tuoni/plugins/server`), and runs `tuoni restart`. "
+               "The standalone [installer](scripts/install/install-plugin.sh) "
+               "resolves Tuoni in the current user's PATH and login shell, then "
+               "root's login shell through sudo, with `/srv/tuoni/tuoni` as the "
+               "standard root fallback. Missing Tuoni fails before copying. "
+               "Use `PLUGIN_DIR=/path/to/plugins` or `TUONI=/path/to/tuoni` to "
+               "override the destination or executable.\n")
     readme.write_text(content, encoding="utf-8")
 
 

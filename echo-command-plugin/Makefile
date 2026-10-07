@@ -65,13 +65,12 @@ build-linux:
 	cp exec-code/linux/build/*-linux.native64_so "$(BUILD_DIR)/"
 
 PLUGIN_DIR ?= /srv/tuoni/plugins/server
+TUONI ?= tuoni
 
 ## install: Copy plugin JAR to Tuoni server and restart
 .PHONY: install
 install: build
-	sudo cp -- "$(BUILD_DIR)/$(JAR_NAME)" "$(PLUGIN_DIR)/"
-	tuoni server restart
-	@echo "[+] Installed $(JAR_NAME) to $(PLUGIN_DIR) and restarted tuoni"
+	sh scripts/install/install-plugin.sh "$(BUILD_DIR)/$(JAR_NAME)" "$(PLUGIN_DIR)" "$(TUONI)"
 
 ## clean: Remove build artifacts
 .PHONY: clean

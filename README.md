@@ -78,7 +78,16 @@ command/listener codebases, with provenance and documented local compatibility f
 Other OS/architecture combinations are not advertised.
 Use `make install PLUGIN_DIR=/path/to/plugins` to choose the server's plugin directory;
 command-line overrides are passed to every example.
-The `install` target requires the `tuoni` command to be available.
+The `install` target builds the plugin, resolves `tuoni`, copies the JAR, and runs
+`tuoni restart`. It prefers the current user's PATH and login shell, then checks
+root's login shell through `sudo`, including Tuoni's standard `/srv/tuoni/tuoni`
+location. A root installation runs as root; a user installation keeps that user's
+context and uses sudo only if the plugin directory requires it. Missing Tuoni
+fails before the JAR is copied. Use `TUONI=/path/to/tuoni` to choose a specific
+executable; this override also propagates to every example.
+
+New command and listener plugins include the same standalone installer and
+`make install` target, including scaffolds with selected OSs or exec-unit formats.
 
 All example and template Makefiles check Docker access when a build runs. They use
 Docker directly when accessible, including rootless setups. If the local Docker

@@ -215,13 +215,17 @@ def _makefile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -> 
     lines = [
         "#!make", ".DEFAULT_GOAL := help", "",
         "DOCKER ?= sh scripts/docker/run-docker.sh",
-        "BUILD_DIR := build", "",
-        ".PHONY: help build build-dotnet build-linux build-windows-native clean", "",
+        "BUILD_DIR := build",
+        f"JAR_NAME := {jar}",
+        "PLUGIN_DIR ?= /srv/tuoni/plugins/server",
+        "TUONI ?= tuoni", "",
+        ".PHONY: help build build-dotnet build-linux build-windows-native install clean", "",
         "help:",
         "\t@printf '%s\\n' 'make build  Build selected execunits and the plugin JAR with Docker' "
         "'make build-dotnet  Export selected .NET formats' "
         "'make build-linux  Export the Linux native library' "
         "'make build-windows-native  Export Windows native DLLs' "
+        "'make install  Build, copy the plugin JAR to Tuoni and restart' "
         "'make clean  Remove extracted build artifacts'",
         "",
     ]
@@ -269,6 +273,9 @@ def _makefile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -> 
     else:
         lines.extend(unsupported("build-windows-native"))
     lines.extend((
+        "install: build",
+        '\tsh scripts/install/install-plugin.sh "$(BUILD_DIR)/$(JAR_NAME)" "$(PLUGIN_DIR)" "$(TUONI)"',
+        "",
         "clean:",
         "\t@set -eu; \\",
         "\tproject_dir=$$(pwd -P); \\",
