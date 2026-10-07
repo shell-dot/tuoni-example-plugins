@@ -30,7 +30,7 @@ Do not infer Java behavior from a similarly named C# or C++ helper.
 | Source family | Starting source | Advertised artifacts | Existing default |
 | --- | --- | --- | --- |
 | Managed Windows, C# | [Program.cs](../exec-code/win/Program.cs) | Windows x86/x64: `SHELLCODE_NATIVE`, `DOTNET_EXE`, `DOTNET_DLL` | Validate empty configuration, produce `DONE`, report the outcome, release resources. |
-| Native Windows, C++ | [Main.cpp](../exec-code/win-native/command/Main.cpp) | Windows x86/x64: `NATIVE_LIB` DLLs | The same no-op result, with lifecycle ownership in a shared native wrapper. |
+| Native Windows, C++ | [Main.cpp](../exec-code/win-native/command/Main.cpp) | Windows x86/x64: `NATIVE_LIB` DLLs | The same no-op result, with scoped connection ownership and the final report directly in `Main.cpp`. |
 | Linux, C++ | [Main.cpp](../exec-code/linux/command/Main.cpp) | Linux x64: `NATIVE_LIB` shared library | The same no-op result, with scoped connection ownership. |
 
 The three managed formats share the C# behavior. The native Windows DLLs are a

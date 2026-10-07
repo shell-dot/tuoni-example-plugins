@@ -85,8 +85,8 @@ already appends them to the `output` text result. Empty final notifications requ
 no editor changes. Updates are explicitly unsupported until implemented.
 
 The managed/Linux no-op installs no callbacks or background workers. The native
-Windows utility has an owned reader; its callbacks record input and cleanup joins
-the reader before releasing callback state. Before adding asynchronous behavior,
+Windows utility has an owned reader, but the no-op registers no callbacks. Pipe
+destruction cancels and joins the reader. Before adding asynchronous behavior,
 apply the [native ownership requirements](docs/native-runtime.md), including
 replacing the Linux optional detached callback reader with joined work.
 

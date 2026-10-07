@@ -97,6 +97,29 @@ def replace_once(path: Path, old: str, new: str) -> None:
     path.write_text(content.replace(old, new), encoding="utf-8")
 
 
+def reset_generated_verification(root: Path) -> None:
+    """Start a generated copy with its own verification record."""
+    agents = root / "AGENTS.md"
+    content = agents.read_text(encoding="utf-8")
+    content = content.replace(
+        "This is the current source-template snapshot. When editing the source template itself, keep this snapshot accurate for a fresh copy; verification of the template repository is not verification of a newly generated plugin.",
+        "This is a generated plugin. Its source map and support declarations describe this copy; verification of the source template does not verify this plugin.",
+    )
+    content, count = re.subn(
+        r"<!-- template-verification:start -->.*?<!-- template-verification:end -->",
+        "## Generated-plugin verification\n\n"
+        "Build, packaging, artifact, and runtime checks have not been run for this "
+        "generated copy. Record its own commands, results, artifacts, and unavailable "
+        "checks here before claiming verification. Source-template test results "
+        "are not inherited.",
+        content,
+        flags=re.DOTALL,
+    )
+    if count != 1:
+        raise ValueError("Expected one source-template verification section in AGENTS.md")
+    agents.write_text(content, encoding="utf-8")
+
+
 def refresh_generated_context(root: Path, kind: str, slug: str,
                               matrix: dict[str, set[str]]) -> None:
     """Replace template-wide support claims with facts about this generated copy."""
@@ -123,10 +146,6 @@ def refresh_generated_context(root: Path, kind: str, slug: str,
         toolchains.append("C++11/Linux x64")
     agents = root / "AGENTS.md"
     content = agents.read_text(encoding="utf-8")
-    content = content.replace(
-        "This is the current source-template snapshot. When editing the source template itself, keep this snapshot accurate for a fresh copy; verification of the template repository is not verification of a newly generated plugin.",
-        "This is a generated plugin. The support table above defines its advertised targets; retained source files for other targets are available for later expansion.",
-    )
 
     def bullet(prefix: str, replacement: str) -> None:
         nonlocal content
@@ -153,12 +172,6 @@ def refresh_generated_context(root: Path, kind: str, slug: str,
            ", ".join(f"`{name}`" for name in resources) +
            f". Local distributable: `java-plugin/build/libs/{kind}-plugin-{slug}-0.0.1.jar`; "
            f"Docker export: `build/{kind}-plugin-{slug}-0.0.1.jar`.")
-    bullet("Template-source verification:", "- Generated-plugin verification: "
-           "the source template's prior checks do not verify this copy. Build and "
-           "test the selected artifacts before claiming runtime readiness.")
-    if kind == "listener":
-        bullet("Documentation-only orientation", "- Generated-plugin status: "
-               "no build or runtime verification has been performed for this copy.")
     agents.write_text(content, encoding="utf-8")
 
     readme = root / "README.md"
@@ -461,6 +474,7 @@ def scaffold(kind: str, name: Optional[str], folder: Optional[str],
         changes[match.group(1)] = "{" + str(uuid.uuid4()).upper() + "}"
         rewrite_text_files(working_copy, changes)
         rename_sources(working_copy, kind, changes, slug)
+        reset_generated_verification(working_copy)
         if execunits is not None or oses is not None:
             configure_support(working_copy, kind, slug, matrix)
         if destination.exists():
