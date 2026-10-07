@@ -175,6 +175,19 @@ class DockerRunnerTests(unittest.TestCase):
         self.assertEqual(self.docker_arguments()[-1], ["--host", endpoint, "build", "."])
         self.assertEqual(self.calls("docker")[-1][1:4], ["1", "", endpoint])
 
+    def test_api_permission_denial_uses_sudo(self) -> None:
+        error = "permission denied while trying to connect to the docker API at unix:///var/run/docker.sock"
+        for project in PROJECTS:
+            with self.subTest(project=project):
+                result = self.run_helper(
+                    "build", ".", project=REPO_ROOT / project,
+                    TEST_INFO_STATUS="1", TEST_INFO_ERROR=error,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(len(self.calls("sudo")), 1)
+                self.assertEqual(self.docker_arguments()[-1], ["--host", "unix:///var/run/docker.sock", "build", "."])
+                self.assertEqual(self.calls("docker")[-1][1:4], ["1", "", "unix:///var/run/docker.sock"])
+
     def test_sudo_restores_buildkit_default_and_explicit_setting(self) -> None:
         for setting, expected in (("", "1"), ("0", "0")):
             with self.subTest(setting=setting):
