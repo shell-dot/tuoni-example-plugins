@@ -12,10 +12,11 @@ EXAMPLES := echo-command-plugin tcp-listener-plugin dotnet-payload-plugin
 LINUX_EXAMPLES := echo-command-plugin tcp-listener-plugin
 WINDOWS_NATIVE_EXAMPLES := echo-command-plugin tcp-listener-plugin
 
-.PHONY: help build build-dotnet build-linux build-windows-native install install-completion clean new-command new-listener
+.PHONY: help build build-dotnet build-linux build-windows-native install install-completion clean new new-command new-listener
 help:
 	@printf '%s\n' \
 		'Create a plugin from a template (Python 3.9+ required):' \
+		'  make new  Open the interactive plugin wizard (no arguments needed).' \
 		'  make new-command NAME="Daily Check" [FOLDER="path/to/plugin"] [EXECUNITS="native-lib dotnet-dll"] [OS="windows linux"] [PYTHON=python3]' \
 		'  make new-listener NAME="Event Relay" [FOLDER="path/to/plugin"] [EXECUNITS="native-lib dotnet-dll"] [OS="windows linux"] [PYTHON=python3]' \
 		'  Execunits: shellcode-native, dotnet-dll, dotnet-exe, native-lib. OS: windows, linux.' \
@@ -27,6 +28,9 @@ help:
 	for example in $(EXAMPLES); do \
 		$(MAKE) -C "$$example" help; \
 	done
+
+new:
+	@$(PYTHON) tools/new_plugin.py
 
 new-command new-listener:
 	$(if $(strip $(value NAME)),,$(error NAME is required; use make $@ NAME="Plugin Name" [FOLDER="path/to/plugin"] [EXECUNITS="native-lib"] [OS="linux"]))
