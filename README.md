@@ -174,7 +174,34 @@ and extension points. The payload template retains its behavior TODOs.
 From the repository root, use GNU Make and Python 3.9+ to create a command or
 listener plugin.
 
-Install argument completion once:
+For guided creation, launch the terminal wizard:
+
+```sh
+make new
+# Or launch directly, from any directory:
+python3 /path/to/tuoni-example-plugins/tools/new_plugin.py
+```
+
+The wizard walks through plugin type, name, target operating systems, execution
+formats, and destination, then shows a review before creating the plugin. Use
+arrow keys and Space to select options, Enter to continue, Esc or Shift-Tab to go
+back, and Ctrl-C to cancel. Text fields accept spaces without shell quoting;
+Left/Right, Home/End, Backspace/Delete, and Ctrl-U (clear) edit the text. In the
+destination field, Tab completes existing parent directories. Leave it blank to
+use `workspace/commands/<normalized-name>` or `workspace/listeners/<normalized-name>`.
+Custom paths support `~` and resolve relative to the directory you launched from.
+Existing destinations are rejected. The wizard keeps platform and format choices
+compatible, including Linux's `native-lib` requirement.
+
+The TUI uses Python's standard-library `curses` module and needs an interactive
+terminal of at least 64 columns by 22 rows. Use Linux, macOS with a Python build
+that includes curses, or WSL on Windows. It works independently of Bash/Zsh
+completion and requires no extra Python packages. It calls the same generator as
+the Make targets, so new plugins include their build and install Makefile targets.
+Creation requires no Docker or sudo access; after creation it prints the commands
+to build and install the plugin separately.
+
+For the argument-based Make targets, install argument completion once:
 
 ```sh
 make install-completion
