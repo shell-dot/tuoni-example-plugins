@@ -86,7 +86,7 @@ If you add runtime libraries, bundle those dependencies in your plugin JAR.
 Use GNU Make from a Linux shell with Docker configured for Linux containers and
 standard Unix file utilities. On Windows, run the Make targets from a Linux shell
 in WSL with Docker accessible there; PowerShell and CMD cannot run these recipes.
-The repository's example help targets additionally require GNU `sed` and `column`.
+The repository's example help targets use the standard `awk` utility.
 
 Run `make build` in an individual template folder or `templates/`.
 A command or listener build compiles C#, Windows/Linux C++, and Java inside Docker and

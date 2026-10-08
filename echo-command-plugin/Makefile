@@ -13,7 +13,7 @@ COMMANDS   := echo echo-ongoing echo-ongoing-file echo-ongoing-more-data
 .PHONY: help
 help:
 	@printf '[*] usage: make <target>\n\n'
-	@sed -nr 's/^##\s+/\t/p' $(MAKEFILE_LIST) | column -t -s ':'
+	@awk -F ': ' '/^## / { target=$$1; sub(/^## /, "", target); printf "  %-22s %s\n", target, substr($$0, index($$0, ": ") + 2) }' $(MAKEFILE_LIST)
 
 ## build: Build the plugin JAR and commands inside Docker and extract to build/
 .PHONY: build

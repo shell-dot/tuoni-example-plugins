@@ -12,7 +12,7 @@ JAR_NAME   := tuoni-example-plugin-tcp-listener-0.0.1.jar
 .PHONY: help
 help:
 	@printf '[*] usage: make <target>\n\n'
-	@sed -nr 's/^##\s+/\t/p' $(MAKEFILE_LIST) | column -t -s ':'
+	@awk -F ': ' '/^## / { target=$$1; sub(/^## /, "", target); printf "  %-22s %s\n", target, substr($$0, index($$0, ": ") + 2) }' $(MAKEFILE_LIST)
 
 ## build: Build the plugin JAR and listener inside Docker and extract to build/
 .PHONY: build
