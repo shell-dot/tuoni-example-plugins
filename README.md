@@ -172,7 +172,56 @@ and extension points. The payload template retains its behavior TODOs.
 ## Create a Plugin from a Template
 
 From the repository root, use GNU Make and Python 3.9+ to create a command or
-listener plugin:
+listener plugin.
+
+Install argument completion once:
+
+```sh
+make install-completion
+```
+
+The installer automatically detects Bash or Zsh from your login shell
+(`$SHELL`). Zsh uses its native completion system, including on Kali, and
+installation adds a guarded source block to your `.zshrc` (respecting
+`ZDOTDIR`). Bash requires Bash 4.2+ and the `bash-completion` package. If you want
+to configure a different shell, optionally add `COMPLETION_SHELL=zsh` or
+`COMPLETION_SHELL=bash`.
+Open a new shell, or load the installed script in your current shell:
+
+```sh
+# Bash
+source "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions/make"
+# Zsh
+source "${XDG_DATA_HOME:-$HOME/.local/share}/zsh/tuoni-make-completion.zsh"
+```
+
+On macOS, the default Zsh uses the same `make install-completion` command;
+no Homebrew completion package is needed. Make and Python 3.9+ must be available.
+For Bash, use Homebrew's modern Bash and `bash-completion@2`:
+
+```sh
+brew install bash bash-completion@2
+```
+
+Enable bash-completion in your Bash startup files as described in
+[Homebrew's instructions](https://docs.brew.sh/Shell-Completion#bash), then run
+`make install-completion` from that Bash setup. Apple's bundled Bash 3.2 is
+unsupported. The loader recognizes Intel, Apple Silicon, and custom Homebrew
+prefixes. The native Zsh completion has been tested on Linux; it has not yet
+been tested on a Mac host.
+
+After `make new-command` or `make new-listener`, Tab completes `NAME=`, `FOLDER=`,
+`EXECUNITS=`, `OS=`, and `PYTHON=`. For example, `EX` followed by Tab becomes
+`EXECUNITS=`; `EXECUNITS=nat` becomes `EXECUNITS=native-lib`. Add a comma and press
+Tab to choose another format without quoting a space-separated list. `OS` works
+the same way, and `FOLDER` completes directories and escapes spaces. Already
+selected options/values are omitted; `OS=linux` offers only `native-lib`, and
+managed-only formats offer only Windows. Normal Make target/flag completion is
+retained. `NAME` is free text: use `NAME=DailyCheck`, or quote a name with spaces.
+To try completion without installing it, source `tools/make-completion.bash`
+in Bash or `tools/make-completion.zsh` in Zsh.
+
+For example:
 
 ```sh
 make new-command NAME="Daily Check"

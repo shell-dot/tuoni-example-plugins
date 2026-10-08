@@ -11,9 +11,9 @@ JAR_NAME   := tuoni-example-plugin-dotnet-payload-0.0.1.jar
 ## help: List all available make targets with descriptions
 .PHONY: help
 help:
-	@echo -e "[*] usage: make <target>"
+	@printf '%s\n' '[*] usage: make <target>'
 	@echo ""
-	@sed -nr 's/^##\s+/\t/p' $(MAKEFILE_LIST) | column -t -s ':'
+	@awk -F ': ' '/^## / { target=$$1; sub(/^## /, "", target); printf "  %-22s %s\n", target, substr($$0, index($$0, ": ") + 2) }' $(MAKEFILE_LIST)
 
 ## build: Build the plugin JAR inside Docker and extract to build/
 .PHONY: build

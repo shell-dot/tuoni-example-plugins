@@ -12,7 +12,7 @@ EXAMPLES := echo-command-plugin tcp-listener-plugin dotnet-payload-plugin
 LINUX_EXAMPLES := echo-command-plugin tcp-listener-plugin
 WINDOWS_NATIVE_EXAMPLES := echo-command-plugin tcp-listener-plugin
 
-.PHONY: help build build-dotnet build-linux build-windows-native install clean new-command new-listener
+.PHONY: help build build-dotnet build-linux build-windows-native install install-completion clean new-command new-listener
 help:
 	@printf '%s\n' \
 		'Create a plugin from a template (Python 3.9+ required):' \
@@ -20,6 +20,8 @@ help:
 		'  make new-listener NAME="Event Relay" [FOLDER="path/to/plugin"] [EXECUNITS="native-lib dotnet-dll"] [OS="windows linux"] [PYTHON=python3]' \
 		'  Execunits: shellcode-native, dotnet-dll, dotnet-exe, native-lib. OS: windows, linux.' \
 		'  Default destinations: workspace/commands/<normalized-name> and workspace/listeners/<normalized-name>.' \
+		'  make install-completion  Detect Bash/Zsh automatically and enable Tab completion.' \
+		'  Comma-separated lists avoid quotes: EXECUNITS=native-lib,dotnet-dll OS=windows,linux.' \
 		''
 	@set -e; \
 	for example in $(EXAMPLES); do \
@@ -29,6 +31,9 @@ help:
 new-command new-listener:
 	$(if $(strip $(value NAME)),,$(error NAME is required; use make $@ NAME="Plugin Name" [FOLDER="path/to/plugin"] [EXECUNITS="native-lib"] [OS="linux"]))
 	@$(PYTHON) tools/scaffold_plugin.py $(patsubst new-%,%,$@) --name=$(call shell_quote,$(value NAME)) $(if $(strip $(value FOLDER)),--folder=$(call shell_quote,$(value FOLDER))) $(if $(filter command line,$(origin EXECUNITS)),--execunits=$(call shell_quote,$(value EXECUNITS))) $(if $(filter command line,$(origin OS)),--os=$(call shell_quote,$(value OS)))
+
+install-completion:
+	@$(PYTHON) tools/install_make_completion.py $(if $(COMPLETION_SHELL),--shell $(COMPLETION_SHELL))
 
 build build-dotnet install clean:
 	@set -e; \
