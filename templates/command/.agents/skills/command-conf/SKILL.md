@@ -1,0 +1,88 @@
+---
+name: command-conf
+description: Implement a user's configuration fields for a Tuoni command plugin, including Java schema and validation plus payload delivery to every supported exec-unit.
+---
+
+# Command configuration
+
+**Windows `native-lib` requirement:** Project-authored C++ must not throw/rethrow or use exceptions for error handling. Use checked status/results and follow [the Windows exception policy](../../../docs/native-memory-safety.md#windows-no-authored-exceptions), including its distinction between authored failures and defensive dependency-exception containment.
+
+**Native C/C++ review.** For Windows or Linux `native-lib` changes, read the [native memory-safety review](../../../docs/native-memory-safety.md) after project context and before editing C++, including configuration/output helpers. Identify buffer owners and valid lengths, check arithmetic before access, and review callback lifetimes and shared state. Investigate suspected faults in an isolated local test process; compilation or `catch (...)` is not memory-safety evidence.
+
+Read the [exec-unit overview](../../../docs/execunit-overview.md) after project
+context for a plain-language map of all three source families, their artifact
+formats, and the current default lifecycle. Separate implemented behavior from
+examples and TODOs; verify these starting facts against the selected plugin.
+
+When the developer limits OSs, architectures, or exec-unit formats, follow the
+[support-scope guide](../../../docs/support-scope.md). Explicit limits take
+precedence over generic coverage instructions such as "all exec-units," "every
+native decoder," or "both generation paths" below. Distinguish a task or test
+limit from a change to the supported set, and preserve coverage on unspecified
+dimensions.
+
+The [default configuration](../../../README.md#default-behavior) already accepts only an empty JSON object (including whitespace and multipart input with no files) and rejects fields/uploads. Both generation paths share `serializeConfiguration()`, which returns a fresh zero-length buffer; managed Windows, native Windows, and Linux entrypoints validate zero payload bytes. Add typed models and parsers when fields are requested, preserving the working `DONE` result and completion path.
+
+Before editing, read the plugin-root `AGENTS.md` and `CLAUDE.md` when present, including their referenced project context and applicable instructions. Follow the [context maintenance guide](../../../docs/project-context.md) to create missing context and preserve the existing organization. Verify recorded facts against the files you change.
+
+**Failure cleanup is mandatory before `Main` / `start` / `run` returns.** A failed invocation must leave the host alive and safe to unload the library immediately. Implement cleanup before operation logic: give each invocation scoped ownership (RAII in C++), contain exceptions across the entire entrypoint and every worker/callback, and make cleanup nonthrowing and safe after partial startup. Every success, error, cancellation and disconnect path must stop new work, unblock owned I/O, unregister/drain callbacks, join/await all owned workers, then release resources before returning. Never terminate the host, detach work, destroy a joinable `std::thread`, or treat a sleep/join timeout as cleanup. Read the [failure-path cleanup gate](../../../docs/native-runtime.md#failure-path-cleanup-before-return) before editing native code, including reused helpers.
+
+**Error reporting must not break cleanup.** Audit construction, connect, parsing, execution, result/error/terminal sends and cleanup itself; a trailing `close()` or one catch around the operation is insufficient. Error encoding/sending can fail: contain its exceptions, protect Linux writes against `SIGPIPE` without changing host-wide signal handlers, and finish cleanup even when reporting fails. C++ catch blocks do not catch signals or make invalid memory access safe. Before declaring the native path complete, force operation/startup/reporting failures and verify host survival, no owned work/resources left behind, and immediate compatible-host unload/repeated invocation under the [lifecycle checks](../../../docs/native-runtime.md#required-lifecycle-verification). A successful Docker build is not stability proof; record unavailable runtime checks explicitly.
+
+**Command completion is mandatory before the exec-unit returns.** Every invocation must reach one completion owner. Before `Main`, `start`, or `run` returns or the reporting connection closes, send exactly one checked `sendReturnSuccess()` on success or `sendReturnFailed()` on failure while the connection is usable. This includes empty success, early exits, invalid configuration, exceptions and cancellation. **`sendError(...)` only sends diagnostic text; it does not mark the command failed and never replaces `sendReturnFailed()`.** Output, logs and a return code do not finish the command either. Failure to format an error must not skip failure completion. Resolve operation-worker failures and drain result writes before success; never silently return or send both outcomes. Apply the [command completion gate](../../../docs/command-completion.md), including actual host terminal-state tests and observable failure handling when the channel cannot deliver.
+
+**Full Docker build is mandatory.** Unless the user explicitly overrides the build requirement or route, run `make build` from this plugin's root in a Linux/WSL shell after substantial coherent steps and after the final code/build-input change. This applies to focused configuration, logic, and output changes too. Build every in-scope exec-unit, perform required conversion, and compile/package/export the Java plugin. Actually execute the command, wait for completion, and verify its artifacts using the [full-build gate](../../../docs/building.md#required-build-checkpoints). Partial targets, a Java-only compile, or a planned command do not satisfy this requirement. Fix build errors and rerun the full pipeline. If Docker is missing or unusable, inform the user and report builds blocked; no automatic local fallback.
+
+**Java artifact and initialization gate.** Check actual SDK signatures and dependency ownership before Java edits. Bundle every plugin-owned runtime dependency and its transitives in the exported distributable; `implementation` alone and server-provided Jackson are insufficient. Keep SDK/verified host contracts separate. Follow [Java verification](../../../docs/java-verification.md): run the copied archive checker against the exact exported JAR (including `--jackson3` when used), then run an isolated Docker startup/factory smoke test using that JAR and the verified loader boundary. Exercise providers, initialization, metadata/schema/examples and valid/invalid factory paths; never use Gradle's normal runtime classpath to hide missing dependencies. Record the JAR path/hash and results. Failed or untested initialization cannot be reported as working merely because the full build passed.
+
+**Configuration and response agreement.** Apply the [byte-verification gate](../../../docs/payload-verification.md): compare actual Java configuration bytes with every native decoder, then separately verify those same bytes through the real IPC framing/unwrapping path. Normalize outgoing SDK configuration buffers to position zero and exact payload length. Feed actual native responses into the real Java receiver/parser. Preserve the payload/host-envelope boundary and retain regression fixtures for frame errors.
+
+Before finishing this skill, create or update that project context, including after partial work. Record the implemented schema fields/defaults/validation, configuration classes and codec paths, payload format and versioning, startup/update behavior, platforms changed, checks performed, artifact freshness, and remaining limitations. Link a detailed contract when one exists.
+
+Use this skill in the plugin root containing `java-plugin/` and `exec-code/`. Add or change the fields, defaults, and validation rules requested by the user. Reuse existing configuration classes and codecs; preserve unrequested fields, defaults, behavior, result formatting, and established payload fields. If a rule is unspecified, choose a sensible rule from the field's purpose and document it.
+
+For a fresh configuration, follow step 3 of the [minimum implementation path](../../../docs/implementation-recipes.md#minimum-path); its [one-value trace](../../../docs/implementation-recipes.md#one-value-trace) gives a small complete field contract and byte fixture. A no-input command accepts a validated empty object; do not inherit sample fields from a walkthrough. Read upload/update sections only when those features are needed.
+
+Inventory every exec-unit implementation under `exec-code/` and reconcile it with the Java support declarations. Implement the change in all existing OS/architecture implementations unless the user limits the scope. Read the [IPC reference](../../../docs/execunit-ipc.md) when changing native configuration exchange or callbacks, and the [build guide](../../../docs/building.md) when adding dependencies or verifying artifacts.
+
+Read the [configuration patterns from existing plugins](../../../docs/existing-plugins.md#configuration) when selecting a typed model, codec, or validation approach. Trace each field from schema/defaults through Java serialization to every native decoder; record width, signedness, units, cardinality, and omission behavior. Use standard Java byte/text APIs or an explicitly declared JSON parser; do not assume server-internal libraries are SDK APIs.
+
+## Java plugin
+
+Find the current Java package under `java-plugin/src/main/java/`. For this plugin, update these files under `com/example/tuoni/command/`:
+
+For a new parser/codec, read the copied [configuration implementation guide](../../../docs/configuration.md): it gives the factory-to-native data flow, verified SDK validation/upload APIs, and Java payload examples and C#/C++ decoder integration points. Its sample fields are examples; retain this plugin's established contract.
+
+- `TemplateConfigurationSchema.java`: extend `jsonSchema()` with Draft 2020-12 properties, required fields, bounds, formats, and the requested unknown-property policy. Schema defaults and formats do not themselves enforce runtime behavior; apply the same defaults and checks in Java.
+- Reuse or create `TemplateCommandConfiguration.java` (or the current command's equivalent) as the typed configuration class. Parse `JsonConfiguration.toJSON()`, or `MultipartConfiguration.jsonConfiguration().toJSON()` plus its file parts. Reject malformed or unsupported input with field-specific `ValidationException`. Keep required values, ranges, cross-field checks, and defaults consistent with the schema, including the distinction between omitted, null, and zero values.
+- For uploads, set `fileSchemas()` and consume the matching `MultipartConfiguration` file parts. Define the size limits and how file bytes and required metadata reach the native configuration; describing a file in the schema alone does not transmit it.
+- If parsing uses Jackson or another library, update `java-plugin/build.gradle.kts` with the matching dependency and bundle its runtime dependencies in the distributable JAR as described in the build guide. The SDK supplies no JSON parser.
+- `TemplateCommandTemplate.java`: make `validateConfiguration` and `createCommand` use the same typed parser and pass validated configuration to the command. The default already validates `{}`; preserve valid empty input when the schema has no fields. Keep example configurations consistent with the resulting schema.
+- `TemplateCommand.java`: retain the typed configuration and serialize it consistently in `generateExecUnit` and `generateShellCode`. Preserve resource selection and pipe-name replacement. If the command accepts live updates, use the same documented contract in `serializeCommandUpdate`, register the native update callbacks described in the IPC reference, and validate before swapping active state. Retain explicit unsupported-update behavior otherwise.
+
+When adding configuration fields to a fresh template, make these concrete handoff edits:
+
+1. In `TemplateCommandTemplate.createCommand`, replace the validate-then-pass-raw sequence with a call to the typed parser and pass its result to `new TemplateCommand(...)`. Keep `validateConfiguration` calling that same parser.
+2. Change the `TemplateCommand` constructor's configuration parameter to the typed class and assign an instance field. Extend the shared `serializeConfiguration()` helper to encode that field (one immutable snapshot if updates are supported).
+3. Keep `.configuration(serializeConfiguration())` in `generateExecUnit` using that shared encoder.
+4. Keep the second argument of `new ShellCodeWithConf(...)` inside `generateShellCode` using `serializeConfiguration()`. Both paths must receive the same inner payload bytes; leave native resource selection and IPC framing with their existing owners.
+
+## Payload contract
+
+Choose an inner payload format that fits the requested data and can be implemented with the project's actual dependencies: UTF-8 text, JSON, or a documented binary layout are common choices. Java generation methods supply only these payload bytes, and `parseResult` receives only result payload bytes. The SDK/agent and native pipe helpers own the outer framing described in the [IPC reference](../../../docs/execunit-ipc.md#payload-boundary). No Java transport-codec library is required.
+
+Document the configuration/result fields, encoding, size bounds, omission/default behavior and any versioning needed for compatibility. For binary layouts, specify byte order, width, signedness and length units. For JSON, validate types, unknown-field policy and defaults in Java and each native reader. A no-field command can use an empty payload. Define full replacement versus partial update semantics when updates are requested, and retain the existing working state on rejected updates.
+
+Return a fresh independent `ByteBuffer` with position zero and limit equal to the exact payload length for each serialization call. Normalize an offset range with a slice or exact-range copy; duplicating a nonzero-position buffer does not normalize it. Bound payload sizes before allocation and check offsets/lengths, malformed text and invalid required values before publishing configuration. Keep error messages field-specific. Java does not add the host envelope or pipe length prefix.
+
+## Exec-units
+
+A validation or startup failure after connection must reach the completion owner and produce failure completion before the channel closes. Java factory validation errors use the actual SDK failure path before an exec-unit starts; never fabricate native success for rejected configuration. Use the [native startup and method map](../../../docs/native-runtime.md) for exact helper files, initialization ownership, and configuration-failure reporting.
+
+Within the requested OS/architecture/format scope, cover every exec-unit found in the inventory, including source implementations missing from the advertised list. Record discrepancies using the support-scope guide; explicit exclusions do not require implementation work. Apply the same configuration semantics to additional in-scope platforms beyond the Windows/Linux paths below.
+
+- Managed Windows (shellcode, .NET DLL, and .NET EXE): extend the existing typed configuration/parser, or create `exec-code/win/Configuration.cs` and add it to `exec-code/win/command-execunit.csproj`. Call it from `exec-code/win/Program.cs` before behavior starts. Extend the implemented helper APIs according to the IPC reference, retain the connection for subsequent messages, and keep `QQQWWWEEE` for shellcode and `args[0]` for managed EXE/DLL pipe names.
+- Native Windows: decode the configuration in `exec-code/win-native/command/Main.cpp` after checked `TryConnect` and before behavior starts. Keep the scoped pipe and single completion owner in that entrypoint. Add new parser translation units to `exec-code/win-native/build_windows.sh` for both x86 and x64. Preserve the `start(const char*)` export and the copied utilities under `exec-code/win-native/exec-unit-utils/`; see [Windows native DLLs](../../../docs/windows-native.md).
+- Linux: extend or create a typed configuration parser beside `exec-code/linux/command/Main.cpp`, include new `.cpp` sources in `exec-code/linux/build_linux.sh`, and parse `CommunicationNamedPipes::connect()` bytes before behavior starts. Update the shared helpers where needed to implement validated framing and failure handling.
+
+Test Java validation and factory creation with valid input, including `{}` when no fields are required, and malformed/invalid cases. Verify Java encoder bytes against every native decoder at startup and during supported updates. Preserve the previous working state on rejected updates. Execute the complete Docker `make build` from the plugin root, wait for its exit status, and verify its exported native artifacts and packaged JAR as the build guide describes. Record the command, working directory, exit status and artifact paths. Report unavailable checks and behavior TODOs outside the configuration request.

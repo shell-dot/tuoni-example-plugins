@@ -1,0 +1,72 @@
+---
+name: command-output
+description: Change a Tuoni command's result content and presentation from every existing exec-unit through Java result parsing, based on the user's requested output.
+---
+
+# Command output
+
+**Windows `native-lib` requirement:** Project-authored C++ must not throw/rethrow or use exceptions for error handling. Use checked status/results and follow [the Windows exception policy](../../../docs/native-memory-safety.md#windows-no-authored-exceptions), including its distinction between authored failures and defensive dependency-exception containment.
+
+**Native C/C++ review.** For Windows or Linux `native-lib` changes, read the [native memory-safety review](../../../docs/native-memory-safety.md) after project context and before editing C++, including configuration/output helpers. Identify buffer owners and valid lengths, check arithmetic before access, and review callback lifetimes and shared state. Investigate suspected faults in an isolated local test process; compilation or `catch (...)` is not memory-safety evidence.
+
+Read the [exec-unit overview](../../../docs/execunit-overview.md) after project
+context for a plain-language map of all three source families, their artifact
+formats, and the current default lifecycle. Separate implemented behavior from
+examples and TODOs; verify these starting facts against the selected plugin.
+
+When the developer limits OSs, architectures, or exec-unit formats, follow the
+[support-scope guide](../../../docs/support-scope.md). Explicit limits take
+precedence over generic coverage instructions such as "all exec-units," "every
+native decoder," or "both generation paths" below. Distinguish a task or test
+limit from a change to the supported set, and preserve coverage on unspecified
+dimensions.
+
+The [default result](../../../README.md#default-behavior) is exactly `DONE` (`44 4f 4e 45`), without a newline or terminator. All three exec-unit implementations check `sendResult`; Java strictly decodes complete UTF-8 payloads, appends to `output`, and commits. Empty final notifications preserve the displayed text; native terminal reports determine success. Extend this existing sender/parser path.
+
+Before editing, read the plugin-root `AGENTS.md` and `CLAUDE.md` when present, including their referenced project context and applicable instructions. Follow the [context maintenance guide](../../../docs/project-context.md) to create missing context and preserve the existing organization. Verify recorded facts against the files you change.
+
+**Failure cleanup is mandatory before `Main` / `start` / `run` returns.** A failed invocation must leave the host alive and safe to unload the library immediately. Implement cleanup before operation logic: give each invocation scoped ownership (RAII in C++), contain exceptions across the entire entrypoint and every worker/callback, and make cleanup nonthrowing and safe after partial startup. Every success, error, cancellation and disconnect path must stop new work, unblock owned I/O, unregister/drain callbacks, join/await all owned workers, then release resources before returning. Never terminate the host, detach work, destroy a joinable `std::thread`, or treat a sleep/join timeout as cleanup. Read the [failure-path cleanup gate](../../../docs/native-runtime.md#failure-path-cleanup-before-return) before editing native code, including reused helpers.
+
+**Error reporting must not break cleanup.** Audit construction, connect, parsing, execution, result/error/terminal sends and cleanup itself; a trailing `close()` or one catch around the operation is insufficient. Error encoding/sending can fail: contain its exceptions, protect Linux writes against `SIGPIPE` without changing host-wide signal handlers, and finish cleanup even when reporting fails. C++ catch blocks do not catch signals or make invalid memory access safe. Before declaring the native path complete, force operation/startup/reporting failures and verify host survival, no owned work/resources left behind, and immediate compatible-host unload/repeated invocation under the [lifecycle checks](../../../docs/native-runtime.md#required-lifecycle-verification). A successful Docker build is not stability proof; record unavailable runtime checks explicitly.
+
+**Command completion is mandatory before the exec-unit returns.** Every invocation must reach one completion owner. Before `Main`, `start`, or `run` returns or the reporting connection closes, send exactly one checked `sendReturnSuccess()` on success or `sendReturnFailed()` on failure while the connection is usable. This includes empty success, early exits, invalid configuration, exceptions and cancellation. **`sendError(...)` only sends diagnostic text; it does not mark the command failed and never replaces `sendReturnFailed()`.** Output, logs and a return code do not finish the command either. Failure to format an error must not skip failure completion. Resolve operation-worker failures and drain result writes before success; never silently return or send both outcomes. Apply the [command completion gate](../../../docs/command-completion.md), including actual host terminal-state tests and observable failure handling when the channel cannot deliver.
+
+**Full Docker build is mandatory.** Unless the user explicitly overrides the build requirement or route, run `make build` from this plugin's root in a Linux/WSL shell after substantial coherent steps and after the final code/build-input change. This applies to focused configuration, logic, and output changes too. Build every in-scope exec-unit, perform required conversion, and compile/package/export the Java plugin. Actually execute the command, wait for completion, and verify its artifacts using the [full-build gate](../../../docs/building.md#required-build-checkpoints). Partial targets, a Java-only compile, or a planned command do not satisfy this requirement. Fix build errors and rerun the full pipeline. If Docker is missing or unusable, inform the user and report builds blocked; no automatic local fallback.
+
+**Java artifact and initialization gate.** Check actual SDK signatures and dependency ownership before Java edits. Bundle every plugin-owned runtime dependency and its transitives in the exported distributable; `implementation` alone and server-provided Jackson are insufficient. Keep SDK/verified host contracts separate. Follow [Java verification](../../../docs/java-verification.md): run the copied archive checker against the exact exported JAR (including `--jackson3` when used), then run an isolated Docker startup/factory smoke test using that JAR and the verified loader boundary. Exercise providers, initialization, metadata/schema/examples and valid/invalid factory paths; never use Gradle's normal runtime classpath to hide missing dependencies. Record the JAR path/hash and results. Failed or untested initialization cannot be reported as working merely because the full build passed.
+
+**Configuration and response agreement.** Apply the [byte-verification gate](../../../docs/payload-verification.md): compare actual Java configuration bytes with every native decoder, then separately verify those same bytes through the real IPC framing/unwrapping path. Normalize outgoing SDK configuration buffers to position zero and exact payload length. Feed actual native responses into the real Java receiver/parser. Preserve the payload/host-envelope boundary and retain regression fixtures for frame errors.
+
+Before finishing this skill, create or update that project context, including after partial work. Record the native payload fields/encoding and sender locations, Java receiver/parser locations, streaming/version behavior, presentation surfaces and result names, platform coverage, checks performed, artifact freshness, and remaining limitations.
+
+Use this skill from a command plugin copied from this template when the user specifies what they want to see or receive from the command. Preserve the implemented command behavior. Turn the requested fields, labels, ordering, text, binary data, files, and error details into an explicit result contract; infer a simple presentation for details the prompt leaves open.
+
+Start with the [behavior selector](../../../docs/implementation-recipes.md#choose-the-needed-behavior): one value, repeated rows in one result, streaming results and files need different paths. The [one-value trace](../../../docs/implementation-recipes.md#one-value-trace) covers the native sender and completion contracts, exact Java parser checks and expected transport/payload bytes. Use its simple path when sufficient; load accumulator/merger guidance only for multipart output.
+
+Reuse the current codecs and retain unrequested result fields and configuration/payload contracts. If older exec-units can still return data, preserve decoding compatibility or introduce an explicit version transition. Read the [IPC reference](../../../docs/execunit-ipc.md) for result framing and streaming modes and the [build guide](../../../docs/building.md) for parser dependencies and packaging.
+
+Inventory every implementation under `exec-code/` and the Java support methods in `TemplateCommandTemplate.java` and `TemplateCommand.java`. Apply the requested OS/architecture/format scope to the affected exec-units. Keep their result field meanings and encoding consistent so one Java parser can handle them. Do not reduce advertised support merely to avoid requested work; explicit support restrictions still apply.
+
+Choose an inner payload format that fits the requested data and can be implemented with the project's actual dependencies: UTF-8 text, JSON, or a documented binary layout are common choices. Java generation methods supply only these payload bytes, and `parseResult` receives only result payload bytes. The SDK/agent and native pipe helpers own the outer framing described in the [IPC reference](../../../docs/execunit-ipc.md#payload-boundary). No Java transport-codec library is required.
+
+Use the [existing result patterns](../../../docs/existing-plugins.md#results-and-state) to choose between one complete value and multipart results. Keep decoding, merging, and presentation separate when results span messages. Scope accumulator state to the command instance or its validated `previousResult`; never store per-command state on a shared template.
+
+## Exec-unit data
+
+If transport helpers or runtime ownership still need implementation, follow the [native implementation map](../../../docs/native-runtime.md), preserving the implemented invocation-wide pipe ownership on managed Windows, native Windows, and Linux.
+
+- In `exec-code/win/Program.cs` and the code it calls, collect the facts required for the requested output and send them through the checked `CommunicationNamedPipesCommand.sendResult` helper. The files under `exec-code/win/exec-unit-utils/` implement the result transport; preserve their full-frame write and cleanup contracts. Keep the IPC connection open until results and completion have been sent. Add new C# sources to `exec-code/win/command-execunit.csproj`.
+- In `exec-code/win-native/command/Main.cpp` and its owned behavior helpers, send the same payload through the copied `ExecUnitUtils::CommunicationNamedPipesCommand.sendResult` API, check its return value, and retain the single completion owner in `start`. Add new C++ translation units to `exec-code/win-native/build_windows.sh` for x86 and x64; keep the `start` export and copied `exec-unit-utils/` host-envelope boundary.
+- In `exec-code/linux/command/Main.cpp` and the code it calls, send equivalent data through `CommunicationNamedPipes::sendResult`. Add new C++ sources to `exec-code/linux/build_linux.sh`.
+
+Define the payload shared by native senders and Java: field meanings, encoding, size bounds, and handling of multiple chunks and empty values. Use plain UTF-8 for simple text, or JSON/a documented binary layout when structured data warrants it. Send raw facts or requested file bytes that Java can format, rather than hard-coding a platform-specific display in each exec-unit. Keep `sendError` and terminal failure separate from result payloads. Empty output still requires success completion; output encoding failure selects failure completion. Drain all required result writes before the single terminal frame, and do not write results/errors afterward. Verify both Java-visible output and the host's final command state; do not use stdout as the result channel.
+
+When output becomes ongoing, configure `sendConf_ongoingResult()` before sending it. When using relay-in-blocks, enable the matching option on each platform and coordinate Java record reassembly. Follow the IPC reference for the option encoding and completion ordering; repeated `sendResult` calls alone do not configure the agent's forwarding mode.
+
+## Java presentation
+
+Read the [output guide](../../../docs/output.md) for exact editor signatures, complete-value versus streaming parsing, strict UTF-8 examples, and bounded reassembly. Reuse existing parser state rather than creating competing accumulators.
+
+In `java-plugin/src/main/java/com/example/tuoni/command/TemplateCommand.java`, update `parseResult` to decode exactly that payload from the supplied `ByteBuffer`. Check lengths and encodings, handle partial/final results when needed, and throw `SerializationException` for malformed data. Use `CommandResultEditor` to produce the user's requested presentation: for example `setTextResult` or `appendTextResult` for text, `setByteArrayResult` for bytes, and `setFile` or `appendToFile` for downloadable files. Use clear field names and `commit()` the result. Apply formatting here when possible so Windows and Linux display the same way. Update `TemplateCommandTemplate.java` or the plugin README if the result description needs to change.
+
+Verify representative output from every exec-unit against the Java parser, including empty/final notifications, large or chunked records, split UTF-8, and malformed data when relevant. Check visible result fields or downloaded bytes. Execute the complete Docker `make build` from the plugin root, wait for its exit status, and verify its exported native artifacts and packaged JAR as the build guide describes. Record the command, working directory, exit status and artifact paths. Report unavailable platform/runtime checks.

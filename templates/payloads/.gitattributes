@@ -1,0 +1,4 @@
+# Preserve these rules when copying this template into its own repository.
+gradlew text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf

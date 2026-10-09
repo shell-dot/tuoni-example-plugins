@@ -1,0 +1,22 @@
+{
+  "source": "listeners_default/listeners/simple_tcp_listener/execunits/windows/TcpListenerNativeDll",
+  "files": {
+    "CommunicationNamedPipes.h": "9b44153fbee64c5f309325413e9bc3f0431f8223fe56ba29bb0fa3b97a349617",
+    "CommunicationNamedPipes.cpp": "3922e5c30ecbdb4e20650a73c67897f656a0ea43838c83c47b481c64e26e8037",
+    "TLV.h": "9a3f1fab89e2e8b7195610b89ad8a07cb46ee80f21115794bae478c473670781",
+    "TLV.cpp": "cd7dd85f6399017a7fd83ae800161f0894e1836b7347dab216d16804eb62949c",
+    "TLV.tpp": "6b224c28e2fd6e66d3f49eda6392c8ab90424613b8e9ca853faad57f54f52fa3",
+    "Conversions.h": "ea458f23075abe251693ff02ed612ad5ff65f6a712ca789d73c1098aad775394",
+    "Conversions.cpp": "95b3fb4ac1f1540e1bfc5d7e3320b61d4c7a2c51be7d41699452ac21705d2256",
+    "RaiiHelpers.h": "ddf6763bc173a522e3502f516f1749ac8300caf18dabd4b7ef75d1524232cc3a"
+  },
+  "locally_modified": [
+    "CommunicationNamedPipes.h",
+    "CommunicationNamedPipes.cpp",
+    "TLV.h",
+    "TLV.cpp",
+    "Conversions.h",
+    "RaiiHelpers.h"
+  ],
+  "hash_normalization": "CRLF to LF"
+}
