@@ -23,13 +23,50 @@ import scaffold_plugin as scaffold
 
 KINDS = ("command", "listener")
 STEPS = ("Type", "Name", "Platforms", "Formats", "Destination", "Review")
+KIND_DESCRIPTIONS = {
+    "command": "Run tasks and return results.",
+    "listener": "Manage incoming connections.",
+}
 FORMAT_LABELS = {
-    "shellcode-native": "Native shellcode (Windows)",
-    "dotnet-dll": ".NET DLL (Windows)",
-    "dotnet-exe": ".NET executable (Windows)",
-    "native-lib": "Native library (Windows DLL / Linux .so)",
+    "shellcode-native": "Native shellcode",
+    "dotnet-dll": ".NET DLL",
+    "dotnet-exe": ".NET executable",
+    "native-lib": "Native library",
 }
 EXPECTED_ERRORS = (OSError, ValueError, RuntimeError)
+
+# Traced from Tuoni's official hood, globe, and circuit insignia. Static ASCII
+# keeps the original silhouette without image or terminal graphics dependencies.
+ART_DIRECTORY = Path(__file__).resolve().parent / "art"
+TUONI_LOGO = tuple((ART_DIRECTORY / "tuoni.txt").read_text(encoding="ascii").splitlines())
+COMPACT_LOGO = tuple((ART_DIRECTORY / "tuoni-small.txt").read_text(encoding="ascii").splitlines())
+COMPACT_WORDMARK = (
+    r" ___   _ _   ___   _  _   ___ ",
+    r"  |   | | | |   | | \| |   |  ",
+    r"  |   |___| |___| |_|\_|  _|_ ",
+)
+TUONI_WORDMARK = (
+    r" _______ _    _  ____  _   _ _____ ",
+    r"|__   __| |  | |/ __ \| \ | |_   _|",
+    r"   | |  | |  | | |  | |  \| | | |  ",
+    r"   | |  | |__| | |__| | |\  |_| |_ ",
+    r"   |_|   \____/ \____/|_| \_|_____|",
+)
+PLUGIN_PLUG = (
+    r"   | |   ",
+    r" .-+-+-. ",
+    r" | [+] | ",
+    r" '-----' ",
+    r"    ||   ",
+    r"    ||   ",
+    r" plugins ",
+)
+
+
+def banner_art() -> tuple[str, ...]:
+    word_width = max(map(len, COMPACT_WORDMARK))
+    wordmark = (*COMPACT_WORDMARK, "NEW PLUGIN".center(word_width))
+    return tuple(f"{name:<{word_width}}     {plug}" for name, plug in zip(wordmark, PLUGIN_PLUG))
 
 
 @dataclass
@@ -86,7 +123,7 @@ class PluginPlan:
     def toggle_format(self, value: str) -> None:
         if value in self.formats:
             if value == "native-lib" and "linux" in self.systems:
-                raise ValueError("Linux requires native-lib. Remove Linux to select only Windows formats.")
+                raise ValueError("Linux requires native-lib; deselect Linux to remove it.")
             if len(self.formats.intersection(self.available_formats)) == 1:
                 raise ValueError("Select at least one execution format.")
             self.formats.remove(value)
@@ -96,7 +133,7 @@ class PluginPlan:
     def validate_destination(self) -> None:
         destination = self.destination
         if os.path.lexists(self.requested_destination) or os.path.lexists(destination):
-            raise ValueError(f"Destination already exists: {destination}. Choose a new directory.")
+            raise ValueError("Destination already exists. Choose a new directory.")
         template = (scaffold.REPO_ROOT / "templates" / self.kind).resolve()
         if destination.is_relative_to(template):
             raise ValueError("Choose a destination outside the source template.")
@@ -120,7 +157,7 @@ def complete_directory(value: str) -> tuple[str, str]:
         and (partial.startswith(".") or not child.name.startswith("."))
     )
     if not matches:
-        return value, "No matching parent directory. New directories will be created."
+        return value, "No matching directory; new folders are allowed."
     completed = matches[0] + os.sep if len(matches) == 1 else os.path.commonprefix(matches)
     result = prefix + separator + completed
     hint = "Directory completed; add the new plugin folder name."
@@ -154,7 +191,7 @@ class Wizard:
         self.scroll = 0
         self.message = ""
         self.error = False
-        self.accent = self.failure = curses.A_BOLD
+        self.accent = self.failure = self.brand = curses.A_BOLD
         self.screen.keypad(True)
         if hasattr(curses, "set_escdelay"):
             curses.set_escdelay(25)
@@ -168,8 +205,10 @@ class Wizard:
                 pass
             curses.init_pair(1, curses.COLOR_CYAN, background)
             curses.init_pair(2, curses.COLOR_RED, background)
+            curses.init_pair(3, curses.COLOR_GREEN, background)
             self.accent = curses.color_pair(1) | curses.A_BOLD
             self.failure = curses.color_pair(2) | curses.A_BOLD
+            self.brand = curses.color_pair(3) | curses.A_BOLD
 
     def put(self, y: int, x: int, value: str, attribute: int = 0, width: Optional[int] = None) -> None:
         rows, columns = self.screen.getmaxyx()
@@ -197,58 +236,131 @@ class Wizard:
         def line(value: str = "", style: int = 0) -> None:
             lines.extend((part, style) for part in textwrap.wrap(value, width) or [""])
 
+        def destination(inline: bool = False) -> None:
+            path = self.plan.destination
+            label = "Resolved destination"
+            if path.is_relative_to(scaffold.REPO_ROOT):
+                path = path.relative_to(scaffold.REPO_ROOT)
+                label = "Repository folder"
+            if inline:
+                line(f"{label}: {path}")
+            else:
+                line(f"{label}:")
+                line(str(path), self.accent)
+
         if self.step in (0, 2, 3):
-            for index, value in enumerate(self.options()):
+            options = self.options()
+            name_width = max(map(len, options))
+            for index, value in enumerate(options):
                 if self.step == 0:
                     selected = value == self.plan.kind
-                    label = "Command  - run a task and return a result" if value == "command" else \
-                            "Listener - receive connections and manage channels"
+                    label = value.capitalize()
                     mark = "(*)" if selected else "( )"
                 else:
                     selected = value in (self.plan.systems if self.step == 2 else self.plan.formats)
-                    label = {"windows": "Windows (x86 and x64)", "linux": "Linux (x64)"}[value] \
-                            if self.step == 2 else f"{value}  - {FORMAT_LABELS[value]}"
+                    label = {"windows": "Windows (x86/x64)", "linux": "Linux (x64)"}[value] \
+                            if self.step == 2 else f"{value:<{name_width}}   {FORMAT_LABELS[value]}"
                     mark = "[x]" if selected else "[ ]"
-                line(f"{'>' if index == self.focus else ' '} {mark} {label}",
-                     curses.A_REVERSE if index == self.focus else 0)
+                # Selection labels fit on one row, including beside the logo.
+                # Only explanatory text below the list may wrap.
+                lines.append((f"{'>' if index == self.focus else ' '} {mark} {label}",
+                              curses.A_REVERSE if index == self.focus else 0))
             line()
-            if self.step == 2:
-                line("Choose where the plugin will execute. Linux supports native libraries only.")
-            elif self.step == 3 and "linux" in self.plan.systems:
-                line("native-lib is required for Linux. Windows can also use the other selected formats.")
+            focused = options[self.focus]
+            if self.step == 0:
+                line(KIND_DESCRIPTIONS[focused], self.accent)
+            elif self.step == 2:
+                line("All formats support Windows x86/x64." if focused == "windows" else
+                     "Linux supports native-lib only.", self.accent)
+            else:
+                line("Windows: DLL. Linux: shared library (.so)." if focused == "native-lib" else
+                     "Available on Windows (x86 and x64).", self.accent)
+                if "linux" in self.plan.systems:
+                    line("native-lib is required for Linux.")
         elif self.step == 1:
             line()  # Editable field drawn separately.
             line()
             try:
                 line(f"Plugin identifier: {self.plan.slug}", self.accent)
-                line(f"Suggested folder: {self.plan.destination}")
+                destination(inline=True)
             except EXPECTED_ERRORS:
-                line("Enter a name containing letters or numbers, for example: Daily Check.")
+                line("Use letters or numbers, e.g. Daily Check.")
         elif self.step == 4:
             line()
             line()
-            line("Resolved destination:")
             try:
-                line(str(self.plan.destination), self.accent)
+                destination()
             except EXPECTED_ERRORS as error:
                 line(str(error), self.failure)
             line()
-            line("Leave blank for the suggested folder. Paths with spaces need no quotes.")
-            line("Tab completes parent directories; add a new folder name at the end.")
+            line("Leave blank for the workspace folder.")
+            line("Tab completes directories. Spaces need no quotes.")
         else:
             line(f"Type: {self.plan.kind}")
             line(f"Name: {self.plan.name}  ({self.plan.slug})", self.accent)
             line()
-            line("Destination:")
-            line(str(self.plan.destination), self.accent)
+            destination()
             line()
             for system, formats in self.plan.matrix.items():
                 architecture = "x86/x64" if system == "windows" else "x64"
                 ordered = ", ".join(value for value in scaffold.EXECUNITS if value in formats)
-                line(f"{system.capitalize()} {architecture}: {ordered}")
+                label = f"{system.capitalize()} {architecture}:"
+                if display_width(f"{label} {ordered}") <= width:
+                    line(f"{label} {ordered}")
+                else:
+                    line(label)
+                    line(f"  {ordered}")
             line()
             line("Includes Makefile targets: build, install, clean.")
         return lines
+
+    def render_type(self, rows: int, columns: int) -> bool:
+        """Give the insignia its own column on the template selection screen."""
+        logo = TUONI_LOGO if rows >= 27 and columns >= 99 else COMPACT_LOGO
+        logo_width = max(map(len, logo))
+        content_width = min(112, columns - 2)
+        left = (columns - content_width) // 2
+        logo_top = max(0, (rows - 2 - len(logo)) // 2)
+        for index, value in enumerate(logo):
+            self.put(logo_top + index, left, value, self.brand)
+
+        pane_left = left + logo_width + 3
+        pane_width = content_width - logo_width - 3
+        wordmark = TUONI_WORDMARK if pane_width >= 35 else \
+                   COMPACT_WORDMARK if pane_width >= 30 else ("T U O N I",)
+        header_top = max(1, logo_top + 1)
+        for index, value in enumerate(wordmark):
+            self.put(header_top + index, pane_left, value, self.brand, pane_width)
+        tagline_row = header_top + len(wordmark) + 1
+        self.put(tagline_row, pane_left, "NEW PLUGIN", self.accent, pane_width)
+        self.put(tagline_row + 2, pane_left, "1 / 6  Type", self.accent, pane_width)
+        body_top = tagline_row + 4
+        lines = self.body(pane_width)
+        for index, (value, style) in enumerate(lines[:rows - body_top - 4]):
+            self.put(body_top + index, pane_left, value, style, pane_width)
+        legend_top = body_top + len(lines) + 1
+        legend = textwrap.wrap("Arrows choose | Space selects", pane_width)
+        for index, value in enumerate(legend):
+            if legend_top + index < rows - 4:
+                self.put(legend_top + index, pane_left, value, width=pane_width)
+        plug_top = legend_top + len(legend) + 1
+        if pane_width >= 30 and plug_top + 4 <= rows - 4:
+            plug = PLUGIN_PLUG if plug_top + len(PLUGIN_PLUG) <= rows - 4 else PLUGIN_PLUG[:4]
+            plug_left = pane_left + (pane_width - max(map(len, plug))) // 2
+            for index, value in enumerate(plug):
+                self.put(plug_top + index, plug_left, value, self.accent)
+        if self.message:
+            for index, value in enumerate(textwrap.wrap(self.message, pane_width)[:2]):
+                self.put(rows - 4 + index, pane_left, value,
+                         self.failure if self.error else self.accent, pane_width)
+        self.put(rows - 2, left, "Choose the plugin template.")
+        self.put(rows - 1, left, "Enter next  |  Space select  |  Esc cancel  |  Ctrl-C cancel")
+        try:
+            curses.curs_set(0)
+        except curses.error:
+            pass
+        self.screen.refresh()
+        return True
 
     def render(self) -> bool:
         self.screen.erase()
@@ -259,26 +371,37 @@ class Wizard:
             self.put(3, 0, "Ctrl-C cancels.")
             self.screen.refresh()
             return False
+        if self.step == 0:
+            return self.render_type(rows, columns)
         width = min(92, columns - 6)
         left = (columns - width) // 2
-        self.put(1, left, "TUONI  /  New plugin", self.accent)
-        self.put(3, left, "  >  ".join(f"[{name}]" if index == self.step else name
+        art = banner_art()
+        art_left = left + (width - max(map(len, art))) // 2
+        for index, value in enumerate(art):
+            self.put(index, art_left, value, self.brand)
+        body_top = 8
+        self.put(4, left, " > ".join(f"[{name}]" if index == self.step else name
                                      for index, name in enumerate(STEPS)), width=width)
-        self.put(5, left, f"{self.step + 1} / {len(STEPS)}  {STEPS[self.step]}", self.accent)
+        self.put(body_top - 3, left, f"{self.step + 1} / {len(STEPS)}  {STEPS[self.step]}", self.accent)
         prompts = (
             "Choose the plugin template.", "Give your plugin a descriptive name.",
             "Select the target operating systems.", "Select the execution formats to build.",
             "Choose the exact directory for the new plugin.", "Review your plugin, then press Enter to create it.",
         )
-        self.put(6, left, prompts[self.step], width=width)
+        self.put(body_top - 2, left, prompts[self.step], width=width)
         try:
             lines = self.body(width)
         except EXPECTED_ERRORS as error:
             lines = [(str(error), self.failure), ("Go back to edit the plugin details.", 0)]
-        capacity = rows - 13
+        detail_top = body_top
+        if self.step in (1, 4):
+            # Keep the editable field fixed while scrolling its preview below.
+            lines = lines[2:]
+            detail_top += 2
+        capacity = rows - detail_top - 5
         self.scroll = min(self.scroll, max(0, len(lines) - capacity))
         for index, (value, attribute) in enumerate(lines[self.scroll:self.scroll + capacity]):
-            self.put(8 + index, left, value, attribute, width)
+            self.put(detail_top + index, left, value, attribute, width)
         if len(lines) > capacity:
             self.put(rows - 5, left, "PgUp/PgDn scroll the details", width=width)
         try:
@@ -293,9 +416,9 @@ class Wizard:
                 visible_start -= 1
             visible = clipped(value[visible_start:], width - 3)
             placeholder = "Plugin name" if self.step == 1 else "Default: workspace folder shown below"
-            self.put(8, left, " " * width, curses.A_REVERSE, width)
-            self.put(8, left + 1, visible if value else placeholder, curses.A_REVERSE, width - 2)
-            cursor_position = (8, left + 1 + display_width(value[visible_start:self.cursor]))
+            self.put(body_top, left, " " * width, curses.A_REVERSE, width)
+            self.put(body_top, left + 1, visible if value else placeholder, curses.A_REVERSE, width - 2)
+            cursor_position = (body_top, left + 1 + display_width(value[visible_start:self.cursor]))
         if self.message:
             for index, part in enumerate(textwrap.wrap(self.message, width)[:2]):
                 self.put(rows - 4 + index, left, part, self.failure if self.error else self.accent, width)
@@ -406,6 +529,8 @@ class Wizard:
                             self.plan.toggle_system(value)
                         else:
                             self.plan.toggle_format(value)
+                    if self.step == 0:
+                        self.plan.kind = options[self.focus]
                 elif self.step in (1, 4):
                     self.edit(key)
                 elif key == curses.KEY_UP:
