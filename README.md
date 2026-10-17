@@ -12,6 +12,7 @@ Each plugin consists of two parts:
 
 - [Getting Started](#getting-started)
     - [Building with Docker](#building-with-docker)
+    - [Reusable offline builder for a lab](#reusable-offline-builder-for-a-lab)
     - [Prerequisites](#prerequisites)
     - [Building the Server Plugin](#building-the-server-plugin)
 - [Plugins](#plugins)
@@ -29,6 +30,9 @@ help targets also require GNU `sed` and `column`.
 On Windows, use a Linux shell in WSL with Docker accessible from that environment;
 these Makefile recipes cannot run directly in PowerShell or CMD.
 
+Before the first build, prepare or import the shared offline builder as described
+in [Reusable offline builder for a lab](#reusable-offline-builder-for-a-lab).
+
 Run these commands from the repository root for all example plugins, or from an
 individual project's directory for just that project:
 
@@ -42,8 +46,8 @@ make clean    # Remove build artifacts
 make help     # List available targets
 ```
 
-The root Makefile discovers Makefiles in immediate `*-plugin/` directories
-automatically and stops if a command fails. Build templates separately with
+The root Makefile builds the three repository examples and stops if a command
+fails. Build templates separately with
 `make -C templates build` or from an individual template directory.
 `make build` builds the echo and TCP Linux execunits inside Docker, exports their
 `.native64_so` files alongside the Windows artifacts, and embeds both platforms
@@ -108,6 +112,109 @@ the project's `.gitignore` before building. Reserve the output directory for
 generated files: `make clean` removes it completely, including artifacts from
 older versions. Cleanup refuses the project directory itself and any path that
 resolves outside it.
+
+### Reusable offline builder for a lab
+
+The Java projects use Gradle to fetch libraries from Maven Central. The root
+[Dockerfile](Dockerfile) creates one reusable image containing Java 21, the Gradle
+wrapper distribution, Gradle plugins, dependency JARs, Mono/MSBuild, Wine, GCC and
+MinGW for all three examples and all three templates. Toolchains and dependencies
+live in image layers, so they travel with the image;
+a local BuildKit cache or Docker volume would not travel with `docker save`.
+The builder also works for newly generated commands/listeners using those same
+dependency versions.
+
+The image also contains the Donut converter and development/inspection tools.
+Its complete inventory is:
+
+| Purpose | Included dependencies |
+| --- | --- |
+| Java | JDK 21, cached Gradle distribution, Gradle plugins and Maven dependency JARs |
+| Managed .NET | Mono, MSBuild, Roslyn and .NET Framework reference assemblies |
+| Linux native | Ubuntu 18.04 GCC/G++, headers, runtime libraries and binutils |
+| Windows native | x86/x64 MinGW POSIX compilers, Windows headers/libraries and Python verifier |
+| Conversion | Ubuntu/Debian Wine64 and the bundled Donut executable |
+| Repository helpers | GNU Make, Python 3 with curses and the standard-library modules used by the scripts, Git |
+| Artifact inspection | ZIP/unzip, `file`, `nm`, `objdump`, `readelf` and standard shell utilities |
+
+Native compiler environments are stored separately to preserve their original
+Linux ABI. Normal Make builds select the appropriate environment automatically.
+The converter comes from the image, so changing Donut also requires rebuilding
+and redistributing the image.
+
+On the instructor machine, with internet access, run once from this repository:
+
+```sh
+make builder-image
+make builder-save
+# Transfer build/tuoni-plugin-builder.tar and this repository to the lab.
+```
+
+On each lab Docker host (or once in the VM before cloning the lab machines):
+
+```sh
+make builder-load
+make builder-check  # Audit the imported dependencies with networking disabled
+make build
+# Generated plugins use the same imported image:
+make -C workspace/commands/my-command build
+```
+
+The defaults are image `tuoni-plugin-builder:0.15.0-gradle9.7.1-v1` and archive
+`build/tuoni-plugin-builder.tar`. To use another archive location:
+
+```sh
+make builder-save BUILDER_ARCHIVE="/path/to/lab images/tuoni-plugin-builder.tar"
+make builder-load BUILDER_ARCHIVE="/path/to/lab images/tuoni-plugin-builder.tar"
+```
+
+These targets wrap `docker image save` and `docker image load`; use **load**, not
+`docker import`, to preserve the image layers, tag and environment. Use the same
+Docker daemon/context for loading and building. Images target Linux amd64, matching
+the native Linux and Windows conversion stages; ARM hosts need amd64 emulation.
+The supported setup uses Docker's default local builder so it can see loaded
+images. A separate buildx container/remote builder needs the image made available
+to that builder (for example through a registry).
+
+`make builder-check` checks the image itself without mounting the repository,
+enabling networking or pulling images. It is also run while creating the image.
+The host still needs Docker and GNU Make to launch the existing Make recipes;
+Python 3 on the host is required for the interactive wizard and scaffolding.
+
+Every build uses the shared image with networking disabled for all compilation
+and conversion steps. Java also runs Gradle with `--offline`. Gradle reuses the
+baked dependencies even after source changes,
+`make clean`, or loss of the local build cache. A missing image gives setup
+instructions. An uncached dependency fails locally, without contacting Maven.
+The native stages extract their preinstalled toolchains from the same image;
+they do not pull other base images or install packages. Ubuntu 18.04 is retained
+for Linux native compilation and the examples' Wine conversion to preserve their
+ABI. The templates retain Debian's Wine conversion and all Windows native DLLs
+retain Debian's MinGW toolchain.
+
+To verify a fresh build without reusing compilation layers:
+
+```sh
+make build DOCKER_BUILD_FLAGS=--no-cache
+make -C templates build DOCKER_BUILD_FLAGS=--no-cache
+```
+
+These commands still reuse the imported toolchain image. Every Dockerfile `RUN`
+step explicitly uses `--network=none`, and the Make recipes set it for the whole
+build as well. The first `make builder-image` needs internet access; lab builds
+only need the exported archive, repository, Make and Docker.
+
+After changing dependency versions, Gradle plugins or wrapper versions, rebuild
+and redistribute the builder before class. `make builder-image` reads the current
+example/template build definitions. For a custom workspace plugin that adds a new
+library, include its build definitions and dependency-resolution step in the root
+Dockerfile before rebuilding. To retain several course versions, choose a new tag
+with `BUILDER_IMAGE=tuoni-plugin-builder:my-course-v2` for `builder-image`,
+`builder-save`, `builder-load` and subsequent `build` commands. Command-line
+overrides propagate through the root Makefile and work in individual projects.
+
+Gradle documents [offline dependency caching](https://docs.gradle.org/current/userguide/dependency_caching.html);
+Docker documents [saving images for transfer](https://docs.docker.com/reference/cli/docker/image/save/).
 
 ### Prerequisites
 

@@ -27,7 +27,7 @@ def _dockerfile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -
     artifact = f"{kind}-{slug}"
     executable = f"{artifact}-execunit"
     jar = f"{kind}-plugin-{slug}-0.0.1.jar"
-    stages: list[str] = []
+    stages: list[str] = [_stage(original, "toolchains")]
 
     if managed or shellcode:
         csharp = _stage(original, "csharp-build")
@@ -48,7 +48,7 @@ def _dockerfile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -
         stages.append(_stage(original, "windows-native-build"))
         stages.append(_stage(original, "windows-native-artifacts"))
 
-    java = ["FROM eclipse-temurin:21-jdk AS java-build",
+    java = ["FROM toolchains AS java-build",
             "WORKDIR /build", "COPY java-plugin/ java-plugin/"]
     if windows_native:
         java.append("COPY --from=windows-native-build /build/exec-code/win-native/build/ exec-code/win-native/build/")
@@ -65,7 +65,7 @@ def _dockerfile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -
             f"/build/exec-code/linux/build/{artifact}-linux.native64_so"
         )
     java.extend(("WORKDIR /build/java-plugin",
-                 "RUN chmod +x gradlew && ./gradlew build --no-daemon"))
+                 "RUN --network=none chmod +x gradlew && ./gradlew build --offline --no-daemon"))
     stages.append("\n".join(java))
 
     if managed:
@@ -102,7 +102,9 @@ def _dockerfile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -
         f"COPY --from=java-build /build/java-plugin/build/libs/{jar} /{jar}"
     )
     stages.append("\n".join(exports))
-    path.write_text("\n\n".join(stages) + "\n", encoding="utf-8")
+    # Preserve the shared image argument even when the selected first stage changes.
+    header = original[:original.index("FROM ")]
+    path.write_text(header + "\n\n".join(stages) + "\n", encoding="utf-8")
 
 
 def _gradle(root: Path, kind: str, slug: str, package_part: str,
@@ -215,6 +217,7 @@ def _makefile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -> 
     lines = [
         "#!make", ".DEFAULT_GOAL := help", "",
         "DOCKER ?= sh scripts/docker/run-docker.sh",
+        "BUILDER_IMAGE ?= tuoni-plugin-builder:0.15.0-gradle9.7.1-v1",
         "BUILD_DIR := build",
         f"JAR_NAME := {jar}",
         "PLUGIN_DIR ?= /srv/tuoni/plugins/server",
@@ -233,14 +236,20 @@ def _makefile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -> 
     def docker_target(target: str, output: str) -> list[str]:
         return [
             '\t@mkdir -p -- "' + output + '"',
-            "\tDOCKER_BUILDKIT=1 $(DOCKER) build \\",
+            "\tDOCKER_BUILDKIT=1 $(DOCKER) build --platform linux/amd64 --network=none $(DOCKER_BUILD_FLAGS) \\",
             "\t\t-f scripts/docker/Dockerfile \\",
+            '\t\t--build-arg "BUILDER_IMAGE=$(BUILDER_IMAGE)" \\',
             f"\t\t--target {target} \\",
             '\t\t--output "type=local,dest=' + output + '/" \\',
             "\t\t.",
         ]
 
     lines.append("build:")
+    lines.extend((
+        '\t@$(DOCKER) image inspect "$(BUILDER_IMAGE)" >/dev/null || { \\',
+        '\t\tprintf \'%s\\n\' "Missing offline builder: $(BUILDER_IMAGE). Run make builder-image at the repository root, or load the instructor archive with make builder-load." >&2; exit 1; \\',
+        '\t}',
+    ))
     lines.append("\t@$(MAKE) clean")
     lines.extend(docker_target("artifacts", "$(BUILD_DIR)"))
     lines.append("\t@printf '%s\\n' " + " ".join(f'"Built $(BUILD_DIR)/{name}"' for name in all_outputs))

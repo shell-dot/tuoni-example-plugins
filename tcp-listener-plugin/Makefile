@@ -4,6 +4,7 @@
 # The runner uses sudo only when the local Docker socket denies access.
 # An explicit DOCKER override bypasses automatic detection.
 DOCKER ?= sh scripts/docker/run-docker.sh
+BUILDER_IMAGE ?= tuoni-plugin-builder:0.15.0-gradle9.7.1-v1
 BUILD_DIR  := build
 JAR_NAME   := tuoni-example-plugin-tcp-listener-0.0.1.jar
 
@@ -17,9 +18,13 @@ help:
 ## build: Build the plugin JAR and listener inside Docker and extract to build/
 .PHONY: build
 build:
+	@$(DOCKER) image inspect "$(BUILDER_IMAGE)" >/dev/null || { \
+		printf '%s\n' "Missing offline builder: $(BUILDER_IMAGE). Run make builder-image at the repository root, or load the instructor archive with make builder-load." >&2; exit 1; \
+	}
 	@mkdir -p -- "$(BUILD_DIR)"
-	DOCKER_BUILDKIT=1 $(DOCKER) build \
+	DOCKER_BUILDKIT=1 $(DOCKER) build --platform linux/amd64 --network=none $(DOCKER_BUILD_FLAGS) \
 		-f scripts/docker/Dockerfile \
+		--build-arg "BUILDER_IMAGE=$(BUILDER_IMAGE)" \
 		--target artifacts \
 		--output "type=local,dest=$(BUILD_DIR)/" \
 		.
@@ -38,8 +43,9 @@ build:
 .PHONY: build-dotnet
 build-dotnet:
 	@mkdir -p -- "$(BUILD_DIR)"
-	DOCKER_BUILDKIT=1 $(DOCKER) build \
+	DOCKER_BUILDKIT=1 $(DOCKER) build --platform linux/amd64 --network=none $(DOCKER_BUILD_FLAGS) \
 		-f scripts/docker/Dockerfile \
+		--build-arg "BUILDER_IMAGE=$(BUILDER_IMAGE)" \
 		--target dotnet-artifacts \
 		--output "type=local,dest=$(BUILD_DIR)/" \
 		.
@@ -52,8 +58,9 @@ build-dotnet:
 .PHONY: build-linux
 build-linux:
 	@mkdir -p -- "$(BUILD_DIR)" exec-code/linux/build
-	DOCKER_BUILDKIT=1 $(DOCKER) build \
+	DOCKER_BUILDKIT=1 $(DOCKER) build --platform linux/amd64 --network=none $(DOCKER_BUILD_FLAGS) \
 		-f scripts/docker/Dockerfile \
+		--build-arg "BUILDER_IMAGE=$(BUILDER_IMAGE)" \
 		--target linux-artifacts \
 		--output "type=local,dest=exec-code/linux/build/" \
 		.
@@ -86,8 +93,9 @@ clean:
 .PHONY: build-windows-native
 build-windows-native:
 	@mkdir -p -- "$(BUILD_DIR)" exec-code/win-native/build
-	DOCKER_BUILDKIT=1 $(DOCKER) build \
+	DOCKER_BUILDKIT=1 $(DOCKER) build --platform linux/amd64 --network=none $(DOCKER_BUILD_FLAGS) \
 		-f scripts/docker/Dockerfile \
+		--build-arg "BUILDER_IMAGE=$(BUILDER_IMAGE)" \
 		--target windows-native-artifacts \
 		--output "type=local,dest=exec-code/win-native/build/" \
 		.

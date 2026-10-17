@@ -286,3 +286,20 @@ Compare only with fresh outputs from the same build; matching an old resource pr
 Then run the [isolated initialization smoke test](java-verification.md#isolated-initialization-smoke-test) using that exact exported JAR and the real loader policy. Load the listener service provider from that archive, exercise its schemas/examples, then call `init` and any global-command-template hooks used by server startup with suitable SDK contexts. Plugin-private dependencies must resolve from the exported JAR, not loose build classes, Gradle's runtime classpath, the server's unrelated libraries, or sibling JARs added to hide missing classes. Record the archive path/hash and actual entrypoints exercised. A `NoClassDefFoundError`, linkage error, or initializer failure fails this gate: fix the cause in Java code, dependency packaging or artifact selection, rerun the full Docker build, and repeat archive and initialization checks. If the required SDK contexts/compatible loader cannot be supplied, report initialization as unverified; archive class presence alone cannot pass it.
 
 In the final report and project context, give the chosen route, commands and outcomes for native compilation, shellcode conversion, Java compilation, JAR packaging, exported-archive dependency checks, resource comparison, isolated Java initialization, and native runtime checks. Include the distributable path when produced; distinguish passed, failed, unavailable, and explicitly skipped phases. A build verifies compilation and packaging, not Java/native payload agreement or safe unloading.
+
+## Shared offline builder
+
+Before the first Docker build, load the instructor-provided builder image into
+the same Docker daemon. In the source repository, run `make builder-image` and
+`make builder-save` once on an internet-connected machine, then `make builder-load`
+on each lab host. The default tag is
+`tuoni-plugin-builder:0.15.0-gradle9.7.1-v1`; use `BUILDER_IMAGE=...` for a custom
+tag. Generated plugins use the same image. The image contains Java/Gradle/Maven
+dependencies plus Mono/MSBuild, Wine, GCC, MinGW and the Donut converter.
+It also includes Make, Python (with curses), Git, ZIP/unzip and artifact-inspection
+tools. The source repository provides `make builder-check` to audit the imported
+image without networking or a repository mount. All compilation/conversion
+steps run with network disabled, and Java also uses Gradle offline mode. New
+Java dependencies, wrapper versions or a changed Donut converter require rebuilding and redistributing the
+image with those build definitions included. To force fresh compilation with the
+imported tools, use `make build DOCKER_BUILD_FLAGS=--no-cache`.

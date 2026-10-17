@@ -1,11 +1,18 @@
+# Import the shared offline builder before building; see the repository README.
+ARG BUILDER_IMAGE=tuoni-plugin-builder:0.15.0-gradle9.7.1-v1
+
+FROM --platform=linux/amd64 ${BUILDER_IMAGE} AS toolchains
+
 # Stage 1: Build the .NET agent with Mono
-FROM mono:6 AS csharp-build
+FROM scratch AS csharp-build
+COPY --from=toolchains /opt/tuoni/toolchains/mono/ /
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 WORKDIR /build/exec-code
 COPY exec-code/ .
-RUN msbuild dotnet-agent.csproj /p:Configuration=Release
+RUN --network=none msbuild dotnet-agent.csproj /p:Configuration=Release
 
 # Stage 2: Build the Gradle plugin JAR (embeds the EXE)
-FROM eclipse-temurin:21-jdk AS java-build
+FROM toolchains AS java-build
 WORKDIR /build
 
 # Place EXE where Gradle's processResources expects it (../exec-code/bin/Release/)
@@ -16,7 +23,7 @@ COPY --from=csharp-build /build/exec-code/bin/Release/dotnet-agent.exe \
 COPY java-plugin/ java-plugin/
 
 WORKDIR /build/java-plugin
-RUN chmod +x gradlew && ./gradlew build --no-daemon
+RUN --network=none chmod +x gradlew && ./gradlew build --offline --no-daemon
 
 # Export only the .NET executable when the build-dotnet Make target is used.
 FROM scratch AS dotnet-artifacts

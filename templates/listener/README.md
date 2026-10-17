@@ -111,6 +111,10 @@ configuration and behavior. Windows native DLLs are also packaged as `listener.n
 
 ## Build
 
+Load the shared offline builder image before the first full build; see
+[shared offline builder](docs/building.md#shared-offline-builder) for instructor setup
+and lab import instructions.
+
 `make install` builds the plugin, copies its JAR into `PLUGIN_DIR` (default:
 `/srv/tuoni/plugins/server`), and runs `tuoni restart`. The copied standalone
 [installer](scripts/install/install-plugin.sh) resolves Tuoni in the current

@@ -215,8 +215,8 @@ class ScaffoldPluginTests(unittest.TestCase):
                 gradle = (destination / "java-plugin/build.gradle.kts").read_text(encoding="utf-8")
                 makefile = (destination / "Makefile").read_text(encoding="utf-8")
                 actual_stages = set(re.findall(r"(?m)^FROM [^\n]+ AS ([\w-]+)$", docker))
-                self.assertEqual(actual_stages, stages)
-                self.assertTrue(set(re.findall(r"--from=([\w-]+)", docker)) <= stages)
+                self.assertEqual(actual_stages, stages | {"toolchains"})
+                self.assertTrue(set(re.findall(r"--from=([\w-]+)", docker)) <= stages | {"toolchains"})
                 for suffix in included:
                     resource = artifact + ("-" if suffix.startswith("linux") else "") + suffix
                     self.assertIn(resource, gradle)

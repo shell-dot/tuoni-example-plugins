@@ -136,7 +136,9 @@ the blocked build instead of falling back to local tools. The direct build steps
 below apply to skills only with that explicit override.
 
 Java requires **JDK 21+**. Each folder includes the repository's Gradle wrapper;
-the first build needs network access to obtain Gradle and the SDK dependencies.
+local Gradle builds need network access once to obtain Gradle and the SDK
+dependencies. Docker builds use the imported shared offline builder instead;
+see the repository [offline builder setup](../README.md#reusable-offline-builder-for-a-lab).
 Run from the copied folder:
 
 ```sh

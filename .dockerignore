@@ -1,0 +1,25 @@
+# Include build definitions and the bundled converter, never lab/workspace data.
+**
+!Dockerfile
+!tools/
+!tools/docker/
+!tools/docker/resolve-dependencies.gradle
+!tools/docker/check-builder.sh
+!echo-command-plugin/
+!echo-command-plugin/exec-code/
+!echo-command-plugin/exec-code/win/
+!echo-command-plugin/exec-code/win/donut.exe
+!tcp-listener-plugin/
+!dotnet-payload-plugin/
+!templates/
+!templates/command/
+!templates/listener/
+!templates/payloads/
+!**/java-plugin/
+!**/java-plugin/gradlew
+!**/java-plugin/*.kts
+!**/java-plugin/gradle.properties
+!**/java-plugin/gradle/
+!**/java-plugin/gradle/**
+**/.gradle
+**/build

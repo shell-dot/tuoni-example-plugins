@@ -1,0 +1,15 @@
+// A dependency report alone does not download all JARs. Resolve the actual files,
+// including test and annotation-processor configurations, without native resources.
+allprojects {
+    tasks.register('labDependencies') {
+        doLast {
+            configurations.findAll { it.canBeResolved }.each { configuration ->
+                configuration.files.each { file ->
+                    if (!file.exists()) {
+                        throw new GradleException("Missing dependency: $file")
+                    }
+                }
+            }
+        }
+    }
+}
