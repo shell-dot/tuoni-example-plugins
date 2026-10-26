@@ -21,7 +21,7 @@ Validation creates no runtime resources. Both generation methods send the same i
 
 ## Strict JSON validation with the SDK
 
-The following Java 21 example uses Jackson 3 (`tools.jackson.*`), with its declared and bundled dependencies from [building.md](building.md#java-dependencies-and-compilation). The SDK supplies no JSON parser. Rename `ExampleConfiguration` to the command's typed class.
+The following Java 25 example uses Jackson 3 (`tools.jackson.*`), with its declared and bundled dependencies from [building.md](building.md#java-dependencies-and-compilation). The SDK supplies no JSON parser. Rename `ExampleConfiguration` to the command's typed class.
 
 Its JSON schema requires integer `attempts` (1..1000), accepts optional boolean `enabled` (default false), and rejects unknown fields. The native payload is an illustrative **five-byte** layout: a four-byte little-endian attempts value followed by byte `0` or `1`. These fields and this layout are examples, not defaults for every command.
 

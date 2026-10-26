@@ -18,7 +18,7 @@ This example contains **two cooperating projects**:
 
 | Project | Language | Role |
 |---|---|---|
-| `java-plugin/` | Java 21 / Gradle | Server-side plugin that loads inside the Tuoni server. Opens a TCP `ServerSocket`, accepts implant connections, and bridges them into the Tuoni agent runtime. |
+| `java-plugin/` | Java 25 / Gradle | Server-side plugin that loads inside the Tuoni server. Opens a TCP `ServerSocket`, accepts implant connections, and bridges them into the Tuoni agent runtime. |
 | `exec-code/` | C# / .NET Framework 4.6.2 and Linux C++ | Client-side execunits that run inside the agent process. They talk to the agent over local IPC and forward traffic to the listener over TCP. |
 
 `exec-code/win/exec-unit-utils/` is a shared MSBuild project provided by Tuoni — leave it
@@ -129,7 +129,7 @@ also exports its JAR and Windows artifacts to `build/`; `BUILD_DIR` overrides th
 
 ### 2. Build the Java plugin
 
-You need an installed JDK 21 or newer.
+You need an installed JDK 25 or newer.
 
 ```sh
 cd java-plugin

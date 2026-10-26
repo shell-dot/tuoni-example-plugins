@@ -135,7 +135,7 @@ another build route. If Docker is missing or unusable, inform the user and repor
 the blocked build instead of falling back to local tools. The direct build steps
 below apply to skills only with that explicit override.
 
-Java requires **JDK 21+**. Each folder includes the repository's Gradle wrapper;
+Java requires **JDK 25+**. Each folder includes the repository's Gradle wrapper;
 the first build needs network access to obtain Gradle and the SDK dependencies.
 Run from the copied folder:
 

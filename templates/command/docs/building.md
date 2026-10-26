@@ -40,7 +40,7 @@ The local-tool rows and local recipes below apply only when the user explicitly 
 | Route | Required tools and checks | Compatibility |
 | --- | --- | --- |
 | Docker (default) | In Linux/WSL, `make --version`, `docker version`, and `docker info --format '{{.OSType}}'` returning `linux` | Use GNU Make, a Linux/WSL shell, and standard Unix utilities. The recipes do not run directly in PowerShell/CMD. Docker must be accessible from that shell. |
-| Java locally (explicit user override) | `java -version`, `javac -version`, and the checked-in Gradle wrapper | JDK 21+; `options.release = 21` in `java-plugin/build.gradle.kts`. Set `JAVA_HOME` to the selected JDK if necessary. The first wrapper/dependency download needs network access. |
+| Java locally (explicit user override) | `java -version`, `javac -version`, and the checked-in Gradle wrapper | JDK 25+; `options.release = 25` in `java-plugin/build.gradle.kts`. Set `JAVA_HOME` to the selected JDK if necessary. The first wrapper/dependency download needs network access. |
 | Windows locally (explicit user override) | In Developer PowerShell, `Get-Command msbuild` or `Get-Command dotnet`; use the .NET Framework 4.6.2 targeting pack | The `.csproj` targets .NET Framework 4.6.2. This does not imply support for every modern C# feature or .NET API. Check the compiler used by the selected MSBuild; keep syntax compatible with the Docker Mono compiler too. |
 | Linux locally (explicit user override) | In Linux/WSL, `command -v g++` and `g++ --version` | `exec-code/linux/build_linux.sh` uses `-std=c++11`; do not introduce C++14/17 APIs such as `std::make_unique` or `std::optional` without deliberately updating the supported toolchain. The library must remain Linux x64 compatible. |
 | Archive checks | `python --version` or `python3 --version` | Python 3; the check below uses only its standard library. |
@@ -130,7 +130,7 @@ Use `jar tf "<absolute-sdk-jar>"` to find other fully qualified class names, the
 
 ## Adapting resources and dependencies from existing plugins
 
-Use the [existing plugin map](existing-plugins.md) to locate a matching Java/native pair. Server modules depend on `plugin-common`, annotation processors, and Gradle convention plugins that are not supplied by this standalone template. The inspected server production build targets Java 25 while this template and SDK target Java 21. Verify library bytecode and APIs against the plugin's target; adding a server JAR can require a newer JVM even when the copied Java source looks compatible. Bundle runtime libraries, keep processors on the compile-time processor path, and preserve the template's service descriptor.
+Use the [existing plugin map](existing-plugins.md) to locate a matching Java/native pair. Server modules depend on `plugin-common`, annotation processors, and Gradle convention plugins that are not supplied by this standalone template. This template targets Java 25, matching the inspected server production build. The SDK remains at 0.15.0 with Java 21 bytecode. Verify library bytecode and APIs against the plugin's target; adding a server JAR can require a newer JVM even when the copied Java source looks compatible. Bundle runtime libraries, keep processors on the compile-time processor path, and preserve the template's service descriptor.
 
 ### Resource selection
 

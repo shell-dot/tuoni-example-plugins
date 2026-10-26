@@ -137,7 +137,7 @@ def refresh_generated_context(root: Path, kind: str, slug: str,
         resources.extend((f"{artifact}.native32_dll", f"{artifact}.native64_dll"))
     if "native-lib" in linux:
         resources.append(f"{artifact}-linux.native64_so")
-    toolchains = ["Java 21"]
+    toolchains = ["Java 25"]
     if windows & {"shellcode-native", "dotnet-exe", "dotnet-dll"}:
         toolchains.append(".NET Framework 4.6.2")
     if "native-lib" in windows:

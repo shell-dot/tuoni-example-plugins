@@ -6,7 +6,7 @@ This repository contains example plugins for the [Tuoni](https://github.com/shel
 Each plugin consists of two parts:
 
 1. **Agent execunits**: Windows shellcode/.NET EXE/.NET DLL written in C#, plus Windows x86/x64 and Linux x64 native libraries written in C++.
-2. **Server Plugin**: Written in Java against the Tuoni plugin SDK, requiring Java 21+ and Gradle for building.
+2. **Server Plugin**: Written in Java against the Tuoni plugin SDK, requiring Java 25+ and Gradle for building.
 
 For a minimal command starting point, use the [command template](../templates/command/README.md).
 It already connects native IPC, accepts `{}`, returns `DONE`, and displays that text
@@ -25,7 +25,7 @@ with success completion. This echo example provides additional command patterns.
 
 Before you begin, ensure you have the following installed on your machine:
 
-- Java 21+
+- Java 25+
 - Gradle
 - Docker and Make for building the Linux execunits
 

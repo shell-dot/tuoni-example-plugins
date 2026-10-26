@@ -14,7 +14,7 @@ project's `scripts/docker/java-builder.mk`:
 | Setting | Default |
 | --- | --- |
 | `BUILDER_IMAGE` | `ghcr.io/shell-dot/tuoni-java-builder:0.15.0` |
-| `GRADLE_CACHE_ID` | `tuoni-gradle-9.8.2-v1` |
+| `GRADLE_CACHE_ID` | `tuoni-gradle-9.8.2-v2` |
 
 Use `make build BUILDER_IMAGE=...` to select a custom Java image. Docker builds
 target `linux/amd64`; ARM hosts require Docker's amd64 emulation.
