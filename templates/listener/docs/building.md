@@ -57,7 +57,7 @@ The reviewed server loader delegates `java.*` to the system loader and the SDK, 
 
 Shadow's default `shadowJar` merges `runtimeClasspath`, including `implementation` and `runtimeOnly` dependencies. Keep required parser dependencies there and retain their transitives; overriding the task's configurations or excluding modules requires inspecting the resulting archive. Dependencies declared in Shadow's separate `shadow(...)` configuration remain external and are not bundled. See [Shadow dependency configuration](https://gradleup.com/shadow/configuration/dependencies/) and [unbundled runtime dependencies](https://gradleup.com/shadow/configuration/#configuring-the-runtime-classpath). Do not use blind `minimize()` or package filters: reflection, service loading, static initialization, and exception types need runtime classes that a compile-only check can miss.
 
-For a fresh template using Jackson, merge the following into the existing blocks of `java-plugin/build.gradle.kts`. These versions match this repository's Gradle 9.7.1 wrapper and example projects. Retain the existing `group`, `version`, repositories, Java release, complete `Plugin-*` manifest, and `processResources` checks. Reuse an established parser or shading setup instead of adding a second one.
+For a fresh template using Jackson, merge the following into the existing blocks of `java-plugin/build.gradle.kts`. These versions match this repository's Gradle 9.8.2 wrapper and example projects. Retain the existing `group`, `version`, repositories, Java release, complete `Plugin-*` manifest, and `processResources` checks. Reuse an established parser or shading setup instead of adding a second one.
 
 ```kotlin
 plugins {
