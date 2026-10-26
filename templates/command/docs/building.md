@@ -67,7 +67,7 @@ plugins {
 
 dependencies {
     compileOnly("com.shelldot:tuoni-plugin-sdk:0.15.0")
-    implementation("tools.jackson.core:jackson-databind:3.2.2")
+    implementation("tools.jackson.core:jackson-databind:3.2.4")
 }
 
 tasks.jar {
