@@ -1,6 +1,6 @@
 # Keep these defaults identical in all shipped copies; bump both for a new baseline.
 BUILDER_IMAGE ?= ghcr.io/shell-dot/tuoni-java-builder:0.15.0
-GRADLE_CACHE_ID ?= tuoni-gradle-9.8.2-v1
+GRADLE_CACHE_ID ?= tuoni-gradle-9.8.2-v2
 
 DOCKER_BUILD_FLAGS = --platform linux/amd64 \
 	--build-arg "BUILDER_IMAGE=$(BUILDER_IMAGE)" \

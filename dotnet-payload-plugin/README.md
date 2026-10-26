@@ -57,7 +57,7 @@ dotnet-payload-plugin/
 | **Visual Studio** | 2022 or later | With ".NET desktop development" workload installed |
 | **.NET Framework Targeting Pack** | 4.6.2 | Included with VS .NET desktop workload, or install separately |
 | **MSBuild** | 15.0+ | Included with Visual Studio; also available via [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio) |
-| **Java JDK** | 21 | Required for building the Tuoni plugin |
+| **Java JDK** | 25 | Required for building the Tuoni plugin |
 | **Gradle** | 9.8.2 | Or use the included Gradle wrapper (`gradlew` / `gradlew.bat`) |
 
 ## Build Instructions

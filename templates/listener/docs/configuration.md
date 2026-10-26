@@ -32,7 +32,7 @@ The encoder returns only the plugin's configuration bytes. The SDK/agent adds th
 
 ## Strict JSON validation with the SDK
 
-This Java 21 example uses Jackson 3 (`tools.jackson.*`) for user JSON, matching the dependency recipe in the build guide, and `ByteBuffer` for a small binary native payload. Rename `ExampleConfiguration` to the plugin's actual typed class and adapt the fields. Its schema is an object with required integer `attempts` (1..1000), optional boolean `enabled` (default false), and `additionalProperties: false`. Explicit null, numeric strings, fractional attempts, duplicate properties, and trailing JSON are rejected; missing `enabled` is defaulted.
+This Java 25 example uses Jackson 3 (`tools.jackson.*`) for user JSON, matching the dependency recipe in the build guide, and `ByteBuffer` for a small binary native payload. Rename `ExampleConfiguration` to the plugin's actual typed class and adapt the fields. Its schema is an object with required integer `attempts` (1..1000), optional boolean `enabled` (default false), and `additionalProperties: false`. Explicit null, numeric strings, fractional attempts, duplicate properties, and trailing JSON are rejected; missing `enabled` is defaulted.
 
 ```java
 import com.shelldot.tuoni.plugin.sdk.common.configuration.Configuration;

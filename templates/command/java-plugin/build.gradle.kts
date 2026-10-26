@@ -19,7 +19,7 @@ dependencies {
 }
 
 tasks.compileJava {
-  options.release = 21
+  options.release = 25
 }
 
 tasks.jar {

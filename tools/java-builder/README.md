@@ -1,6 +1,6 @@
 # Tuoni Java builder
 
-Builds `ghcr.io/shell-dot/tuoni-java-builder:0.15.0` with Java 21, Gradle 9.8.2,
+Builds `ghcr.io/shell-dot/tuoni-java-builder:0.15.0` with Java 25, Gradle 9.8.2,
 Tuoni SDKs 0.15.0 and 0.17.0, Jackson 3.2.2 and the Shadow 9.6.1 plugin.
 Gradle resolves their transitive dependencies into `/opt/gradle-home`.
 

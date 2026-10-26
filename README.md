@@ -6,7 +6,7 @@ This repository contains example plugins for the [Tuoni](https://github.com/shel
 Each plugin consists of two parts:
 
 1. **Execution codes and agent executables**: Windows C# and, where supported, Windows/Linux C++ (`exec-code/`).
-2. **Server Plugin** (`java-plugin/`): Written in Java against the Tuoni plugin SDK, requiring Java 21+ and Gradle for building.
+2. **Server Plugin** (`java-plugin/`): Written in Java against the Tuoni plugin SDK, requiring Java 25+ and Gradle for building.
 
 ## Table of Contents
 
@@ -112,7 +112,7 @@ resolves outside it.
 
 ### Prerequisites
 
-For a Java build outside Docker, install JDK 21+. The included Gradle wrapper
+For a Java build outside Docker, install JDK 25+. The included Gradle wrapper
 downloads Gradle on its first run, so a separate Gradle installation is unnecessary.
 See each project's README for its native C# build prerequisites.
 
@@ -133,7 +133,7 @@ On Windows PowerShell, run:
 ```powershell
 .\gradlew.bat assemble
 ```
-This command will compile the Java code for Java 21 and build the server plugin.
+This command will compile the Java code for Java 25 and build the server plugin.
 Build the Windows C# and Linux C++ components first where required; see each
 plugin's README for its build order.
 
