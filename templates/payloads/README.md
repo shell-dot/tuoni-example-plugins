@@ -42,7 +42,16 @@ unimplemented validation, serialization, or program behavior.
 
 ## Build
 
-Open [exec-code/payload.sln](exec-code/payload.sln) in Visual Studio,
+Use a Linux shell (WSL on Windows), GNU Make, and Docker configured for Linux
+containers. From this folder, run:
+
+```sh
+make build
+```
+
+The JAR and EXE are written to `build/`. Use `make build-dotnet` to build only the EXE.
+
+For a local C# build, open [exec-code/payload.sln](exec-code/payload.sln) in Visual Studio,
 or build the C# skeleton from this folder:
 
 ```powershell
@@ -51,8 +60,3 @@ msbuild exec-code/payload.sln /p:Configuration=Release
 
 Output: `exec-code/bin/Release/payload-template.exe`.
 Java output: `java-plugin/build/libs/payload-plugin-template-0.0.1.jar`.
-
-Use a Linux shell (WSL on Windows), GNU Make, standard Unix file utilities, and
-Docker configured for Linux containers. Run `make build` from this folder. The JAR and EXE are
-extracted to `build/`.
-Run `make build-dotnet` to compile and extract only the EXE to `build/`.

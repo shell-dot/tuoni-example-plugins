@@ -4,6 +4,18 @@ Run commands from the plugin root containing `java-plugin/` and `exec-code/`. Us
 
 The [idle source default](../README.md#default-behavior) still requires native compilation, Windows shellcode conversion, and Java packaging before a generated plugin can be loaded. No prebuilt execution resources ship with the template. Its Java code needs no private parser dependency. Keep traffic TODO markers when building an idle scaffold; parser/shading recipes below apply only if dependencies are added. A documentation-only update does not change build inputs.
 
+## Preloaded Java dependencies
+
+Java builds use `ghcr.io/shell-dot/tuoni-java-builder:0.15.0`. The image and cache
+ID are configured in `scripts/docker/java-builder.mk`; use `BUILDER_IMAGE=...`
+to select a custom image.
+
+Docker retains Java dependencies across builds and projects sharing the same
+cache ID. `make clean` preserves the cache; Docker pruning or switching builders
+can discard added dependencies. Missing dependencies download during the build.
+
+Docker builds target `linux/amd64`; ARM hosts require Docker's amd64 emulation.
+
 ## Required build checkpoints
 
 Unless the user explicitly requests otherwise, build **the exec-units and the packaged Java plugin in Docker**. Use local build tools only when the user explicitly requests a non-Docker route; missing or unusable Docker does not authorize an automatic fallback. Apply this to complete implementations and focused configuration, logic, or output changes. Keep every existing in-scope platform in the build; lack of a compiler does not remove it from scope.
@@ -28,7 +40,7 @@ The local-tool rows and local recipes below apply only when the user explicitly 
 | Route | Required tools and checks | Compatibility |
 | --- | --- | --- |
 | Docker (default) | In Linux/WSL, `make --version`, `docker version`, and `docker info --format '{{.OSType}}'` returning `linux` | Use GNU Make, a Linux/WSL shell, and standard Unix utilities. The recipes do not run directly in PowerShell/CMD. Docker must be accessible from that shell. |
-| Java locally (explicit user override) | `java -version`, `javac -version`, and the checked-in Gradle wrapper | JDK 21+; `options.release = 21` in `java-plugin/build.gradle.kts`. Set `JAVA_HOME` to the selected JDK if necessary. The first wrapper/dependency download needs network access; use `--offline` only when cached. |
+| Java locally (explicit user override) | `java -version`, `javac -version`, and the checked-in Gradle wrapper | JDK 21+; `options.release = 21` in `java-plugin/build.gradle.kts`. Set `JAVA_HOME` to the selected JDK if necessary. The first wrapper/dependency download needs network access. |
 | Windows locally (explicit user override) | In Developer PowerShell, `Get-Command msbuild` or `Get-Command dotnet`; use the .NET Framework 4.6.2 targeting pack | The `.csproj` targets .NET Framework 4.6.2. This does not imply support for every modern C# feature or .NET API. Check the compiler used by the selected MSBuild; keep syntax compatible with the Docker Mono compiler too. |
 | Linux locally (explicit user override) | In Linux/WSL, `command -v g++` and `g++ --version` | `exec-code/linux/build_linux.sh` uses `-std=c++11`; do not introduce C++14/17 APIs such as `std::make_unique` or `std::optional` without deliberately updating the supported toolchain. The library must remain Linux x64 compatible. |
 | Archive checks | `python --version` or `python3 --version` | Python 3; the check below uses only its standard library. |

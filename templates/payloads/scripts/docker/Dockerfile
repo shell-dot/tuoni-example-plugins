@@ -1,3 +1,5 @@
+ARG BUILDER_IMAGE
+
 # Build the payload program from the C# skeleton.
 FROM mono:6 AS csharp-build
 WORKDIR /build/exec-code
@@ -8,11 +10,16 @@ RUN msbuild payload.csproj /p:Configuration=Release
 # This stage compiles the server-side builder separately from the payload program above.
 # If serialization needs bundled program bytes, add an explicit resource-copy/package step
 # matching the loader used by TemplatePayload; exporting an EXE does not embed it in this JAR.
-FROM eclipse-temurin:21-jdk AS java-build
+FROM ${BUILDER_IMAGE} AS gradle-seed
+
+FROM gradle-seed AS java-build
+ENV GRADLE_USER_HOME=/opt/gradle-home
 WORKDIR /build
 COPY java-plugin/ java-plugin/
 WORKDIR /build/java-plugin
-RUN chmod +x gradlew && ./gradlew build --no-daemon
+ARG GRADLE_CACHE_ID
+RUN --mount=type=cache,id=${GRADLE_CACHE_ID},target=/opt/gradle-home,from=gradle-seed,source=/opt/gradle-home,sharing=locked \
+    sh ./gradlew build --no-daemon --build-cache
 
 # Export only the .NET executable when the build-dotnet Make target is used.
 FROM scratch AS dotnet-artifacts

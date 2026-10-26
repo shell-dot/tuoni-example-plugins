@@ -114,6 +114,17 @@ configuration and behavior. Windows native DLLs are also packaged as `command.na
 
 ## Build
 
+Use a Linux shell (WSL on Windows), GNU Make, and Docker configured for Linux
+containers. From this folder, run:
+
+```sh
+make build
+```
+
+The plugin JAR and supported Windows/Linux execution artifacts are written to
+`build/`. See the [build guide](docs/building.md) for platform requirements and
+focused build targets.
+
 `make install` builds the plugin, copies its JAR into `PLUGIN_DIR` (default:
 `/srv/tuoni/plugins/server`), and runs `tuoni restart`. The copied standalone
 [installer](scripts/install/install-plugin.sh) resolves Tuoni in the current
@@ -141,13 +152,6 @@ Java output: `java-plugin/build/libs/command-plugin-template-0.0.1.jar`.
 For a direct Linux build, run `bash exec-code/linux/build_linux.sh` on Linux with
 `g++`. This writes `exec-code/linux/build/command-linux.native64_so`. To build it
 inside Docker and extract it for Gradle, run `make build-linux`.
-
-Use a Linux shell (WSL on Windows), GNU Make, standard Unix file utilities, and
-Docker configured for Linux containers. Run `make build` from this folder. The JAR,
-managed EXE/DLL, DLL method metadata, legacy shellcode-input EXE, shellcode, and
-Windows native DLLs and Linux library are extracted to `build/`. `make build-dotnet` exports the C#
-artifacts without shellcode conversion or Java packaging. The Java build runs
-`execUnitFormatsCheck` against rebuilt resources; see the [build guide](docs/building.md).
 
 For an explicitly requested local build, additionally run:
 
