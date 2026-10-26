@@ -166,7 +166,7 @@ exit "${BUILD_STATUS:-0}"
                     self.assertEqual(len(calls), 2)
                     self.assertTrue(calls[0].startswith('image inspect '))
                     self.assertTrue(calls[1].startswith('build '))
-                    self.assertIn('--build-arg GRADLE_CACHE_ID=tuoni-gradle-9.8.2-v2', calls[1])
+                    self.assertIn('--build-arg GRADLE_CACHE_ID=tuoni-gradle-9.8.2-v3', calls[1])
 
 
 if __name__ == '__main__':

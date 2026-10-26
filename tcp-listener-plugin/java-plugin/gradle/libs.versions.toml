@@ -1,6 +1,6 @@
 [versions]
 tuoni = "0.15.0"
-jackson = "3.2.2"
+jackson = "3.2.4"
 
 [libraries]
 tuoni-sdk = { module = "com.shelldot:tuoni-plugin-sdk", version.ref = "tuoni" }

@@ -16,7 +16,7 @@ val sdk017 = configurations.create("sdk017") {
 // This project has no application code; these declarations define the image's baseline.
 dependencies {
     compileOnly("com.shelldot:tuoni-plugin-sdk:0.15.0")
-    implementation("tools.jackson.core:jackson-databind:3.2.2")
+    implementation("tools.jackson.core:jackson-databind:3.2.4")
     testImplementation("com.shelldot:tuoni-plugin-sdk:0.15.0")
     add(sdk017.name, "com.shelldot:tuoni-plugin-sdk:0.17.0")
 }
