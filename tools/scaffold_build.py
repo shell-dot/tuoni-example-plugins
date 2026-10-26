@@ -27,7 +27,7 @@ def _dockerfile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -
     artifact = f"{kind}-{slug}"
     executable = f"{artifact}-execunit"
     jar = f"{kind}-plugin-{slug}-0.0.1.jar"
-    stages: list[str] = []
+    stages: list[str] = ["ARG BUILDER_IMAGE", _stage(original, "gradle-seed")]
 
     if managed or shellcode:
         csharp = _stage(original, "csharp-build")
@@ -48,7 +48,7 @@ def _dockerfile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -
         stages.append(_stage(original, "windows-native-build"))
         stages.append(_stage(original, "windows-native-artifacts"))
 
-    java = ["FROM eclipse-temurin:21-jdk AS java-build",
+    java = ["FROM gradle-seed AS java-build", "ENV GRADLE_USER_HOME=/opt/gradle-home",
             "WORKDIR /build", "COPY java-plugin/ java-plugin/"]
     if windows_native:
         java.append("COPY --from=windows-native-build /build/exec-code/win-native/build/ exec-code/win-native/build/")
@@ -64,8 +64,9 @@ def _dockerfile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -
             f"COPY --from=linux-build /build/exec-code/linux/build/{artifact}-linux.native64_so "
             f"/build/exec-code/linux/build/{artifact}-linux.native64_so"
         )
-    java.extend(("WORKDIR /build/java-plugin",
-                 "RUN chmod +x gradlew && ./gradlew build --no-daemon"))
+    # Keep the cache mount and wrapper invocation identical to the source template.
+    java_stage = _stage(original, "java-build")
+    java.append(java_stage[java_stage.index("WORKDIR /build/java-plugin"):])
     stages.append("\n".join(java))
 
     if managed:
@@ -215,6 +216,7 @@ def _makefile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -> 
     lines = [
         "#!make", ".DEFAULT_GOAL := help", "",
         "DOCKER ?= sh scripts/docker/run-docker.sh",
+        "include scripts/docker/java-builder.mk",
         "BUILD_DIR := build",
         f"JAR_NAME := {jar}",
         "PLUGIN_DIR ?= /srv/tuoni/plugins/server",
@@ -233,14 +235,14 @@ def _makefile(root: Path, kind: str, slug: str, matrix: dict[str, set[str]]) -> 
     def docker_target(target: str, output: str) -> list[str]:
         return [
             '\t@mkdir -p -- "' + output + '"',
-            "\tDOCKER_BUILDKIT=1 $(DOCKER) build \\",
+            "\tDOCKER_BUILDKIT=1 $(DOCKER) build $(DOCKER_BUILD_FLAGS) \\",
             "\t\t-f scripts/docker/Dockerfile \\",
             f"\t\t--target {target} \\",
             '\t\t--output "type=local,dest=' + output + '/" \\',
             "\t\t.",
         ]
 
-    lines.append("build:")
+    lines.append("build: check-java-builder")
     lines.append("\t@$(MAKE) clean")
     lines.extend(docker_target("artifacts", "$(BUILD_DIR)"))
     lines.append("\t@printf '%s\\n' " + " ".join(f'"Built $(BUILD_DIR)/{name}"' for name in all_outputs))

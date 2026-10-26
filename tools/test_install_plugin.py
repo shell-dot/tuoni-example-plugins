@@ -103,6 +103,8 @@ class InstallPluginTests(unittest.TestCase):
         (project / HELPER.parent).mkdir(parents=True)
         shutil.copyfile(REPO_ROOT / source / "Makefile", project / "Makefile")
         shutil.copyfile(REPO_ROOT / source / HELPER, project / HELPER)
+        (project / "scripts/docker").mkdir()
+        shutil.copyfile(REPO_ROOT / source / "scripts/docker/java-builder.mk", project / "scripts/docker/java-builder.mk")
         self.create_jar(project)
         return project
 
@@ -359,7 +361,7 @@ exec "$TEST_BASH_BIN" --noprofile --rcfile "$rc" -ic "$@"
             # Recursive make does not inherit -o build. Keep its prerequisite
             # in place while replacing the fixture's Docker recipe with a no-op.
             source = makefile.read_text(encoding="utf-8")
-            makefile.write_text(re.sub(r"(?m)^build:\n(?:\t.*\n)+", "build:\n\t@:\n", source), encoding="utf-8")
+            makefile.write_text(re.sub(r"(?m)^build:[^\n]*\n(?:\t.*\n)+", "build:\n\t@:\n", source), encoding="utf-8")
         result = subprocess.run(
             [MAKE, "install", f"PLUGIN_DIR={self.plugin_dir}", f"TUONI={self.shell_path(cli)}"],
             cwd=root, env=self.environment(self.project, TEST_INSTALLED_JAR=self.shell_path(self.plugin_dir / self.jar(projects[0]).name)),

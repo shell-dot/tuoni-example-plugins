@@ -42,8 +42,9 @@ make clean    # Remove build artifacts
 make help     # List available targets
 ```
 
-The root Makefile discovers Makefiles in immediate `*-plugin/` directories
-automatically and stops if a command fails. Build templates separately with
+See [Java build configuration](docs/java-builder.md) for dependency-cache and image settings.
+
+The root Makefile builds the three checked-in examples and stops if a command fails. Build templates separately with
 `make -C templates build` or from an individual template directory.
 `make build` builds the echo and TCP Linux execunits inside Docker, exports their
 `.native64_so` files alongside the Windows artifacts, and embeds both platforms

@@ -1,0 +1,79 @@
+name: Java dependency image (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the validated image to GHCR
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: tools/java-builder
+    permissions:
+      contents: read
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      artifact-id: ${{ steps.archive.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read the image reference
+        id: image
+        run: |
+          image=$(awk '$1 == "BUILDER_IMAGE" { print $3 }' Makefile)
+          echo "BUILDER_IMAGE=$image" >> "$GITHUB_ENV"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+      - name: Test build and publishing commands
+        run: python3 -m unittest discover -p 'test_builder.py' -v
+      - name: Build the dependency image
+        run: make build
+      - name: Verify the preloaded dependencies
+        run: make check
+      - name: Export the validated image
+        if: ${{ inputs.publish }}
+        run: docker save --output "$RUNNER_TEMP/java-builder.tar" "$BUILDER_IMAGE"
+      - name: Transfer the validated image
+        id: archive
+        if: ${{ inputs.publish }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-builder-image-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/java-builder.tar
+          if-no-files-found: error
+          compression-level: 1
+          retention-days: 1
+
+  publish:
+    needs: build-and-validate
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    env:
+      BUILDER_IMAGE: ${{ needs.build-and-validate.outputs.image }}
+    steps:
+      - name: Download the validated image
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.build-and-validate.outputs.artifact-id }}
+          path: ${{ runner.temp }}/java-builder
+      - name: Load the validated image
+        run: docker load --input "$RUNNER_TEMP/java-builder/java-builder.tar"
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Publish
+        run: docker push "$BUILDER_IMAGE"

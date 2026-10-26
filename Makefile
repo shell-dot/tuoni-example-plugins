@@ -14,6 +14,7 @@ WINDOWS_NATIVE_EXAMPLES := echo-command-plugin tcp-listener-plugin
 
 .PHONY: help build build-dotnet build-linux build-windows-native install install-completion clean new new-command new-listener
 help:
+	@printf '%s\n' 'make build  Build the example plugins'
 	@printf '%s\n' \
 		'Create a plugin from a template (Python 3.9+ required):' \
 		'  make new  Open the interactive plugin wizard (no arguments needed).' \

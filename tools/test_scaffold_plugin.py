@@ -195,16 +195,16 @@ class ScaffoldPluginTests(unittest.TestCase):
 
     def test_selected_builds_package_only_supported_formats(self) -> None:
         cases = (
-            ("command", "Linux Native", "native-lib", "linux", {"linux-build", "linux-artifacts", "java-build", "artifacts"},
+            ("command", "Linux Native", "native-lib", "linux", {"linux-build", "linux-artifacts", "java-build", "gradle-seed", "artifacts"},
              {"linux.native64_so"}, {".shellcode", ".dotnet_exe", ".dotnet_dll", ".native32_dll"}),
-            ("listener", "Managed Only", "dotnet-dll", "windows", {"csharp-build", "java-build", "dotnet-artifacts", "artifacts"},
+            ("listener", "Managed Only", "dotnet-dll", "windows", {"csharp-build", "java-build", "gradle-seed", "dotnet-artifacts", "artifacts"},
              {".dotnet_dll", ".dotnet_dll_method"}, {".shellcode", ".dotnet_exe", ".native32_dll", "linux.native64_so"}),
-            ("command", "Shellcode Only", "shellcode-native", "windows", {"csharp-build", "shellcode-build", "java-build", "artifacts"},
+            ("command", "Shellcode Only", "shellcode-native", "windows", {"csharp-build", "shellcode-build", "java-build", "gradle-seed", "artifacts"},
              {".shellcode"}, {".dotnet_exe", ".dotnet_dll", ".native32_dll", "linux.native64_so"}),
-            ("listener", "Native Both", "native-lib", "windows linux", {"linux-build", "linux-artifacts", "windows-native-build", "windows-native-artifacts", "java-build", "artifacts"},
+            ("listener", "Native Both", "native-lib", "windows linux", {"linux-build", "linux-artifacts", "windows-native-build", "windows-native-artifacts", "java-build", "gradle-seed", "artifacts"},
              {".native32_dll", ".native64_dll", "linux.native64_so"}, {".shellcode", ".dotnet_exe", ".dotnet_dll"}),
             ("command", "Every Format", "shellcode-native dotnet-dll dotnet-exe native-lib", "windows linux",
-             {"csharp-build", "shellcode-build", "linux-build", "linux-artifacts", "windows-native-build", "windows-native-artifacts", "java-build", "dotnet-artifacts", "artifacts"},
+             {"csharp-build", "shellcode-build", "linux-build", "linux-artifacts", "windows-native-build", "windows-native-artifacts", "java-build", "gradle-seed", "dotnet-artifacts", "artifacts"},
              {".shellcode", ".dotnet_exe", ".dotnet_dll", ".dotnet_dll_method", ".native32_dll", ".native64_dll", "linux.native64_so"}, set()),
         )
         for index, (kind, name, formats, systems, stages, included, excluded) in enumerate(cases):

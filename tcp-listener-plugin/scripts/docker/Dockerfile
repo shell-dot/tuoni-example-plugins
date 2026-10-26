@@ -1,3 +1,5 @@
+ARG BUILDER_IMAGE
+
 # Stage 1: Build the .NET listener with Mono, skipping the Windows post-build event
 FROM --platform=linux/amd64 mono:6 AS csharp-build
 WORKDIR /build/exec-code/win
@@ -65,7 +67,10 @@ FROM scratch AS windows-native-artifacts
 COPY --from=windows-native-build /build/exec-code/win-native/build/ /
 
 # Package all rebuilt execunit formats into the Java plugin.
-FROM eclipse-temurin:21-jdk AS java-build
+FROM ${BUILDER_IMAGE} AS gradle-seed
+
+FROM gradle-seed AS java-build
+ENV GRADLE_USER_HOME=/opt/gradle-home
 WORKDIR /build
 COPY --from=shellcode-build /build/exec-code/win/ exec-code/win/
 COPY --from=linux-build /build/exec-code/linux/build/tcp-listener-linux.native64_so \
@@ -73,7 +78,9 @@ COPY --from=linux-build /build/exec-code/linux/build/tcp-listener-linux.native64
 COPY --from=windows-native-build /build/exec-code/win-native/build/ exec-code/win-native/build/
 COPY java-plugin/ java-plugin/
 WORKDIR /build/java-plugin
-RUN chmod +x gradlew && ./gradlew build --no-daemon
+ARG GRADLE_CACHE_ID
+RUN --mount=type=cache,id=${GRADLE_CACHE_ID},target=/opt/gradle-home,from=gradle-seed,source=/opt/gradle-home,sharing=locked \
+    sh ./gradlew build --no-daemon --build-cache
 
 # Export managed formats and the legacy shellcode-input EXE without conversion.
 FROM scratch AS dotnet-artifacts

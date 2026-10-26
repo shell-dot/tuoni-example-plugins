@@ -4,6 +4,7 @@
 # The runner uses sudo only when the local Docker socket denies access.
 # An explicit DOCKER override bypasses automatic detection.
 DOCKER ?= sh scripts/docker/run-docker.sh
+include scripts/docker/java-builder.mk
 BUILD_DIR  := build
 JAR_NAME   := tuoni-example-plugin-echo-command-0.0.1.jar
 COMMANDS   := echo echo-ongoing echo-ongoing-file echo-ongoing-more-data
@@ -12,14 +13,15 @@ COMMANDS   := echo echo-ongoing echo-ongoing-file echo-ongoing-more-data
 ## help: List all available make targets with descriptions
 .PHONY: help
 help:
+	@printf '%s\n' 'BUILDER_IMAGE=...     Override the Java builder image'
 	@printf '[*] usage: make <target>\n\n'
 	@awk -F ': ' '/^## / { target=$$1; sub(/^## /, "", target); printf "  %-22s %s\n", target, substr($$0, index($$0, ": ") + 2) }' $(MAKEFILE_LIST)
 
 ## build: Build the plugin JAR and commands inside Docker and extract to build/
 .PHONY: build
-build:
+build: check-java-builder
 	@mkdir -p -- "$(BUILD_DIR)"
-	DOCKER_BUILDKIT=1 $(DOCKER) build \
+	DOCKER_BUILDKIT=1 $(DOCKER) build $(DOCKER_BUILD_FLAGS) \
 		-f scripts/docker/Dockerfile \
 		--target artifacts \
 		--output "type=local,dest=$(BUILD_DIR)/" \
@@ -41,7 +43,7 @@ build:
 .PHONY: build-dotnet
 build-dotnet:
 	@mkdir -p -- "$(BUILD_DIR)"
-	DOCKER_BUILDKIT=1 $(DOCKER) build \
+	DOCKER_BUILDKIT=1 $(DOCKER) build $(DOCKER_BUILD_FLAGS) \
 		-f scripts/docker/Dockerfile \
 		--target dotnet-artifacts \
 		--output "type=local,dest=$(BUILD_DIR)/" \
@@ -57,7 +59,7 @@ build-dotnet:
 .PHONY: build-linux
 build-linux:
 	@mkdir -p -- "$(BUILD_DIR)" exec-code/linux/build
-	DOCKER_BUILDKIT=1 $(DOCKER) build \
+	DOCKER_BUILDKIT=1 $(DOCKER) build $(DOCKER_BUILD_FLAGS) \
 		-f scripts/docker/Dockerfile \
 		--target linux-artifacts \
 		--output "type=local,dest=exec-code/linux/build/" \
@@ -91,7 +93,7 @@ clean:
 .PHONY: build-windows-native
 build-windows-native:
 	@mkdir -p -- "$(BUILD_DIR)" exec-code/win-native/build
-	DOCKER_BUILDKIT=1 $(DOCKER) build \
+	DOCKER_BUILDKIT=1 $(DOCKER) build $(DOCKER_BUILD_FLAGS) \
 		-f scripts/docker/Dockerfile \
 		--target windows-native-artifacts \
 		--output "type=local,dest=exec-code/win-native/build/" \
