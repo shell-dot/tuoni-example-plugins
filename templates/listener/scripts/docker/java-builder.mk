@@ -6,8 +6,19 @@ DOCKER_BUILD_FLAGS = --platform linux/amd64 \
 	--build-arg "BUILDER_IMAGE=$(BUILDER_IMAGE)" \
 	--build-arg "GRADLE_CACHE_ID=$(GRADLE_CACHE_ID)"
 
-.PHONY: check-java-builder
-check-java-builder:
+.PHONY: check-docker-buildx check-java-builder
+check-docker-buildx:
+	@$(DOCKER) info >/dev/null
+	@$(DOCKER) buildx version >/dev/null || { \
+		printf '%s\n' \
+			'Docker Buildx is required to build these plugins.' \
+			'For Docker installed by tuoni.sh, install: sudo apt-get install docker-buildx-plugin' \
+			'For Debian/Kali docker.io packages, install: sudo apt-get install docker-buildx' \
+			'Buildx must also be available through sudo when Docker socket access requires it.' >&2; \
+		exit 1; \
+	}
+
+check-java-builder: check-docker-buildx
 	@$(DOCKER) image inspect "$(BUILDER_IMAGE)" >/dev/null 2>&1 || { \
 		printf '%s\n' 'Pulling Java builder image: $(BUILDER_IMAGE)'; \
 		$(DOCKER) pull --platform linux/amd64 "$(BUILDER_IMAGE)" || { \

@@ -3,6 +3,15 @@
 Java builds use a shared image containing Gradle and the dependencies required by
 the examples and templates. Docker caches additional dependencies between builds.
 
+Docker Buildx is a host-side Docker CLI plugin required by these BuildKit builds;
+it is separate from the Java dependency image. `make build` checks Docker access
+and Buildx before pulling that image. A fresh Docker installation through
+`https://tuoni.sh` installs `docker-buildx-plugin`, but its existing-Docker path
+checks only Docker and Compose versions and can leave Buildx missing. Install
+`docker-buildx-plugin` for Docker CE, or `docker-buildx` for Debian/Kali's
+`docker.io` packages. When Docker needs sudo, `sudo docker buildx version` must
+also succeed.
+
 The image's build files and maintainer instructions are in
 [`tools/java-builder/`](../tools/java-builder/README.md).
 
