@@ -21,6 +21,11 @@ class JavaBuilderTests(unittest.TestCase):
         self.docker = self.root / 'docker'
         self.docker.write_text('''#!/bin/sh
 printf '%s\\n' "$*" >> "$DOCKER_CALLS"
+if [ "$1" = 'info' ]; then
+    if [ "${INFO_STATUS:-0}" != 0 ]; then printf '%s\\n' 'permission denied while trying to connect to the docker API at unix:///var/run/docker.sock' >&2; fi
+    exit "${INFO_STATUS:-0}"
+fi
+if [ "$1 $2" = 'buildx version' ]; then exit "${BUILDX_STATUS:-0}"; fi
 if [ "$1 $2" = 'image inspect' ]; then exit "${IMAGE_STATUS:-0}"; fi
 if [ "$1" = 'pull' ]; then exit "${PULL_STATUS:-0}"; fi
 exit "${BUILD_STATUS:-0}"
@@ -38,6 +43,30 @@ exit "${BUILD_STATUS:-0}"
         return subprocess.run(['make', f'DOCKER=sh {shlex.quote(str(self.docker))}', *args], cwd=project,
                               env=dict(os.environ, DOCKER_CALLS=str(self.calls), **environment),
                               capture_output=True, text=True, timeout=15)
+
+    def operations(self):
+        return [line for line in self.calls.read_text().splitlines()
+                if line not in ('info', 'buildx version')]
+
+    def test_missing_buildx_stops_before_image_pull_or_build(self):
+        for name in PROJECTS:
+            with self.subTest(project=name):
+                project = self.copy_project(name)
+                self.calls.unlink(missing_ok=True)
+                result = self.make(project, 'build', BUILDX_STATUS='1', IMAGE_STATUS='1')
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Docker Buildx is required', result.stderr)
+                self.assertIn('docker-buildx-plugin', result.stderr)
+                self.assertEqual(self.calls.read_text().splitlines(), ['info', 'buildx version'])
+                self.assertFalse((project / 'build').exists())
+
+    def test_socket_failure_is_not_reported_as_registry_failure(self):
+        project = self.copy_project('templates/command')
+        result = self.make(project, 'build', INFO_STATUS='13')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('permission denied', result.stderr)
+        self.assertNotIn('registry access', result.stderr)
+        self.assertEqual(self.calls.read_text().splitlines(), ['info'])
 
     def test_shared_configuration_and_native_stages(self):
         config = (REPO_ROOT / 'tools/docker/java-builder.mk').read_bytes()
@@ -73,7 +102,7 @@ exit "${BUILD_STATUS:-0}"
                 self.calls.unlink(missing_ok=True)
                 result = self.make(project, 'build', IMAGE_STATUS='1')
                 self.assertEqual(result.returncode, 0, result.stderr)
-                calls = self.calls.read_text().splitlines()
+                calls = self.operations()
                 self.assertEqual(calls[0], 'image inspect ghcr.io/shell-dot/tuoni-java-builder:0.15.0')
                 self.assertEqual(calls[1], 'pull --platform linux/amd64 ghcr.io/shell-dot/tuoni-java-builder:0.15.0')
                 self.assertTrue(calls[2].startswith('build '))
@@ -85,7 +114,7 @@ exit "${BUILD_STATUS:-0}"
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Could not pull the Java builder image', result.stderr)
         self.assertIn('Check the image reference and registry access.', result.stderr)
-        calls = self.calls.read_text().splitlines()
+        calls = self.operations()
         self.assertEqual(len(calls), 2)
         self.assertTrue(calls[1].startswith('pull '))
         self.assertFalse((project / 'build').exists())
@@ -94,7 +123,7 @@ exit "${BUILD_STATUS:-0}"
         project = self.copy_project('templates/command')
         result = self.make(project, 'build', 'BUILDER_IMAGE=registry.example/training:custom', IMAGE_STATUS='1')
         self.assertEqual(result.returncode, 0, result.stderr)
-        calls = self.calls.read_text().splitlines()
+        calls = self.operations()
         self.assertEqual(calls[1], 'pull --platform linux/amd64 registry.example/training:custom')
         self.assertIn('--build-arg BUILDER_IMAGE=registry.example/training:custom', calls[2])
 
@@ -103,7 +132,7 @@ exit "${BUILD_STATUS:-0}"
         result = self.make(project, 'build', 'BUILDER_IMAGE=local:test',
                            'GRADLE_CACHE_ID=shared-test', 'BUILD_DIR=build/output with spaces')
         self.assertEqual(result.returncode, 0, result.stderr)
-        calls = self.calls.read_text().splitlines()
+        calls = self.operations()
         self.assertEqual(calls[0], 'image inspect local:test')
         self.assertIn('--build-arg BUILDER_IMAGE=local:test', calls[1])
         self.assertIn('--build-arg GRADLE_CACHE_ID=shared-test', calls[1])
@@ -162,7 +191,7 @@ exit "${BUILD_STATUS:-0}"
                     self.assertEqual(result.returncode == 0, status == '0', result.stderr)
                     self.assertTrue(all(not path.exists() for path in stale))
                     self.assertTrue((project / 'java-plugin/build.gradle.kts').is_file())
-                    calls = self.calls.read_text().splitlines()
+                    calls = self.operations()
                     self.assertEqual(len(calls), 2)
                     self.assertTrue(calls[0].startswith('image inspect '))
                     self.assertTrue(calls[1].startswith('build '))

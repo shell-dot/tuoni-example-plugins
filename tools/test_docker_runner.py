@@ -22,6 +22,7 @@ PROJECTS = (
     "templates/listener",
     "templates/payloads",
 )
+RUNNER_PROJECTS = (*PROJECTS, 'tools/java-builder')
 HELPER = Path("scripts/docker/run-docker.sh")
 BASH = shutil.which("bash")
 if os.name == "nt":
@@ -177,7 +178,7 @@ class DockerRunnerTests(unittest.TestCase):
 
     def test_api_permission_denial_uses_sudo(self) -> None:
         error = "permission denied while trying to connect to the docker API at unix:///var/run/docker.sock"
-        for project in PROJECTS:
+        for project in RUNNER_PROJECTS:
             with self.subTest(project=project):
                 result = self.run_helper(
                     "build", ".", project=REPO_ROOT / project,
@@ -281,9 +282,13 @@ class DockerRunnerTests(unittest.TestCase):
 
     def test_all_project_helpers_match_and_defaults_remain_overridable(self) -> None:
         expected = (REPO_ROOT / "templates/command" / HELPER).read_bytes()
-        for project in PROJECTS:
+        for project in RUNNER_PROJECTS:
             with self.subTest(project=project):
                 self.assertEqual((REPO_ROOT / project / HELPER).read_bytes(), expected)
+                self.assertEqual(
+                    (REPO_ROOT / project / 'scripts/docker/java-builder.mk').read_bytes(),
+                    (REPO_ROOT / 'tools/docker/java-builder.mk').read_bytes(),
+                )
                 makefile = (REPO_ROOT / project / "Makefile").read_text(encoding="utf-8")
                 self.assertIn("DOCKER ?= sh scripts/docker/run-docker.sh", makefile)
                 self.assertNotIn("$(shell", makefile)

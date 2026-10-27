@@ -16,6 +16,7 @@ class BuilderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='java builder ') as directory:
             root = Path(directory)
             shutil.copyfile(ROOT / 'Makefile', root / 'Makefile')
+            shutil.copytree(ROOT / 'scripts', root / 'scripts')
             calls = root / 'calls'
             docker = root / 'docker'
             docker.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$DOCKER_CALLS"\n')
@@ -30,6 +31,8 @@ class BuilderTests(unittest.TestCase):
                                     capture_output=True, text=True, timeout=10)
             self.assertEqual(result.returncode, 0, result.stderr)
             actual = calls.read_text().splitlines()
+            self.assertEqual(actual[:2], ['info', 'buildx version'])
+            actual = actual[2:]
             self.assertEqual(len(actual), 3)
             self.assertEqual(actual[0], 'build --platform linux/amd64 -t local:test .')
             self.assertTrue(actual[1].startswith('image inspect --format '))

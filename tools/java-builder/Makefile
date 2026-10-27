@@ -1,13 +1,14 @@
 .DEFAULT_GOAL := help
 
-DOCKER ?= docker
+DOCKER ?= sh scripts/docker/run-docker.sh
 BUILDER_IMAGE ?= ghcr.io/shell-dot/tuoni-java-builder:0.15.0
+include scripts/docker/java-builder.mk
 
 .PHONY: help build check
 help:
 	@printf '%s\n' 'make build  Build and tag the image locally' 'make check  Verify dependencies in the built image without network access' 'BUILDER_IMAGE=...  Override the image tag' 'DOCKER=...  Override the Docker command'
 
-build:
+build: check-docker-buildx
 	DOCKER_BUILDKIT=1 $(DOCKER) build --platform linux/amd64 -t "$(BUILDER_IMAGE)" .
 	@$(DOCKER) image inspect --format 'Local image size: {{.Size}} bytes' "$(BUILDER_IMAGE)"
 

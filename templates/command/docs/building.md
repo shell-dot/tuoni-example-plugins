@@ -16,6 +16,12 @@ can discard added dependencies. Missing dependencies download during the build.
 
 Docker builds target `linux/amd64`; ARM hosts require Docker's amd64 emulation.
 
+The host also needs Docker Buildx. `make build` checks Docker access and Buildx
+before pulling the Java image. If Buildx is missing, install `docker-buildx-plugin`
+for Docker CE (the installation used by `tuoni.sh`), or `docker-buildx` for
+Debian/Kali's `docker.io` packages. Check `sudo docker buildx version` when Docker
+needs sudo; changing Java or native sources cannot fix a missing host plugin.
+
 ## Required build checkpoints
 
 Unless the user explicitly requests otherwise, build **the exec-units and the packaged Java plugin in Docker**. Use local build tools only when the user explicitly requests a non-Docker route; missing or unusable Docker does not authorize an automatic fallback. Apply this to complete implementations and focused configuration, logic, or output changes. Keep every existing in-scope platform in the build; lack of a compiler does not remove it from scope.
