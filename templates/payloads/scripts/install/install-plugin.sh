@@ -61,5 +61,5 @@ else
     exit 1
 fi
 
-"$tuoni_bin" restart
-printf '[+] Installed %s to %s and restarted Tuoni.\n' "${jar##*/}" "$plugin_dir"
+"$tuoni_bin" server restart
+printf '[+] Installed %s to %s and restarted Tuoni server.\n' "${jar##*/}" "$plugin_dir"

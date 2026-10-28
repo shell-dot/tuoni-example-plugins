@@ -205,7 +205,7 @@ def refresh_generated_context(root: Path, kind: str, slug: str,
                "For direct compiler commands and platform requirements, see "
                "[building.md](docs/building.md) and apply only the selected formats.\n\n"
                "`make install` builds the plugin, copies its JAR into `PLUGIN_DIR` "
-               "(default: `/srv/tuoni/plugins/server`), and runs `tuoni restart`. "
+               "(default: `/srv/tuoni/plugins/server`), and runs `tuoni server restart`. "
                "The standalone [installer](scripts/install/install-plugin.sh) "
                "resolves Tuoni in the current user's PATH and login shell, then "
                "root's login shell through sudo, with `/srv/tuoni/tuoni` as the "

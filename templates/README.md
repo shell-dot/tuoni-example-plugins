@@ -103,7 +103,7 @@ skeletons, so the aggregate
 
 Each individual template includes `make install` for use in copied/generated
 plugins. It builds the JAR, copies it into `PLUGIN_DIR` (default:
-`/srv/tuoni/plugins/server`), and runs `tuoni restart`. The standalone
+`/srv/tuoni/plugins/server`), and runs `tuoni server restart`. The standalone
 `scripts/install/install-plugin.sh` prefers the current user's PATH and login
 shell, then checks root's login shell with sudo and the standard
 `/srv/tuoni/tuoni` location. Root installations run as root. Missing Tuoni fails
