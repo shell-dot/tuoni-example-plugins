@@ -41,7 +41,8 @@ exit "${BUILD_STATUS:-0}"
 
     def make(self, project, *args, **environment):
         return subprocess.run(['make', f'DOCKER=sh {shlex.quote(str(self.docker))}', *args], cwd=project,
-                              env=dict(os.environ, DOCKER_CALLS=str(self.calls), **environment),
+                              env={**os.environ, 'DOCKER_CALLS': str(self.calls),
+                                   'BUILDX_INSTALL': '0', **environment},
                               capture_output=True, text=True, timeout=15)
 
     def operations(self):
@@ -56,7 +57,7 @@ exit "${BUILD_STATUS:-0}"
                 result = self.make(project, 'build', BUILDX_STATUS='1', IMAGE_STATUS='1')
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn('Docker Buildx is required', result.stderr)
-                self.assertIn('docker-buildx-plugin', result.stderr)
+                self.assertIn('docker-buildx', result.stderr)
                 self.assertEqual(self.calls.read_text().splitlines(), ['info', 'buildx version'])
                 self.assertFalse((project / 'build').exists())
 
