@@ -23,6 +23,9 @@ CHMOD = shutil.which("chmod")
 TUONI_STUB = r'''#!/bin/sh
 set -eu
 printf '%s\000' tuoni "${TEST_UID:-1000}" "$0" "$@" __END__ >> "$TEST_LOG"
+test "$#" -eq 2
+test "$1" = server
+test "$2" = restart
 test -f "$TEST_INSTALLED_JAR"
 exit "${TEST_RESTART_STATUS:-0}"
 '''
@@ -163,13 +166,14 @@ class InstallPluginTests(unittest.TestCase):
     def assert_installed(self, project: Path | None = None) -> None:
         jar = self.jar(project or self.project)
         self.assertEqual((self.plugin_dir / jar.name).read_bytes(), jar.read_bytes())
-        self.assertEqual(self.calls("tuoni")[-1][-1:], ["restart"])
+        self.assertEqual(self.calls("tuoni")[-1][3:], ["server", "restart"])
 
     def test_current_user_cli_is_preferred_and_copy_precedes_restart(self) -> None:
         self.write_stub(self.bin / "tuoni", TUONI_STUB)
         self.write_stub(self.root_bin / "tuoni", TUONI_STUB)
         result = self.run_helper()
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("restarted Tuoni server.", result.stdout)
         self.assertEqual(self.calls("sudo"), [])
         self.assertEqual(self.calls("bash"), [])
         self.assertEqual(self.calls("tuoni")[0][1], "1000")
@@ -224,7 +228,7 @@ exec "$TEST_BASH_BIN" --noprofile --rcfile "$rc" -ic "$@"
         self.write_stub(cli, TUONI_STUB)
         result = self.run_helper(self.shell_path(cli))
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.calls("tuoni")[0][2:], [self.shell_path(cli), "restart"])
+        self.assertEqual(self.calls("tuoni")[0][2:], [self.shell_path(cli), "server", "restart"])
         self.assert_installed()
 
     def test_root_invocation_needs_no_sudo(self) -> None:
@@ -339,6 +343,7 @@ exec "$TEST_BASH_BIN" --noprofile --rcfile "$rc" -ic "$@"
                     readme = (project / "README.md").read_text(encoding="utf-8")
                     self.assertIn("`make install`", readme)
                     self.assertIn("scripts/install/install-plugin.sh", readme)
+                    self.assertIn("`tuoni server restart`", readme)
                     self.log.write_bytes(b"")
                     result = subprocess.run([MAKE, "-o", "build", "install", f"PLUGIN_DIR={self.plugin_dir}"],
                                             cwd=project, env=self.environment(project), capture_output=True,
@@ -370,7 +375,7 @@ exec "$TEST_BASH_BIN" --noprofile --rcfile "$rc" -ic "$@"
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(len(self.calls("tuoni")), 3)
         for call in self.calls("tuoni"):
-            self.assertEqual(call[2:], [self.shell_path(cli), "restart"])
+            self.assertEqual(call[2:], [self.shell_path(cli), "server", "restart"])
         for project in projects:
             self.assert_installed(project)
 

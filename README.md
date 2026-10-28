@@ -88,7 +88,7 @@ Other OS/architecture combinations are not advertised.
 Use `make install PLUGIN_DIR=/path/to/plugins` to choose the server's plugin directory;
 command-line overrides are passed to every example.
 The `install` target builds the plugin, resolves `tuoni`, copies the JAR, and runs
-`tuoni restart`. It prefers the current user's PATH and login shell, then checks
+`tuoni server restart`. It prefers the current user's PATH and login shell, then checks
 root's login shell through `sudo`, including Tuoni's standard `/srv/tuoni/tuoni`
 location. A root installation runs as root; a user installation keeps that user's
 context and uses sudo only if the plugin directory requires it. Missing Tuoni

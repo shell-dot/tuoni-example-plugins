@@ -126,7 +126,7 @@ The plugin JAR and supported Windows/Linux execution artifacts are written to
 focused build targets.
 
 `make install` builds the plugin, copies its JAR into `PLUGIN_DIR` (default:
-`/srv/tuoni/plugins/server`), and runs `tuoni restart`. The copied standalone
+`/srv/tuoni/plugins/server`), and runs `tuoni server restart`. The copied standalone
 [installer](scripts/install/install-plugin.sh) resolves Tuoni in the current
 user's PATH and login shell, then root's login shell through sudo. It supports
 root's standard `/srv/tuoni/tuoni` installation and checks for Tuoni before
