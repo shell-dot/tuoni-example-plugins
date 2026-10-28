@@ -26,12 +26,14 @@ Each example and template includes a Makefile that builds its execunits and Java
 Run the Makefiles from a Linux shell with GNU Make, Docker configured for Linux
 containers, and standard Unix file utilities (`mkdir`, `rm`, and `cp`). The example
 help targets also require GNU `sed` and `column`.
-Docker Buildx must be installed on the host as well. A complete Docker installation
-through `https://tuoni.sh` installs `docker-buildx-plugin`; its existing-Docker check
-can accept Docker and Compose without Buildx. If `docker buildx version` is unknown,
-install `docker-buildx-plugin` for Docker CE, or `docker-buildx` for Debian/Kali's
-`docker.io` packages. The build checks Docker access and Buildx before pulling the
-Java dependency image.
+Docker Buildx must be installed on the host as well. The build checks Docker
+access and Buildx before pulling the Java dependency image. If Buildx is missing
+on Debian, Kali, Ubuntu or a derivative, it detects the Docker CLI's package source
+and offers to install the matching Buildx package, then continues the build.
+The prompt defaults to no; noninteractive builds print the install commands and
+stop. Use `make build BUILDX_INSTALL=1` to allow installation without a prompt,
+or `BUILDX_INSTALL=0` to disable the offer. See [Buildx setup](docs/java-builder.md)
+for package selection and unsupported environments.
 On Windows, use a Linux shell in WSL with Docker accessible from that environment;
 these Makefile recipes cannot run directly in PowerShell or CMD.
 

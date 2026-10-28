@@ -8,15 +8,7 @@ DOCKER_BUILD_FLAGS = --platform linux/amd64 \
 
 .PHONY: check-docker-buildx check-java-builder
 check-docker-buildx:
-	@$(DOCKER) info >/dev/null
-	@$(DOCKER) buildx version >/dev/null || { \
-		printf '%s\n' \
-			'Docker Buildx is required to build these plugins.' \
-			'For Docker installed by tuoni.sh, install: sudo apt-get install docker-buildx-plugin' \
-			'For Debian/Kali docker.io packages, install: sudo apt-get install docker-buildx' \
-			'Buildx must also be available through sudo when Docker socket access requires it.' >&2; \
-		exit 1; \
-	}
+	@sh scripts/docker/check-buildx.sh $(DOCKER)
 
 check-java-builder: check-docker-buildx
 	@$(DOCKER) image inspect "$(BUILDER_IMAGE)" >/dev/null 2>&1 || { \

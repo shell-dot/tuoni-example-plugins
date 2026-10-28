@@ -17,10 +17,19 @@ can discard added dependencies. Missing dependencies download during the build.
 Docker builds target `linux/amd64`; ARM hosts require Docker's amd64 emulation.
 
 The host also needs Docker Buildx. `make build` checks Docker access and Buildx
-before pulling the Java image. If Buildx is missing, install `docker-buildx-plugin`
-for Docker CE (the installation used by `tuoni.sh`), or `docker-buildx` for
-Debian/Kali's `docker.io` packages. Check `sudo docker buildx version` when Docker
-needs sudo; changing Java or native sources cannot fix a missing host plugin.
+before pulling the Java image. If Buildx is missing on Debian/Kali/Ubuntu or a
+derivative, `scripts/docker/check-buildx.sh` detects the OS and the package owning
+the Docker CLI. It offers `docker-buildx-plugin` for Docker CE (as installed by
+`tuoni.sh`) or `docker-buildx` for distro `docker.io`, showing the exact commands.
+The prompt defaults to no. Approval runs apt update and installation through sudo
+when needed, rechecks Buildx with the build's Docker command, then continues.
+Existing apt repositories are used and package removals are refused.
+
+Noninteractive builds stop with instructions. Use `make build BUILDX_INSTALL=1`
+to allow installation without a prompt, or `BUILDX_INSTALL=0` to disable the offer.
+Unknown OS/package sources receive manual guidance; apt/sudo failures stop the
+build. Check `sudo docker buildx version` when Docker needs sudo; changing Java
+or native sources cannot fix a missing host plugin.
 
 ## Required build checkpoints
 

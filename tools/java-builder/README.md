@@ -23,12 +23,15 @@ command publishes anything. The Docker launcher automatically uses sudo when the
 local Docker socket denies access. An explicit `DOCKER=...` overrides that launcher.
 Use `BUILDER_IMAGE=...` to choose another tag. ARM hosts require amd64 emulation.
 
-`make build` checks Docker access and Buildx before building. Docker installed by
-`https://tuoni.sh` includes the `docker-buildx-plugin` package on its installation
-path, but an existing Docker installation may have passed its version checks
-without Buildx. Install `docker-buildx-plugin` for Docker CE or `docker-buildx` for
-Debian/Kali's `docker.io` packages. When sudo is needed, check
-`sudo docker buildx version` as well.
+`make build` checks Docker access and Buildx before building. If Buildx is missing
+on Debian/Kali/Ubuntu or a derivative, it detects the Docker CLI package and offers
+to install `docker-buildx-plugin` for Docker CE or `docker-buildx` for distro
+`docker.io`. Approval installs through apt (with sudo when needed), rechecks
+Buildx through the build launcher, then continues. The default answer is no.
+Noninteractive builds stop with instructions; `make build BUILDX_INSTALL=1`
+explicitly allows installation without a prompt and `BUILDX_INSTALL=0` disables
+it. Unknown setups receive manual guidance. See [Buildx setup](../../docs/java-builder.md)
+for details, including the existing-Docker gap in `tuoni.sh`.
 
 The empty Gradle project in `build.gradle.kts` is the dependency source. Add or
 update baseline libraries there, then rebuild and check the image. The wrapper
