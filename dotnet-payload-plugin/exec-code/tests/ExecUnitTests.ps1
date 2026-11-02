@@ -68,11 +68,14 @@ if ($null -eq $capabilitiesTlv) {
     throw 'Agent metadata is missing capabilities child 0x44'
 }
 [byte[]]$capabilities = $tlvType.GetProperty('Data').GetValue($capabilitiesTlv, $null)
-if ($capabilities.Length -ne 9 -or $capabilities[8] -ne 0x01) {
-    throw 'Agent must advertise only native shellcode execution in its own process'
+[byte[]]$expectedCapabilities = @(0x01, 0xF2, 0xC0, 0, 0, 0, 0, 0, 0x01, 0, 0, 0)
+if ($capabilities.Length -ne $expectedCapabilities.Length) {
+    throw "Expected $($expectedCapabilities.Length) capability bytes; got $($capabilities.Length)"
 }
-for ($i = 0; $i -lt 8; $i++) {
-    if ($capabilities[$i] -ne 0) { throw "Unexpected capability bit at byte $i" }
+for ($i = 0; $i -lt $expectedCapabilities.Length; $i++) {
+    if ($capabilities[$i] -ne $expectedCapabilities[$i]) {
+        throw "Unexpected capability byte at offset ${i}: expected $($expectedCapabilities[$i]), got $($capabilities[$i])"
+    }
 }
 
-Write-Host 'Shellcode listener TLV and metadata capability tests passed.'
+Write-Host 'Shellcode listener TLV and native command capability tests passed.'

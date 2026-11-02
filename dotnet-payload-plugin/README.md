@@ -193,7 +193,7 @@ those behaviors.
 
 When Tuoni creates a payload, the Java plugin writes the SDK `payloadId` to the optional agent configuration (listener child `0x02`) as an eight-byte, little-endian signed integer. The .NET agent reports the same eight bytes as metadata child `0x43`; this payload-specific field remains separate from the global public-key configuration appended by the listener serializer. Older payloads without the optional configuration remain supported and omit `payloadId`, while a present value must be exactly eight bytes or listener configuration loading fails.
 
-The agent reports metadata capabilities in child `0x44`: the self-process exec-unit bitmap contains only `SHELLCODE_NATIVE`. This lets the server select the Windows shellcode supplied by the example echo commands. The agent does not advertise execution in other processes.
+The agent reports a 12-byte capabilities bitmap in metadata child `0x44`. It advertises the self execution context, native commands `cd`, connection configuration, `die`, `jobs`, `ls`, `ps`, and `run`, and `SHELLCODE_NATIVE` execution in its own process. It does not advertise execution in other processes or native commands without handlers in `exec-code/NativeCommand.cs`.
 
 To check listener TLV parsing and command capabilities after building the agent, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File exec-code/tests/ExecUnitTests.ps1` from this directory.
 
